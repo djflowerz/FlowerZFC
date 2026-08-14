@@ -131,7 +131,7 @@ export async function signOut() {
 
 export async function sendPasswordReset(email: string) {
   return supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/#/reset-password`,
+    redirectTo: `${window.location.origin}/reset-password`,
   })
 }
 
@@ -139,7 +139,7 @@ export async function signInWithGoogle() {
   return supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/#/`,
+      redirectTo: `${window.location.origin}/`,
     },
   })
 }
