@@ -1,0 +1,16 @@
+name = "flowerzfc-platform"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-01-01"
+
+[vars]
+VITE_SUPABASE_URL = "https://ogdxnqzhqvvhrrvrqoup.supabase.co"
+VITE_PAYMENT_CALLBACK_URL = "https://www.djflowerz.co.ke/success"
+
+# Dedicated Cloudflare Worker for background sync & API gateway
+[[workers]]
+name = "flowerzfc-sync-worker"
+main = "workers/sync-engine.ts"
+compatibility_date = "2026-01-01"
+
+[triggers]
+crons = ["* * * * *", "0 */6 * * *"]
