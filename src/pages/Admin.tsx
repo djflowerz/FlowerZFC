@@ -698,11 +698,10 @@ export default function Admin() {
   const [loginEmail, setLoginEmail] = useState(SUPER_ADMIN_EMAIL)
   const [loginPass, setLoginPass]   = useState('')
   const [loginErr, setLoginErr]     = useState('')
-  const [authProfile, setAuthProfile] = useState<AuthProfile | null>(getAuthUser)
-
-  const userRole: UserRole = authProfile?.role || 'user'
-  const isSuperAdmin = !!authProfile && authProfile.role === 'super_admin' && authProfile.email.toLowerCase() === SUPER_ADMIN_EMAIL
-  const isAuthed = isSuperAdmin
+  const userEmail = (user?.email || '').trim().toLowerCase()
+  const isSuperAdminEmail = userEmail === SUPER_ADMIN_EMAIL.toLowerCase()
+  const isSuperAdminRole = user?.role === 'super_admin'
+  const isAuthed = Boolean(user && isSuperAdminEmail && isSuperAdminRole)
 
   // Data
   const [orders,    setOrders]    = useState(INIT_ORDERS)
@@ -1167,68 +1166,21 @@ export default function Admin() {
   // ── Login Gate ──────────────────────────────────────────────────────────────
   if (!isAuthed) return (
     <div style={{ background: '#0a0a14', minHeight: '100vh' }} className="flex items-center justify-center px-4">
-      <div className="w-full max-w-md text-center">
-        <div className="w-20 h-20 mx-auto mb-5 rounded-2xl flex items-center justify-center text-5xl shadow-2xl" style={{ background: 'rgba(0,179,65,.08)', border: '1px solid rgba(0,179,65,.3)' }}>🔒</div>
-        <span className="text-[10px] font-black uppercase tracking-widest text-[#00b341] block mb-1">Single Super-Admin Locked</span>
-        <h1 className="text-4xl font-black text-white mb-2" style={{ fontFamily: 'Big Shoulders Display' }}>Super-Admin Sign In</h1>
-        <p className="text-xs text-gray-400 mb-6">Full admin access is strictly locked to ianmuriithiflowerz@gmail.com.</p>
-
-        <form onSubmit={handleLogin} className="space-y-4 p-6 rounded-2xl border border-[#1e1e32] text-left" style={{ background: '#131320' }}>
-          {loginErr && (
-            <div className="p-3 rounded-xl border border-red-500/40 bg-red-500/10 text-xs text-red-300 font-medium">
-              ⚠️ {loginErr}
-            </div>
-          )}
-
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1">Super Admin Email</label>
-            <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder={SUPER_ADMIN_EMAIL} autoFocus
-              className={INPUT} style={INPUT_STYLE} required />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black uppercase tracking-wider text-gray-400 mb-1">Password</label>
-            <input type="password" value={loginPass} onChange={e => setLoginPass(e.target.value)} placeholder="••••••••"
-              className={INPUT} style={INPUT_STYLE} />
-          </div>
-
-          <div className="pt-2">
-            <button type="submit" className="w-full py-3.5 text-base font-black text-white rounded-xl shadow-xl transition-all hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg,#00b341,#00d94f)', fontFamily: 'Big Shoulders Display' }}>
-              Sign In as Super-Admin →
-            </button>
-          </div>
-
-          {/* Quick Role Selector for testing */}
-          <div className="border-t border-[#1e1e32] pt-4 mt-4 text-center space-y-2">
-            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Role Accounts</span>
-            <div className="flex justify-center gap-2 flex-wrap">
-              {[
-                { label: 'Super Admin', email: SUPER_ADMIN_EMAIL },
-                { label: 'Editor Desk', email: 'editor@flowerz.fc' },
-                { label: 'Support Desk', email: 'support@flowerz.fc' },
-              ].map(demo => (
-                <button
-                  key={demo.email}
-                  type="button"
-                  onClick={() => {
-                    setLoginEmail(demo.email)
-                    loginWithEmail(demo.email, '').then(res => {
-                      if (res.success && res.profile) {
-                        setAuthProfile(res.profile)
-                        if (res.profile.role === 'editor') navigate('/editor-dashboard')
-                        else if (res.profile.role === 'support') navigate('/support-dashboard')
-                      }
-                    })
-                  }}
-                  className="px-2.5 py-1 text-[10px] font-bold rounded-lg border border-[#1e1e32] text-gray-400 hover:text-white hover:border-[#00b341]"
-                >
-                  {demo.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </form>
+      <div className="w-full max-w-md text-center p-8 rounded-2xl border border-red-500/30" style={{ background: '#131320' }}>
+        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center text-4xl bg-red-500/10 text-red-400 border border-red-500/30">🔒</div>
+        <span className="text-[10px] font-black uppercase tracking-widest text-red-400 block mb-1">403 Access Denied</span>
+        <h1 className="text-3xl font-black text-white mb-2" style={{ fontFamily: 'Big Shoulders Display' }}>Admin Dashboard Locked</h1>
+        <p className="text-xs text-gray-400 mb-6">
+          Full admin control is strictly restricted to <strong className="text-white">{SUPER_ADMIN_EMAIL}</strong>. Sign in on the main site using the authorized Super Admin account to access this area.
+        </p>
+        <div className="flex gap-3">
+          <Link to="/" className="flex-1 py-3 text-xs font-bold text-gray-300 rounded-xl border border-[#1e1e32] hover:border-white transition-colors">
+            ← Return Home
+          </Link>
+          <Link to="/login" className="flex-1 py-3 text-xs font-black text-black rounded-xl hover:opacity-90 transition-colors" style={{ background: '#00b341' }}>
+            Sign In on Main Site →
+          </Link>
+        </div>
       </div>
     </div>
   )

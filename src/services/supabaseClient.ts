@@ -94,6 +94,15 @@ export async function sendPasswordReset(email: string) {
   })
 }
 
+export async function signInWithGoogle() {
+  return supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/#/`,
+    },
+  })
+}
+
 export async function getSession() {
   const { data } = await supabase.auth.getSession()
   return data.session
