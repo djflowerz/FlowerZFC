@@ -1,6 +1,6 @@
 [build]
-  command = "npm run build"
   publish = "dist"
+  command = "npm run build"
 
 [[redirects]]
   from = "/api/livescore/*"
@@ -30,11 +30,3 @@
   from = "/*"
   to = "/index.html"
   status = 200
-
-[build.environment]
-  NODE_VERSION = "22"
-  NPM_FLAGS = "--legacy-peer-deps"
-  VITE_SUPABASE_URL = "https://ogdxnqzhqvvhrrvrqoup.supabase.co"
-  VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9nZHhucXpocXZ2aHJydnJxb3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMzM0MjEsImV4cCI6MjA4NTkwOTQyMX0.pFxUc7Dv5o63_5dFQpakGZFeaBVDqywsJ7RNXDMAl6c"
-  VITE_PAYMENT_PUBLIC_KEY = "pk_live_2ed6a5c46ebab203998efd1f5d9c22d2dcc05f71"
-  VITE_PAYMENT_CALLBACK_URL = "https://www.djflowerz.co.ke/success"
