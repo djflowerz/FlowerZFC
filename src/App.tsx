@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import { ToastContainer } from 'react-toastify'
 import { AppProvider } from './context/AppContext'
 import Header from './components/Header'
@@ -80,7 +80,7 @@ function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <AppProvider>
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           <Route path="/" element={<Layout><Home /></Layout>} />
           <Route path="/scores" element={<Layout><Scores /></Layout>} />
@@ -120,7 +120,7 @@ export default function App() {
           <Route path="/tip" element={<Layout><Tip /></Layout>} />
           <Route path="*" element={<Layout><NotFound /></Layout>} />
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
       <ToastContainer
         position="bottom-right"
         autoClose={4000}
