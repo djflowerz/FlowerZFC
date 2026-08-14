@@ -19,50 +19,7 @@ interface MatchTip {
   analyst: string
 }
 
-const TIPS_LIST: MatchTip[] = [
-  {
-    id: 't1',
-    match: 'Arsenal vs Chelsea',
-    league: 'Premier League',
-    date: 'Today · 15:00 EAT',
-    homeForm: ['W','W','W','D','W'],
-    awayForm: ['L','D','L','W','L'],
-    probHome: 68,
-    probDraw: 20,
-    probAway: 12,
-    keyInsight: 'Arsenal have kept 4 consecutive clean sheets at home, while Chelsea have struggled away against top 4 opposition.',
-    editorPick: 'Home Victory & Over 2.5 Total Goals',
-    analyst: 'James Mwangi',
-  },
-  {
-    id: 't2',
-    match: 'Man City vs Liverpool',
-    league: 'Premier League',
-    date: 'Today · 17:30 EAT',
-    homeForm: ['W','W','D','W','W'],
-    awayForm: ['W','D','W','W','L'],
-    probHome: 45,
-    probDraw: 30,
-    probAway: 25,
-    keyInsight: 'The last 5 meetings at the Etihad have produced 18 goals combined. Both sides boast highest xG averages in the league.',
-    editorPick: 'Both Teams to Score (BTTS)',
-    analyst: 'Sarah Okonkwo',
-  },
-  {
-    id: 't3',
-    match: 'Real Madrid vs Barcelona',
-    league: 'La Liga',
-    date: 'Tomorrow · 21:00 EAT',
-    homeForm: ['W','W','W','W','D'],
-    awayForm: ['W','W','D','W','W'],
-    probHome: 52,
-    probDraw: 26,
-    probAway: 22,
-    keyInsight: 'El Clásico form favours Real Madrid at home, though Lewandowski has scored in 3 consecutive matches at the Bernabéu.',
-    editorPick: 'Real Madrid Win or Draw (Double Chance)',
-    analyst: 'David Kamau',
-  },
-]
+const TIPS_LIST: MatchTip[] = []
 
 type PayMethod = 'mpesa' | 'card' | 'paypal'
 

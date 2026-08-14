@@ -29,115 +29,8 @@ interface EventItem {
   vipPrice: number
 }
 
-const MIXES: MixItem[] = [
-  {
-    id: 'mix1',
-    title: 'DJ Flowerz — Summer Vibes 2026',
-    genre: 'Afrobeats × Genge',
-    plays: 4280,
-    duration: '72 min',
-    cover: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&h=400&fit=crop&auto=format',
-    hearthisId: '10852924',
-    streamUrl: 'https://hearthis.at/djflowerz/summer-vibes-2026/listen/',
-    downloadUrl: 'https://hearthis.at/djflowerz/summer-vibes-2026/download/',
-    description: 'The ultimate summer high-energy mix featuring the hottest Afrobeats, Amapiano, and Genge hits.',
-    tracklist: [
-      '1. Burna Boy — City Boys',
-      '2. Wakadinali — Subtleties',
-      '3. Rema — Calm Down (Remix)',
-      '4. Bien — Bald Men Love Better',
-      '5. Asake — Lonely At The Top',
-      '6. Khaligraph Jones — Yego',
-    ],
-  },
-  {
-    id: 'mix2',
-    title: 'Bigstone Night Mix Vol. 3',
-    genre: 'House × Afropop',
-    plays: 3150,
-    duration: '65 min',
-    cover: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=400&fit=crop&auto=format',
-    hearthisId: '10852925',
-    streamUrl: 'https://hearthis.at/djflowerz/bigstone-night-mix-vol3/listen/',
-    downloadUrl: 'https://hearthis.at/djflowerz/bigstone-night-mix-vol3/download/',
-    description: 'Recorded live at Westlands Night Out. Deep house grooves blended with Afro-futurism.',
-    tracklist: [
-      '1. Black Coffee — Drive',
-      '2. Uncle Waffles — Tanzania',
-      '3. Master KG — Jerusalem',
-      '4. Major League DJz — Piano City',
-    ],
-  },
-  {
-    id: 'mix3',
-    title: 'East Africa Fusion Mixtape 2026',
-    genre: 'Bongo × Gengetone',
-    plays: 5890,
-    duration: '80 min',
-    cover: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=400&fit=crop&auto=format',
-    hearthisId: '10852926',
-    streamUrl: 'https://hearthis.at/djflowerz/east-africa-fusion-2026/listen/',
-    downloadUrl: 'https://hearthis.at/djflowerz/east-africa-fusion-2026/download/',
-    description: 'A musical celebration across Nairobi, Dar es Salaam, and Kampala top dancefloor bangers.',
-    tracklist: [
-      '1. Diamond Platnumz — Kanyaga',
-      '2. Sauti Sol — Suzanna',
-      '3. Mbosso — Hodari',
-      '4. Rayvanny — Tetema',
-    ],
-  },
-  {
-    id: 'mix4',
-    title: 'Football Anthems: The Ultimate Matchday Playlist',
-    genre: 'Stadium Anthems',
-    plays: 2940,
-    duration: '55 min',
-    cover: 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=400&h=400&fit=crop&auto=format',
-    hearthisId: '10852927',
-    streamUrl: 'https://hearthis.at/djflowerz/football-anthems-2026/listen/',
-    downloadUrl: 'https://hearthis.at/djflowerz/football-anthems-2026/download/',
-    description: 'High-octane stadium entrance tracks, crowd chants, and motivational warm-up beats.',
-    tracklist: [
-      '1. White Stripes — Seven Nation Army',
-      '2. Kasabian — Club Foot',
-      '3. Fatboy Slim — Right Here Right Now',
-      '4. Blur — Song 2',
-    ],
-  },
-]
-
-const EVENTS: EventItem[] = [
-  {
-    id: 'ev1',
-    date: 'AUG 30, 2026',
-    name: 'Bigstone Night Out',
-    venue: 'Club Grill, Westlands',
-    city: 'Nairobi, Kenya',
-    poster: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=600&h=400&fit=crop&auto=format',
-    regularPrice: 20,
-    vipPrice: 50,
-  },
-  {
-    id: 'ev2',
-    date: 'SEP 14, 2026',
-    name: 'Afrobeats Friday Live',
-    venue: 'The Alchemist',
-    city: 'Nairobi, Kenya',
-    poster: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600&h=600&fit=crop&auto=format',
-    regularPrice: 25,
-    vipPrice: 60,
-  },
-  {
-    id: 'ev3',
-    date: 'OCT 05, 2026',
-    name: 'Bigstone Dar es Salaam Showcase',
-    venue: 'Slipway Hotel',
-    city: 'Dar es Salaam, Tanzania',
-    poster: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&h=400&fit=crop&auto=format',
-    regularPrice: 30,
-    vipPrice: 75,
-  },
-]
+const MIXES: MixItem[] = []
+const EVENTS: EventItem[] = []
 
 
 
@@ -296,65 +189,73 @@ export default function Mixes() {
             <span className="text-xs text-gray-500">{mixList.length} exclusive sets</span>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {mixList.map(mix => {
-              const currentPlays = mix.plays + (playCounts[mix.id] || 0)
+          {mixList.length === 0 ? (
+            <div className="text-center py-16 rounded-2xl border border-[#1e1e32]" style={{ background: '#131320' }}>
+              <p className="text-4xl mb-2">🎧</p>
+              <h3 className="text-xl font-black text-white mb-1" style={{ fontFamily: 'Big Shoulders Display' }}>No Mixtapes Available</h3>
+              <p className="text-xs text-gray-400">Official DJ Flowerz mixtapes and playlists will be listed here.</p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {mixList.map(mix => {
+                const currentPlays = mix.plays + (playCounts[mix.id] || 0)
 
-              return (
-                <div
-                  key={mix.id}
-                  className="rounded-xl overflow-hidden border border-[#1e1e32] transition-all duration-300 hover:border-[#00b341] cursor-pointer group"
-                  style={{ background: '#131320' }}
-                  onClick={() => handlePlayMix(mix)}
-                >
-                  <div className="relative overflow-hidden" style={{ height: '200px' }}>
-                    <img src={mix.cover} alt={mix.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                      <div
-                        className="w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-transform group-hover:scale-110"
-                        style={{ background: '#00b341' }}
-                      >
-                        <svg width="20" height="20" fill="white" viewBox="0 0 24 24">
-                          <path d="M8 5v14l11-7z"/>
-                        </svg>
+                return (
+                  <div
+                    key={mix.id}
+                    className="rounded-xl overflow-hidden border border-[#1e1e32] transition-all duration-300 hover:border-[#00b341] cursor-pointer group"
+                    style={{ background: '#131320' }}
+                    onClick={() => handlePlayMix(mix)}
+                  >
+                    <div className="relative overflow-hidden" style={{ height: '200px' }}>
+                      <img src={mix.cover} alt={mix.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <div
+                          className="w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-transform group-hover:scale-110"
+                          style={{ background: '#00b341' }}
+                        >
+                          <svg width="20" height="20" fill="white" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"/>
+                          </svg>
+                        </div>
                       </div>
+
+                      <span className="absolute top-2 right-2 text-[10px] font-black px-2 py-0.5 rounded bg-black/80 text-white">
+                        ⏱ {mix.duration}
+                      </span>
                     </div>
 
-                    <span className="absolute top-2 right-2 text-[10px] font-black px-2 py-0.5 rounded bg-black/80 text-white">
-                      ⏱ {mix.duration}
-                    </span>
-                  </div>
+                    <div className="p-4">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#1e1e32] text-[#00b341] inline-block mb-2">
+                        {mix.genre}
+                      </span>
+                      <h3 className="text-sm font-bold text-white group-hover:text-[#00b341] transition-colors line-clamp-1 mb-1">{mix.title}</h3>
+                      <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed mb-3">{mix.description}</p>
 
-                  <div className="p-4">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#1e1e32] text-[#00b341] inline-block mb-2">
-                      {mix.genre}
-                    </span>
-                    <h3 className="text-sm font-bold text-white group-hover:text-[#00b341] transition-colors line-clamp-1 mb-1">{mix.title}</h3>
-                    <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed mb-3">{mix.description}</p>
-
-                    <div className="flex items-center justify-between text-xs text-gray-500 border-t border-[#1e1e32] pt-3">
-                      <span>▶ {(currentPlays / 1000).toFixed(1)}K plays</span>
-                      <div className="flex items-center gap-2">
-                        {mix.downloadUrl && (
-                          <a
-                            href={mix.downloadUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={e => e.stopPropagation()}
-                            className="px-2 py-1 rounded text-[10px] font-bold text-white bg-[#00b341] hover:opacity-90 transition-opacity flex items-center gap-1"
-                            title="Download MP3"
-                          >
-                            ⬇ MP3
-                          </a>
-                        )}
-                        <span className="text-xs font-bold text-[#00b341]">Stream →</span>
+                      <div className="flex items-center justify-between text-xs text-gray-500 border-t border-[#1e1e32] pt-3">
+                        <span>▶ {(currentPlays / 1000).toFixed(1)}K plays</span>
+                        <div className="flex items-center gap-2">
+                          {mix.downloadUrl && (
+                            <a
+                              href={mix.downloadUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="px-2 py-1 rounded text-[10px] font-bold text-white bg-[#00b341] hover:opacity-90 transition-opacity flex items-center gap-1"
+                              title="Download MP3"
+                            >
+                              ⬇ MP3
+                            </a>
+                          )}
+                          <span className="text-xs font-bold text-[#00b341]">Stream →</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
         </section>
 
         {/* Upcoming Live Events */}
@@ -364,6 +265,14 @@ export default function Mixes() {
               🗓 Upcoming Bigstone Events & Shows
             </h2>
           </div>
+
+          {eventsList.length === 0 ? (
+            <div className="text-center py-12 rounded-2xl border border-[#1e1e32]" style={{ background: '#131320' }}>
+              <p className="text-4xl mb-2">🗓</p>
+              <h3 className="text-lg font-black text-white mb-1" style={{ fontFamily: 'Big Shoulders Display' }}>No Upcoming Events Scheduled</h3>
+              <p className="text-xs text-gray-400">Check back soon for new tour dates and venue listings.</p>
+            </div>
+          ) : (
 
           <div className="grid sm:grid-cols-3 gap-6">
             {eventsList.map(ev => (
@@ -401,6 +310,7 @@ export default function Mixes() {
               </div>
             ))}
           </div>
+          )}
         </section>
 
         {/* Booking Inquiry Section */}

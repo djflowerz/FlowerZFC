@@ -14,16 +14,8 @@ interface LocalMatch {
   live: boolean
 }
 
-const LOCAL_MATCHES: LocalMatch[] = [
-  { id: 'ea1', home: 'Gor Mahia', away: 'Bandari FC', homeScore: 1, awayScore: 0, league: 'FKF Premier League (Kenya)', time: '15\' LIVE', live: true },
-  { id: 'ea2', home: 'Simba SC', away: 'Young Africans (Yanga)', homeScore: 2, awayScore: 2, league: 'Tanzania Ligi Kuu', time: '88\' LIVE', live: true },
-  { id: 'ea3', home: 'Vipers SC', away: 'KCCA FC', league: 'Uganda Premier League', time: 'Tomorrow 16:00', live: false },
-]
-
-const LOCAL_NEWS = [
-  { id: 'a4', tag: 'AFCON', title: 'Harambee Stars Name Strong 26-Man Squad for AFCON Group Stage Battles', date: '8h ago', author: 'Peter Otieno', image: 'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=500&h=300&fit=crop&auto=format' },
-  { id: 'a8', tag: 'EAST AFRICA', title: 'Tanzania Champions Sign Star Egyptian Playmaker in Record Deal', date: '1d ago', author: 'Moses Achieng', image: 'https://images.unsplash.com/photo-1624880357913-a8539238245b?w=500&h=300&fit=crop&auto=format' },
-]
+const LOCAL_MATCHES: LocalMatch[] = []
+const LOCAL_NEWS: { id: string; tag: string; title: string; date: string; author: string; image: string }[] = []
 
 export default function EastAfrica() {
   const { t } = useApp()

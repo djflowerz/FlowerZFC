@@ -18,121 +18,7 @@ interface VideoItem {
   featured?: boolean
 }
 
-const VIDEOS: VideoItem[] = [
-  {
-    id: 'v1',
-    type: 'long',
-    category: 'Match Highlights',
-    title: 'Arsenal 4-0 Man City | Full Match Highlights & Key Moments',
-    duration: '12:45',
-    views: '5.4M',
-    date: '3 days ago',
-    likes: '142K',
-    thumb: 'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=800&h=450&fit=crop&auto=format',
-    ytId: 'dQw4w9WgXcQ',
-    channel: 'FlowerZFC TV',
-    description: 'Watch all four goals as Arsenal delivered an unforgettable performance against Manchester City at the Emirates Stadium.',
-    featured: true,
-  },
-  {
-    id: 'v2',
-    type: 'short',
-    category: 'Skills & Goals',
-    title: 'Bukayo Saka Unstoppable Dribbling Skill Compilation 🔥',
-    duration: '0:58',
-    views: '2.1M',
-    date: '2 days ago',
-    likes: '98K',
-    thumb: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=400&h=600&fit=crop&auto=format',
-    ytId: 'dQw4w9WgXcQ',
-    channel: 'FlowerZFC Shorts',
-    description: 'Saka tearing up defenses in slow motion!',
-  },
-  {
-    id: 'v3',
-    type: 'short',
-    category: 'Skills & Goals',
-    title: 'Erling Haaland Hat-Trick in 8 Minutes 😱',
-    duration: '0:45',
-    views: '3.8M',
-    date: '4 days ago',
-    likes: '165K',
-    thumb: 'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=400&h=600&fit=crop&auto=format',
-    ytId: 'dQw4w9WgXcQ',
-    channel: 'FlowerZFC Shorts',
-    description: 'Relive the fastest hat-trick of the season.',
-  },
-  {
-    id: 'v4',
-    type: 'long',
-    category: 'Match Highlights',
-    title: 'Top 10 Goals of the Month | Premier League 2026',
-    duration: '15:20',
-    views: '8.2M',
-    date: '5 days ago',
-    likes: '310K',
-    thumb: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&h=450&fit=crop&auto=format',
-    ytId: 'dQw4w9WgXcQ',
-    channel: 'FlowerZFC TV',
-    description: 'The definitive countdown of the ten best long-range strikes and team goals.',
-  },
-  {
-    id: 'v5',
-    type: 'short',
-    category: 'Skills & Goals',
-    title: 'Zidane-Level Roulette Skill from Vinicius Jr. 🌟',
-    duration: '0:38',
-    views: '1.5M',
-    date: '6 days ago',
-    likes: '74K',
-    thumb: 'https://images.unsplash.com/photo-1570498839593-e565b39455fc?w=400&h=600&fit=crop&auto=format',
-    ytId: 'dQw4w9WgXcQ',
-    channel: 'FlowerZFC Shorts',
-    description: 'Pure Samba magic on the touchline.',
-  },
-  {
-    id: 'v6',
-    type: 'long',
-    category: 'Interviews',
-    title: 'AFCON Best Goals & Official Tournament Review',
-    duration: '18:10',
-    views: '3.1M',
-    date: '1 week ago',
-    likes: '112K',
-    thumb: 'https://images.unsplash.com/photo-1624880357913-a8539238245b?w=800&h=450&fit=crop&auto=format',
-    ytId: 'dQw4w9WgXcQ',
-    channel: 'FlowerZFC Africa',
-    description: 'Relive the passion, goals, and drama of the tournament.',
-  },
-  {
-    id: 'v7',
-    type: 'long',
-    category: 'Tactical Analysis',
-    title: 'Champions League Quarter-Finals Deep Dive Tactical Breakdown',
-    duration: '22:15',
-    views: '1.8M',
-    date: '1 week ago',
-    likes: '59K',
-    thumb: 'https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?w=800&h=450&fit=crop&auto=format',
-    ytId: 'dQw4w9WgXcQ',
-    channel: 'FlowerZFC Tactics',
-    description: 'Analyzing press resistance, wing rotation, and defensive blocks.',
-  },
-  {
-    id: 'v8',
-    type: 'short',
-    category: 'Skills & Goals',
-    title: 'Goalkeeper Saves Nobody Could Believe 🧤',
-    duration: '0:52',
-    views: '4.2M',
-    date: '1 week ago',
-    likes: '204K',
-    thumb: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400&h=600&fit=crop&auto=format',
-    ytId: 'dQw4w9WgXcQ',
-    channel: 'FlowerZFC Shorts',
-    description: 'Incredible acrobatic saves from Raya, Alisson, and Ederson.',
-  },
-]
+const VIDEOS: VideoItem[] = []
 
 const CATEGORIES = ['All', 'Match Highlights', 'Skills & Goals', 'Tactical Analysis', 'Shorts', 'Interviews']
 
@@ -373,59 +259,67 @@ export default function Videos() {
         </div>
 
         {/* Featured Video Banner (when no active search/category filter) */}
-        {selectedCategory === 'All' && !searchQuery && (
-          <div
-            onClick={() => setActiveVideo(featuredVideo)}
-            className="group relative rounded-2xl overflow-hidden mb-10 border border-[#1e1e32] cursor-pointer shadow-2xl transition-all duration-300 hover:border-[#00b341]"
-            style={{ height: '420px', background: '#131320' }}
-          >
-            <img
-              src={featuredVideo.thumb}
-              alt={featuredVideo.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-            />
-            <div
-              className="absolute inset-0"
-              style={{ background: 'linear-gradient(to top, rgba(10,10,20,0.95) 20%, rgba(10,10,20,0.4) 60%, transparent 100%)' }}
-            />
-
-            {/* Play Badge */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-16 h-16 rounded-full bg-[#00b341] text-white flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
-                <svg width="24" height="24" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-              </div>
-            </div>
-
-            <div className="absolute top-4 left-4 flex gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded bg-[#00b341] text-white">
-                FEATURED HIGHLIGHT
-              </span>
-              <span className="text-[10px] font-bold px-2.5 py-1 rounded bg-black/80 text-white">
-                ⏱ {featuredVideo.duration}
-              </span>
-            </div>
-
-            <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
-              <h2 className="text-2xl sm:text-4xl font-black text-white leading-tight mb-2 group-hover:text-[#00b341] transition-colors" style={{ fontFamily: 'Big Shoulders Display' }}>
-                {featuredVideo.title}
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-300 max-w-2xl line-clamp-2 mb-3">
-                {featuredVideo.description}
-              </p>
-              <div className="flex items-center gap-4 text-xs text-gray-400">
-                <span>👁 {featuredVideo.views} views</span>
-                <span>•</span>
-                <span>{featuredVideo.date}</span>
-                <span>•</span>
-                <span>❤️ {featuredVideo.likes} likes</span>
-              </div>
-            </div>
+        {videoList.length === 0 ? (
+          <div className="text-center py-24 rounded-2xl border border-[#1e1e32]" style={{ background: '#131320' }}>
+            <p className="text-5xl mb-3">🎬</p>
+            <h3 className="text-2xl font-black text-white mb-2" style={{ fontFamily: 'Big Shoulders Display' }}>No Videos Available Yet</h3>
+            <p className="text-xs text-gray-400 max-w-md mx-auto">Football highlights, skills and match videos will appear here once published.</p>
           </div>
-        )}
+        ) : (
+          <>
+            {selectedCategory === 'All' && !searchQuery && featuredVideo && (
+              <div
+                onClick={() => setActiveVideo(featuredVideo)}
+                className="group relative rounded-2xl overflow-hidden mb-10 border border-[#1e1e32] cursor-pointer shadow-2xl transition-all duration-300 hover:border-[#00b341]"
+                style={{ height: '420px', background: '#131320' }}
+              >
+                <img
+                  src={featuredVideo.thumb}
+                  alt={featuredVideo.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                />
+                <div
+                  className="absolute inset-0"
+                  style={{ background: 'linear-gradient(to top, rgba(10,10,20,0.95) 20%, rgba(10,10,20,0.4) 60%, transparent 100%)' }}
+                />
 
-        {/* Video Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {filteredVideos.map(v => (
+                {/* Play Badge */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-16 h-16 rounded-full bg-[#00b341] text-white flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
+                    <svg width="24" height="24" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  </div>
+                </div>
+
+                <div className="absolute top-4 left-4 flex gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded bg-[#00b341] text-white">
+                    FEATURED HIGHLIGHT
+                  </span>
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded bg-black/80 text-white">
+                    ⏱ {featuredVideo.duration}
+                  </span>
+                </div>
+
+                <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
+                  <h2 className="text-2xl sm:text-4xl font-black text-white leading-tight mb-2 group-hover:text-[#00b341] transition-colors" style={{ fontFamily: 'Big Shoulders Display' }}>
+                    {featuredVideo.title}
+                  </h2>
+                  <p className="text-xs sm:text-sm text-gray-300 max-w-2xl line-clamp-2 mb-3">
+                    {featuredVideo.description}
+                  </p>
+                  <div className="flex items-center gap-4 text-xs text-gray-400">
+                    <span>👁 {featuredVideo.views} views</span>
+                    <span>•</span>
+                    <span>{featuredVideo.date}</span>
+                    <span>•</span>
+                    <span>❤️ {featuredVideo.likes} likes</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Video Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {filteredVideos.map(v => (
             <div
               key={v.id}
               onClick={() => setActiveVideo(v)}
@@ -473,8 +367,10 @@ export default function Videos() {
                 <span className="pt-2">{v.date}</span>
               </div>
             </div>
-          ))}
-        </div>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Channel Subscribe Banner Widget */}
         <div className="mt-12 p-8 rounded-2xl border border-[#00b341] text-center flex flex-col sm:flex-row items-center justify-between gap-6" style={{ background: 'linear-gradient(135deg, #131320 0%, #0a1a14 100%)' }}>
@@ -505,7 +401,7 @@ export default function Videos() {
           video={activeVideo}
           onClose={() => setActiveVideo(null)}
           onSelectNext={v => setActiveVideo(v)}
-          playlist={VIDEOS}
+          playlist={videoList}
         />
       )}
     </div>
