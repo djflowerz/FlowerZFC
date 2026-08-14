@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { fetchAllProducts } from '../services/supabaseClient'
-import type { ProductType } from './Shop'
+import { ProductType, DEFAULT_FLOWERZ_PRODUCTS } from './Shop'
 
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
 
@@ -40,8 +40,9 @@ export default function Product() {
   useEffect(() => {
     setLoading(true)
     fetchAllProducts().then(({ products, error }) => {
+      let formatted: ProductType[] = []
       if (!error && products && products.length > 0) {
-        const formatted: ProductType[] = products.map((p: any) => ({
+        formatted = products.map((p: any) => ({
           id: String(p.id),
           name: p.name || 'Unnamed Product',
           price: typeof p.price === 'number' ? p.price : parseFloat(p.price) || 0,
@@ -53,12 +54,12 @@ export default function Product() {
           images: Array.isArray(p.images) ? p.images : (typeof p.images === 'string' && p.images.startsWith('[') ? JSON.parse(p.images) : [p.image || p.images || 'https://images.unsplash.com/photo-1551958219-acbc5dbf7f1e?w=600&h=600&fit=crop']),
           description: p.description || p.name,
         }))
-        setAllProducts(formatted)
-        const found = formatted.find(p => String(p.id) === String(id) || p.id.toLowerCase() === (id || '').toLowerCase() || p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === (id || '').toLowerCase())
-        setProduct(found || null)
       } else {
-        setProduct(null)
+        formatted = DEFAULT_FLOWERZ_PRODUCTS
       }
+      setAllProducts(formatted)
+      const found = formatted.find(p => String(p.id) === String(id) || p.id.toLowerCase() === (id || '').toLowerCase() || p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === (id || '').toLowerCase()) || DEFAULT_FLOWERZ_PRODUCTS.find(p => String(p.id) === String(id))
+      setProduct(found || null)
     }).finally(() => setLoading(false))
   }, [id])
 

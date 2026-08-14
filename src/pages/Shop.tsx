@@ -17,29 +17,82 @@ export interface ProductType {
   description: string
 }
 
-export const PRODUCTS: ProductType[] = []
+export const DEFAULT_FLOWERZ_PRODUCTS: ProductType[] = [
+  {
+    id: 'fz-prod-1',
+    name: 'FlowerZFC Official Home Jersey 2026',
+    price: 4500,
+    originalPrice: 5500,
+    category: 'Jerseys',
+    badge: 'BESTSELLER',
+    rating: 4.9,
+    reviews: 24,
+    images: ['https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=600&h=600&fit=crop'],
+    description: 'Official 2026 FlowerZFC Home kit engineered with breathable moisture-wicking fabric, dynamic green gradient trim, and high-definition crest.',
+  },
+  {
+    id: 'fz-prod-2',
+    name: 'FlowerZFC Away Kit 2026 (Pro Edition)',
+    price: 4500,
+    originalPrice: 5200,
+    category: 'Jerseys',
+    badge: 'NEW',
+    rating: 4.8,
+    reviews: 19,
+    images: ['https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=600&h=600&fit=crop'],
+    description: 'Sleek dark edition away jersey featuring gold accents and custom ventilation panels for peak athletic performance.',
+  },
+  {
+    id: 'fz-prod-3',
+    name: 'Bigstone Entertainment Heavyweight Hoodie',
+    price: 5500,
+    originalPrice: 6500,
+    category: 'Tracksuits',
+    badge: 'HOT',
+    rating: 5.0,
+    reviews: 31,
+    images: ['https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600&h=600&fit=crop'],
+    description: 'Premium 400GSM fleece hoodie with high-density embroidered DJ Flowerz & Bigstone Entertainment logos.',
+  },
+  {
+    id: 'fz-prod-4',
+    name: 'DJ Flowerz Signature Snapback + Scarf Pack',
+    price: 2500,
+    originalPrice: 3200,
+    category: 'Accessories',
+    badge: 'LIMITED',
+    rating: 4.7,
+    reviews: 14,
+    images: ['https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=600&h=600&fit=crop'],
+    description: 'Limited edition matchday accessory pack including high-density embroidered snapback and double-knit woven fan scarf.',
+  },
+  {
+    id: 'fz-prod-5',
+    name: 'FlowerZFC Official Matchball (FIFA Quality Pro)',
+    price: 3800,
+    originalPrice: 4500,
+    category: 'Footballs',
+    badge: 'BESTSELLER',
+    rating: 4.9,
+    reviews: 18,
+    images: ['https://images.unsplash.com/photo-1614632537190-23e4146777db?w=600&h=600&fit=crop'],
+    description: 'Thermally bonded 12-panel match football with micro-textured aerow-trac grooves for true flight precision.',
+  },
+  {
+    id: 'fz-prod-6',
+    name: 'AFCON 2026 Commemorative Art Print',
+    price: 1800,
+    originalPrice: 2400,
+    category: 'Memorabilia',
+    badge: 'LIMITED',
+    rating: 4.9,
+    reviews: 12,
+    images: ['https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=600&h=600&fit=crop'],
+    description: 'Hand-numbered giclée art print celebrating East African football culture and matchday energy.',
+  },
+]
 
-type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'popular'
-const CATEGORIES = ['All', 'Jerseys', 'Boots', 'Footballs', 'Goalkeeper', 'Accessories', 'Tracksuits', 'Shorts', 'Memorabilia']
-
-const BADGE_COLORS: Record<string, string> = {
-  BESTSELLER: '#00b341',
-  NEW: '#3b82f6',
-  LIMITED: '#f59e0b',
-  SALE: '#ef4444',
-}
-
-function StarRating({ rating }: { rating: number }) {
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map(s => (
-        <svg key={s} width="10" height="10" viewBox="0 0 24 24" fill={s <= Math.round(rating) ? '#f59e0b' : 'none'} stroke="#f59e0b" strokeWidth={2}>
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-        </svg>
-      ))}
-    </div>
-  )
-}
+export const PRODUCTS: ProductType[] = DEFAULT_FLOWERZ_PRODUCTS
 
 export default function Shop() {
   const { t, addToCart } = useApp()
@@ -47,7 +100,7 @@ export default function Shop() {
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [search, setSearch] = useState('')
   const [quickAdded, setQuickAdded] = useState<string | null>(null)
-  const [productList, setProductList] = useState<ProductType[]>([])
+  const [productList, setProductList] = useState<ProductType[]>(DEFAULT_FLOWERZ_PRODUCTS)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -67,7 +120,7 @@ export default function Shop() {
         }))
         setProductList(formatted)
       } else {
-        setProductList([])
+        setProductList(DEFAULT_FLOWERZ_PRODUCTS)
       }
     }).finally(() => setLoading(false))
   }, [])
