@@ -6,7 +6,7 @@ import { getPaymentConfig } from '../services/paymentService'
 import { fetchLiveMatches, fetchLiveStandings, fetchLiveFixtures, getUserTimezoneInfo, fetchLiveCatalogStats, type LiveMatch, type LiveStanding, type LiveFixture, type LiveCatalogStats } from '../services/liveScoreApi'
 import { getIngestedPosts, fetchLiveIngestedPosts, transformContentContext, filterPostsByDate, downloadImageAsset, IngestedPost } from '../services/contentIngestion'
 import { getAuthUser, loginWithEmail, hasTabAccess, setAuthSession, SUPER_ADMIN_EMAIL, type UserRole, type AuthProfile } from '../services/authService'
-import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders } from '../services/supabaseClient'
+import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, type ArticleRow, type CommentRow, type TicketRow } from '../services/supabaseClient'
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
 import {
@@ -803,6 +803,52 @@ export default function Admin() {
         setOrders(mappedOrders)
       }
     })
+
+    // 4. Fetch real articles from Supabase articles table
+    fetchAllArticles().then(({ articles: dbArts, error }) => {
+      if (!error && dbArts && dbArts.length > 0) {
+        const mapped: Article[] = dbArts.map((a: ArticleRow) => ({
+          id: a.id, title: a.title, slug: a.slug || '',
+          category: a.category, author: a.author, body: a.body,
+          imageUrl: a.image_url || '', imageAlt: a.title, imageCaption: '',
+          status: a.status === 'published' ? 'Published' : a.status === 'draft' ? 'Draft' : 'Scheduled',
+          date: a.published_at ? new Date(a.published_at).toLocaleDateString() : 'Today',
+          scheduled: '', views: String(a.views || 0), likes: a.likes || 0,
+          tags: a.tags || '', excerpt: a.body ? a.body.slice(0, 140) : '',
+          matchId: '', teamTags: '', playerTags: '', mediaEmbeds: '', isLiveBlog: false,
+          metaTitle: a.title, metaDescription: a.body ? a.body.slice(0, 150) : '', focusKeywords: a.category,
+        }))
+        setArticles(mapped)
+      }
+    })
+
+    // 5. Fetch real comments from Supabase comments table
+    fetchAllComments().then(({ comments: dbComs, error }) => {
+      if (!error && dbComs && dbComs.length > 0) {
+        const mapped: Comment[] = dbComs.map((c: CommentRow) => ({
+          id: c.id, user: c.user_name || 'Anonymous', article: c.article_id || '',
+          body: c.body, status: c.status === 'approved' ? 'Approved' : c.status === 'flagged' ? 'Flagged' : c.status === 'spam' ? 'Spam' : 'Approved',
+          date: c.created_at ? new Date(c.created_at).toLocaleDateString() : 'Today',
+          reported: c.reported || false,
+        }))
+        setComments(mapped)
+      }
+    })
+
+    // 6. Fetch real tickets from Supabase tickets table
+    fetchAllTickets().then(({ tickets: dbTickets, error }) => {
+      if (!error && dbTickets && dbTickets.length > 0) {
+        const mapped: Ticket[] = dbTickets.map((t: TicketRow) => ({
+          id: t.id, event: t.title, venue: t.venue,
+          date: t.event_date ? new Date(t.event_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD',
+          regularSold: t.sold_tickets || 0, vipSold: 0, capacity: t.available_tickets,
+          revenue: (t.sold_tickets || 0) * Number(t.price),
+          status: t.status === 'on_sale' ? 'Selling' : t.status,
+          regularPrice: Number(t.price), vipPrice: Number(t.price) * 2.5,
+        }))
+        setTickets(mapped)
+      }
+    })
   }, [])
   const [showNewBlog,     setShowNewBlog]     = useState(false)
   const [showPostUpdate,  setShowPostUpdate]  = useState(false)
@@ -1085,7 +1131,7 @@ export default function Admin() {
   const navRef = useRef<HTMLDivElement>(null)
   const payConfig = getPaymentConfig()
 
-  // Sync published articles to articleStore
+  // Sync published articles to articleStore AND Supabase
   useEffect(() => {
     articles.forEach(a => {
       if (a.status === 'Published' || a.status === 'Draft' || a.status === 'Scheduled') {
@@ -1096,6 +1142,15 @@ export default function Admin() {
           slug: a.slug, scheduled: a.scheduled, views: a.views, likes: a.likes,
         }
         saveArticle(stored)
+        // Also persist to Supabase (fire-and-forget)
+        saveArticleToDb({
+          id: a.id, title: a.title, slug: a.slug || a.id,
+          category: a.category, author: a.author || 'FlowerZFC Editorial',
+          body: a.body, image_url: a.imageUrl || '',
+          status: a.status.toLowerCase(), tags: a.tags || '',
+          views: Number(a.views) || 0, likes: a.likes || 0,
+          published_at: a.status === 'Published' ? new Date().toISOString() : undefined,
+        })
       }
     })
   }, [articles])
@@ -2008,7 +2063,7 @@ export default function Admin() {
                         <button onClick={() => setArticles(prev => [{ ...a, id: `A${Date.now()}`, title: `Copy of ${a.title}`, status: 'Draft', date: new Date().toISOString().split('T')[0], views: '0', likes: 0 }, ...prev])}
                           className="px-2 py-1.5 text-[10px] font-bold rounded-lg border border-[#1e1e32] text-gray-400 hover:border-blue-400 hover:text-blue-400 transition-all" title="Duplicate article">⧉</button>
                         <Link to={`/news/${(a as any).slug || a.id}`} className="px-3 py-1.5 text-[10px] font-bold text-[#00b341] rounded-lg border border-[#00b341]/40 hover:border-[#00b341] transition-all">Preview →</Link>
-                        <button onClick={() => { if (confirm(`Delete "${a.title}"?`)) { storeDeleteArticle(a.id); setArticles(prev => prev.filter(x => x.id !== a.id)) } }}
+                        <button onClick={() => { if (confirm(`Delete "${a.title}"?`)) { storeDeleteArticle(a.id); deleteArticleFromDb(a.id); setArticles(prev => prev.filter(x => x.id !== a.id)) } }}
                           className="text-[10px] font-bold px-2 py-1.5 rounded-lg border border-[#1e1e32] text-gray-500 hover:text-red-400 hover:border-red-400 transition-all">🗑</button>
                       </div>
                     </div>
@@ -2114,7 +2169,7 @@ export default function Admin() {
                         title={tck.status === 'On Sale' ? 'Postpone event' : 'Put back on sale'}>
                         {tck.status === 'On Sale' ? '⏸' : '▶'}
                       </button>
-                      <button onClick={() => { if (confirm(`Delete "${tck.event}"?`)) setTickets(prev => prev.filter(x => x.id !== tck.id)) }}
+                      <button onClick={() => { if (confirm(`Delete "${tck.event}"?`)) { deleteTicketFromDb(tck.id); setTickets(prev => prev.filter(x => x.id !== tck.id)) } }}
                         className="py-2 px-2 text-[10px] font-bold text-red-400 rounded-lg border border-red-400/30 hover:border-red-400 transition-all">🗑</button>
                     </div>
                   </Card>
@@ -2643,7 +2698,7 @@ export default function Admin() {
                             setComments(prev => prev.filter(x => x.user !== c.user))
                           }
                         }} className="px-2 py-1.5 text-[10px] font-bold text-purple-400 rounded-lg border border-purple-400/30 hover:border-purple-400 transition-all" title="Ban user & remove comments">🔨 Ban</button>
-                        <button onClick={() => setComments(prev => prev.filter(x => x.id !== c.id))}
+                        <button onClick={() => { deleteCommentFromDb(c.id); setComments(prev => prev.filter(x => x.id !== c.id)) }}
                           className="px-3 py-1.5 text-[10px] font-bold text-gray-500 rounded-lg border border-[#1e1e32] hover:border-red-400 hover:text-red-400 transition-all">🗑</button>
                       </div>
                     </div>

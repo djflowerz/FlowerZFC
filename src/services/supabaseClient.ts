@@ -50,6 +50,47 @@ export interface OrderRow {
   shippingTier?: string
 }
 
+export interface ArticleRow {
+  id: string
+  title: string
+  slug: string
+  category: string
+  author: string
+  body: string
+  image_url: string
+  status: string
+  published_at: string
+  tags?: string
+  views?: number
+  likes?: number
+  created_at?: string
+}
+
+export interface CommentRow {
+  id: string
+  article_id?: string
+  match_id?: string
+  user_name: string
+  user_email?: string
+  user_avatar?: string
+  body: string
+  status: string
+  reported?: boolean
+  created_at?: string
+}
+
+export interface TicketRow {
+  id: string
+  title: string
+  event_date: string
+  venue: string
+  price: number
+  available_tickets: number
+  sold_tickets: number
+  status: string
+  created_at?: string
+}
+
 export interface AdminActionRow {
   id: string
   admin_email: string
@@ -184,5 +225,122 @@ export async function fetchAllOrders(): Promise<{ orders: OrderRow[]; error: any
     return { orders: (data as OrderRow[]) || [], error }
   } catch (err) {
     return { orders: [], error: err }
+  }
+}
+
+export async function createOrder(order: Partial<OrderRow>): Promise<{ order: OrderRow | null; error: any }> {
+  try {
+    const { data, error } = await (supabase.from('orders') as any)
+      .insert(order)
+      .select()
+      .single()
+    return { order: data as OrderRow | null, error }
+  } catch (err) {
+    return { order: null, error: err }
+  }
+}
+
+// ─── Article helpers ──────────────────────────────────────────────────────────
+
+export async function fetchAllArticles(): Promise<{ articles: ArticleRow[]; error: any }> {
+  try {
+    const { data, error } = await supabase
+      .from('articles')
+      .select('*')
+      .order('published_at', { ascending: false })
+    return { articles: (data as ArticleRow[]) || [], error }
+  } catch (err) {
+    return { articles: [], error: err }
+  }
+}
+
+export async function saveArticleToDb(article: Partial<ArticleRow>): Promise<{ article: ArticleRow | null; error: any }> {
+  try {
+    const { data, error } = await (supabase.from('articles') as any)
+      .upsert(article, { onConflict: 'id' })
+      .select()
+      .single()
+    return { article: data as ArticleRow | null, error }
+  } catch (err) {
+    return { article: null, error: err }
+  }
+}
+
+export async function deleteArticleFromDb(id: string): Promise<{ error: any }> {
+  try {
+    const { error } = await supabase.from('articles').delete().eq('id', id)
+    return { error }
+  } catch (err) {
+    return { error: err }
+  }
+}
+
+// ─── Comment helpers ──────────────────────────────────────────────────────────
+
+export async function fetchAllComments(): Promise<{ comments: CommentRow[]; error: any }> {
+  try {
+    const { data, error } = await supabase
+      .from('comments')
+      .select('*')
+      .order('created_at', { ascending: false })
+    return { comments: (data as CommentRow[]) || [], error }
+  } catch (err) {
+    return { comments: [], error: err }
+  }
+}
+
+export async function saveCommentToDb(comment: Partial<CommentRow>): Promise<{ comment: CommentRow | null; error: any }> {
+  try {
+    const { data, error } = await (supabase.from('comments') as any)
+      .upsert(comment, { onConflict: 'id' })
+      .select()
+      .single()
+    return { comment: data as CommentRow | null, error }
+  } catch (err) {
+    return { comment: null, error: err }
+  }
+}
+
+export async function deleteCommentFromDb(id: string): Promise<{ error: any }> {
+  try {
+    const { error } = await supabase.from('comments').delete().eq('id', id)
+    return { error }
+  } catch (err) {
+    return { error: err }
+  }
+}
+
+// ─── Ticket helpers ───────────────────────────────────────────────────────────
+
+export async function fetchAllTickets(): Promise<{ tickets: TicketRow[]; error: any }> {
+  try {
+    const { data, error } = await supabase
+      .from('tickets')
+      .select('*')
+      .order('created_at', { ascending: false })
+    return { tickets: (data as TicketRow[]) || [], error }
+  } catch (err) {
+    return { tickets: [], error: err }
+  }
+}
+
+export async function saveTicketToDb(ticket: Partial<TicketRow>): Promise<{ ticket: TicketRow | null; error: any }> {
+  try {
+    const { data, error } = await (supabase.from('tickets') as any)
+      .upsert(ticket, { onConflict: 'id' })
+      .select()
+      .single()
+    return { ticket: data as TicketRow | null, error }
+  } catch (err) {
+    return { ticket: null, error: err }
+  }
+}
+
+export async function deleteTicketFromDb(id: string): Promise<{ error: any }> {
+  try {
+    const { error } = await supabase.from('tickets').delete().eq('id', id)
+    return { error }
+  } catch (err) {
+    return { error: err }
   }
 }

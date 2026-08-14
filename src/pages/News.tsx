@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
 import { getAllArticles, getDeletedArticleIds, StoredArticle } from '../services/articleStore'
 import { getIngestedPosts } from '../services/contentIngestion'
+import { fetchAllArticles } from '../services/supabaseClient'
 
 interface ArticleItem {
   id: string
@@ -194,45 +195,78 @@ export default function News() {
   }, [selectedCategory])
 
   useEffect(() => {
-    // 1. Fetch articles from articleStore
-    const stored = getAllArticles().map(a => ({
-      id: a.id,
-      tag: (a.category || 'NEWS').toUpperCase(),
-      title: a.title,
-      summary: a.metaDescription || a.excerpt || a.body.slice(0, 140) + '...',
-      image: a.imageUrl || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&h=500&fit=crop',
-      likes: a.likes || 120,
-      comments: 18,
-      date: a.date || 'Today',
-      readTime: '4 min read',
-      author: a.author || 'FlowerZFC Editorial',
-      authorAvatar: a.author ? a.author.charAt(0) : 'F',
-      featured: true,
-    }))
-
-    // 2. Fetch approved ingested posts
-    const ingested = getIngestedPosts()
-      .filter(p => p.status === 'Approved')
-      .map(p => ({
-        id: p.id,
-        tag: p.category.toUpperCase(),
-        title: p.transformedTitle,
-        summary: p.transformedBody.slice(0, 140) + '...',
-        image: p.sourceImage,
-        likes: 184,
-        comments: 29,
-        date: p.detectedAt,
-        readTime: '3 min read',
-        author: p.author,
-        authorAvatar: p.author.charAt(0),
-        featured: false,
+    const buildFromLocalStorage = () => {
+      const stored = getAllArticles().map(a => ({
+        id: a.id,
+        tag: (a.category || 'NEWS').toUpperCase(),
+        title: a.title,
+        summary: a.metaDescription || a.excerpt || a.body.slice(0, 140) + '...',
+        image: a.imageUrl || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&h=500&fit=crop',
+        likes: a.likes || 120,
+        comments: 18,
+        date: a.date || 'Today',
+        readTime: '4 min read',
+        author: a.author || 'FlowerZFC Editorial',
+        authorAvatar: a.author ? a.author.charAt(0) : 'F',
+        featured: true,
       }))
+      const ingested = getIngestedPosts()
+        .filter(p => p.status === 'Approved')
+        .map(p => ({
+          id: p.id,
+          tag: p.category.toUpperCase(),
+          title: p.transformedTitle,
+          summary: p.transformedBody.slice(0, 140) + '...',
+          image: p.sourceImage,
+          likes: 184,
+          comments: 29,
+          date: p.detectedAt,
+          readTime: '3 min read',
+          author: p.author,
+          authorAvatar: p.author.charAt(0),
+          featured: false,
+        }))
+      const deletedIds = getDeletedArticleIds()
+      const merged = [...stored, ...ingested, ...ARTICLES].filter(a => !deletedIds.includes(a.id))
+      const unique = merged.filter((item, index, self) => index === self.findIndex(t => t.id === item.id))
+      setDynamicArticles(unique)
+    }
 
-    const deletedIds = getDeletedArticleIds()
-    const merged = [...stored, ...ingested, ...ARTICLES].filter(a => !deletedIds.includes(a.id))
-    // Unique by ID
-    const unique = merged.filter((item, index, self) => index === self.findIndex(t => t.id === item.id))
-    setDynamicArticles(unique)
+    // 1. Try Supabase first (primary source)
+    fetchAllArticles().then(({ articles: dbArts, error }) => {
+      if (!error && dbArts && dbArts.length > 0) {
+        const deletedIds = getDeletedArticleIds()
+        const dbMapped = dbArts.map(a => ({
+          id: a.id,
+          tag: (a.category || 'NEWS').toUpperCase(),
+          title: a.title,
+          summary: a.body ? a.body.slice(0, 140) + '...' : '',
+          image: a.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&h=500&fit=crop',
+          likes: a.likes || 120,
+          comments: 18,
+          date: a.published_at ? new Date(a.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Today',
+          readTime: `${Math.max(1, Math.round((a.body || '').split(/\s+/).length / 200))} min read`,
+          author: a.author || 'FlowerZFC Editorial',
+          authorAvatar: (a.author || 'F').charAt(0),
+          featured: true,
+        })).filter(a => !deletedIds.includes(a.id))
+        // Also include approved ingested posts alongside Supabase articles
+        const ingested = getIngestedPosts()
+          .filter(p => p.status === 'Approved')
+          .map(p => ({
+            id: p.id, tag: p.category.toUpperCase(), title: p.transformedTitle,
+            summary: p.transformedBody.slice(0, 140) + '...', image: p.sourceImage,
+            likes: 184, comments: 29, date: p.detectedAt, readTime: '3 min read',
+            author: p.author, authorAvatar: p.author.charAt(0), featured: false,
+          }))
+        const merged = [...dbMapped, ...ingested]
+        const unique = merged.filter((item, idx, self) => idx === self.findIndex(t => t.id === item.id))
+        setDynamicArticles(unique)
+      } else {
+        // 2. Fallback: localStorage articleStore + ARTICLES const
+        buildFromLocalStorage()
+      }
+    }).catch(() => buildFromLocalStorage())
   }, [])
 
   // Filtered list

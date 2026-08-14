@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { initiatePayment } from '../services/paymentService'
 import { calculateShippingQuotes, getShippingConfig, type ShippingQuoteOption } from '../services/shippingService'
+import { createOrder } from '../services/supabaseClient'
 
 type Step = 'shipping' | 'payment' | 'verifying' | 'confirmation' | 'failed'
 type PayMethod = 'card' | 'mpesa' | 'paypal'
@@ -107,12 +108,35 @@ export default function Checkout() {
     }
   }
 
+  const saveOrderToSupabase = async () => {
+    try {
+      await createOrder({
+        id: orderNum,
+        customer_name: shipping.name || 'Customer',
+        email: shipping.email || 'customer@flowerz.fc',
+        phone: shipping.phone || '',
+        shipping_address: `${shipping.address1 || ''}, ${shipping.city || ''}, ${shipping.country || ''}`,
+        items: JSON.stringify(cart.map(c => ({ name: c.name, price: c.price, qty: c.quantity, size: c.size }))),
+        total: grandTotal,
+        method: payMethod,
+        status: 'paid',
+        tracking: `TRK-${Math.floor(100000 + Math.random() * 900000)}`,
+        shippingCourier: selectedQuote?.courierName || 'Standard Ground',
+        shippingCostKes: shippingCost,
+        shippingTier: selectedQuote?.tier || 'standard',
+      } as any)
+    } catch (e) {
+      console.error('Failed to write order to Supabase:', e)
+    }
+  }
+
   const handleSimulateFailure = () => {
     setErrorMessage('M-Pesa transaction failed: Insufficient funds or incorrect PIN entered.')
     setStep('failed')
   }
 
-  const handleConfirmImmediately = () => {
+  const handleConfirmImmediately = async () => {
+    await saveOrderToSupabase()
     clearCart()
     setStep('confirmation')
   }
@@ -122,8 +146,10 @@ export default function Checkout() {
     if (step !== 'verifying') return
 
     if (countdown <= 0) {
-      clearCart()
-      setStep('confirmation')
+      saveOrderToSupabase().then(() => {
+        clearCart()
+        setStep('confirmation')
+      })
       return
     }
 

@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
 import { getArticle } from '../services/articleStore'
+import { saveCommentToDb, fetchAllComments } from '../services/supabaseClient'
 
 interface CommentItem {
   id: string
@@ -336,10 +337,26 @@ export default function Article() {
     setLiked(false)
     setLikeCount(article.likes)
     setSaved(false)
-    setCommentList(INITIAL_COMMENTS)
     setHasLoadedMore(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [article])
+    // Load real comments from Supabase, fallback to INITIAL_COMMENTS
+    fetchAllComments().then(({ comments: dbComments }) => {
+      const forArticle = dbComments.filter(c => c.article_id === id)
+      if (forArticle.length > 0) {
+        setCommentList(forArticle.map(c => ({
+          id: c.id,
+          author: c.user_name,
+          avatar: '⚽',
+          text: c.body,
+          likes: 0,
+          time: c.created_at ? new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent',
+          replies: [],
+        })))
+      } else {
+        setCommentList(INITIAL_COMMENTS)
+      }
+    }).catch(() => setCommentList(INITIAL_COMMENTS))
+  }, [article, id])
 
   const toggleLike = () => {
     if (liked) {
@@ -373,11 +390,12 @@ export default function Article() {
     }
   }
 
-  const postComment = () => {
+  const postComment = async () => {
     if (!commentInput.trim()) return
+    const commentId = `c_${Date.now()}`
     const newComment: CommentItem = {
-      id: `c_${Date.now()}`,
-      author: user?.name || 'You',
+      id: commentId,
+      author: user?.name || 'Anonymous',
       avatar: '⚽',
       text: commentInput.trim(),
       likes: 0,
@@ -386,6 +404,15 @@ export default function Article() {
     }
     setCommentList(prev => [newComment, ...prev])
     setCommentInput('')
+    // Persist to Supabase (fire-and-forget — UI already updated optimistically)
+    await saveCommentToDb({
+      id: commentId,
+      article_id: id,
+      user_name: user?.name || 'Anonymous',
+      user_email: (user as any)?.email || undefined,
+      body: commentInput.trim(),
+      status: 'approved',
+    })
   }
 
   const handleLoadMoreComments = () => {
