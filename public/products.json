@@ -1,0 +1,87 @@
+[
+  {
+    "id": "jersey-home",
+    "name": "FlowerZFC Home Jersey 2026",
+    "price": 49.99,
+    "originalPrice": 64.99,
+    "category": "Apparel",
+    "badge": "BESTSELLER",
+    "rating": 4.8,
+    "reviews": 214,
+    "images": [
+      "https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=600&h=700&fit=crop&auto=format",
+      "https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=600&h=700&fit=crop&auto=format"
+    ],
+    "description": "Official FlowerZFC Home Jersey 2026 season. Premium breathable performance fabric with moisture-wicking technology. Ideal for match days and training sessions."
+  },
+  {
+    "id": "jersey-away",
+    "name": "FlowerZFC Away Jersey 2026",
+    "price": 49.99,
+    "originalPrice": null,
+    "category": "Apparel",
+    "badge": null,
+    "rating": 4.6,
+    "reviews": 87,
+    "images": [
+      "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=600&h=700&fit=crop&auto=format"
+    ],
+    "description": "Official FlowerZFC Away Jersey 2026 season. Lightweight performance fabric with heat-transfer badge."
+  },
+  {
+    "id": "hoodie-bigstone",
+    "name": "Bigstone Entertainment Hoodie",
+    "price": 65.00,
+    "originalPrice": null,
+    "category": "Apparel",
+    "badge": "NEW",
+    "rating": 4.9,
+    "reviews": 42,
+    "images": [
+      "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=600&h=700&fit=crop&auto=format"
+    ],
+    "description": "Bigstone Entertainment branded hoodie. Premium 320gsm cotton-polyester blend. Double-lined hood."
+  },
+  {
+    "id": "cap-flowerz",
+    "name": "DJ Flowerz Snapback Cap",
+    "price": 28.00,
+    "originalPrice": null,
+    "category": "Accessories",
+    "badge": null,
+    "rating": 4.7,
+    "reviews": 138,
+    "images": [
+      "https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=600&h=700&fit=crop&auto=format"
+    ],
+    "description": "Official DJ Flowerz signature snapback cap. 100% cotton twill with high-density embroidered logo."
+  },
+  {
+    "id": "ball-match",
+    "name": "FlowerZFC Pro Match Ball",
+    "price": 89.99,
+    "originalPrice": 109.99,
+    "category": "Equipment",
+    "badge": "PRO",
+    "rating": 4.9,
+    "reviews": 56,
+    "images": [
+      "https://images.unsplash.com/photo-1614632537197-38a17061c2bd?w=600&h=700&fit=crop&auto=format"
+    ],
+    "description": "FIFA Quality Pro certified match ball. Thermally bonded seamless surface for more predictable trajectory."
+  },
+  {
+    "id": "scarf-classic",
+    "name": "FlowerZFC Ultra Fans Scarf",
+    "price": 19.99,
+    "originalPrice": null,
+    "category": "Accessories",
+    "badge": null,
+    "rating": 4.5,
+    "reviews": 92,
+    "images": [
+      "https://images.unsplash.com/photo-1520903920243-00d872a2d1c9?w=600&h=700&fit=crop&auto=format"
+    ],
+    "description": "Jacquard knit fan scarf featuring team motto 'Pride & Passion'. Double-sided design with fringe finish."
+  }
+]
