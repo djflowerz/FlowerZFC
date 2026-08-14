@@ -62,23 +62,11 @@ export default function News() {
             source: 'BBC Sport',
           })))
         } else {
-          // Fallback hardcoded
-          setTransferNews([
-            { id: 'ft1', title: 'Vinicius Jr: Man City prepare €200m bid for Real Madrid winger', link: '#', date: 'Today', img: '', source: 'Marca' },
-            { id: 'ft2', title: 'Bukayo Saka: Barcelona make contact but Arsenal insist forward not for sale', link: '#', date: 'Yesterday', img: '', source: 'Sky Sports' },
-            { id: 'ft3', title: 'Erling Haaland signs new Man City deal until 2030 amid PSG links', link: '#', date: '2 days ago', img: '', source: 'The Athletic' },
-            { id: 'ft4', title: 'Kylian Mbappé ruled out for 3 weeks with hamstring strain at Real Madrid', link: '#', date: '2 days ago', img: '', source: 'L\'Equipe' },
-            { id: 'ft5', title: 'Chelsea to make €70m move for RB Leipzig midfielder this window', link: '#', date: '3 days ago', img: '', source: 'Fabrizio Romano' },
-            { id: 'ft6', title: 'Jude Bellingham: Real Madrid reject £300m Saudi Pro League approach', link: '#', date: '3 days ago', img: '', source: 'Guardian' },
-          ])
+          setTransferNews([])
         }
       })
       .catch(() => {
-        setTransferNews([
-          { id: 'ft1', title: 'Vinicius Jr: Man City prepare €200m bid for Real Madrid winger', link: '#', date: 'Today', img: '', source: 'Marca' },
-          { id: 'ft2', title: 'Bukayo Saka: Barcelona make contact but Arsenal insist forward not for sale', link: '#', date: 'Yesterday', img: '', source: 'Sky Sports' },
-          { id: 'ft3', title: 'Erling Haaland signs new Man City deal until 2030 amid PSG links', link: '#', date: '2 days ago', img: '', source: 'The Athletic' },
-        ])
+        setTransferNews([])
       })
       .finally(() => setTransfersLoading(false))
   }, [selectedCategory])

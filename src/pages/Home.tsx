@@ -8,19 +8,9 @@ import { fetchLiveIngestedPosts, IngestedPost } from '../services/contentIngesti
 import { fetchAllArticles } from '../services/supabaseClient'
 import { saveArticle } from '../services/articleStore'
 
-const TRANSFER_NEWS = [
-  { id: 't1', player: 'Vinicius Jr.', from: 'Real Madrid', to: 'Man City', status: 'rumour', fee: '€200m', image: 'https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?w=300&h=300&fit=crop&auto=format' },
-  { id: 't2', player: 'Saka', from: 'Arsenal', to: 'Barcelona', status: 'rumour', fee: '€150m', image: 'https://images.unsplash.com/photo-1608245449230-4ac19066d2d0?w=300&h=300&fit=crop&auto=format' },
-  { id: 't3', player: 'Haaland', from: 'Man City', to: 'Real Madrid', status: 'confirmed', fee: '€180m', image: 'https://images.unsplash.com/photo-1570498839593-e565b39455fc?w=300&h=300&fit=crop&auto=format' },
-]
+const TRANSFER_NEWS: { id: string; player: string; from: string; to: string; status: string; fee: string; image: string }[] = []
 
-const STANDINGS_MINI = [
-  { pos: 1, team: 'Arsenal', played: 32, pts: 78, form: ['W','W','D','W','W'] },
-  { pos: 2, team: 'Liverpool', played: 32, pts: 75, form: ['W','W','W','D','L'] },
-  { pos: 3, team: 'Man City', played: 32, pts: 71, form: ['W','D','W','W','W'] },
-  { pos: 4, team: 'Chelsea', played: 32, pts: 62, form: ['L','W','W','D','W'] },
-  { pos: 5, team: 'Tottenham', played: 32, pts: 58, form: ['D','W','L','W','D'] },
-]
+const STANDINGS_MINI: { pos: number; team: string; played: number; pts: number; form: string[] }[] = []
 
 function LiveTicker() {
   const { t } = useApp()
@@ -257,73 +247,20 @@ export default function Home() {
         <section className="mb-10">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>
-              🎧 Dj Flowerz Mixes
+              🎧 Dj Flowerz Mixes & Events
             </h2>
             <Link to="/mixes" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">{t('viewAll')} →</Link>
           </div>
-          <div className="rounded-lg overflow-hidden grid md:grid-cols-2 gap-4">
-            {/* Mixcloud embed */}
-            <div className="rounded-lg overflow-hidden" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-              <div className="relative" style={{ paddingTop: '56.25%' }}>
-                <iframe
-                  title="DJ Flowerz Mix"
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
-                  src="https://www.mixcloud.com/widget/iframe/?hide_cover=1&mini=1&feed=%2FMixcloud%2F"
-                  allow="autoplay"
-                />
-              </div>
-              <div className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs px-2 py-0.5 rounded-full font-semibold text-black" style={{ background: '#10b981' }}>FEATURED MIX</span>
-                  <span className="text-xs text-gray-500">Afrobeats × Genge</span>
-                </div>
-                <h3 className="text-lg font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>DJ Flowerz — Summer Vibes 2026</h3>
-                <p className="text-sm text-gray-500 mt-1 mb-3">Bigstone Entertainment • 72 min • 4.2K plays</p>
-                <div className="flex gap-2">
-                  <a href="https://mixcloud.com" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-black rounded transition-colors hover:bg-emerald-400" style={{ background: '#10b981' }}>
-                    🎵 {t('listenNow')}
-                  </a>
-                  <a href="https://wa.me/254700000000" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded border transition-colors hover:bg-white/10" style={{ borderColor: '#10b981', color: '#10b981' }}>
-                    💬 {t('bookNow')}
-                  </a>
-                </div>
-              </div>
+          <div className="rounded-lg p-6 flex flex-col sm:flex-row items-center justify-between gap-6" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#00b341]">OFFICIAL MEDIA & MIXES</span>
+              <h3 className="text-2xl font-black text-white mt-1" style={{ fontFamily: 'Big Shoulders Display' }}>Listen to DJ Flowerz Mixtapes</h3>
+              <p className="text-xs text-gray-400 mt-1 max-w-lg">Explore exclusive Afrobeats, Amapiano, and Genge mixes or book DJ Flowerz for your next live event.</p>
             </div>
-            {/* Event poster + info */}
-            <div className="grid grid-rows-2 gap-4">
-              <div className="rounded-lg overflow-hidden relative" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-                <img
-                  src="https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=600&h=250&fit=crop&auto=format"
-                  alt="Event poster"
-                  className="w-full h-full object-cover opacity-60"
-                  style={{ height: '140px' }}
-                />
-                <div className="absolute inset-0 flex flex-col justify-end p-3">
-                  <span className="text-xs font-bold tracking-wider text-emerald-400">NEXT EVENT</span>
-                  <h3 className="text-base font-black text-white mt-1" style={{ fontFamily: 'Big Shoulders Display' }}>Bigstone Night Out — Nairobi</h3>
-                  <p className="text-xs text-gray-400">Aug 30, 2026 • Club Grill, Westlands</p>
-                </div>
-              </div>
-              <div className="rounded-lg p-4 flex flex-col justify-between" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black text-black" style={{ background: '#10b981' }}>DJ</div>
-                    <div>
-                      <p className="text-sm font-bold text-white">DJ Flowerz</p>
-                      <p className="text-xs text-gray-500">Bigstone Entertainment</p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 leading-relaxed">Available for private events, clubs, and corporate bookings across East Africa.</p>
-                </div>
-                <div className="flex gap-2 mt-3">
-                  <Link to="/mixes" className="flex-1 text-center py-1.5 text-xs font-bold text-black rounded transition-colors hover:bg-emerald-400" style={{ background: '#10b981' }}>
-                    {t('viewAll')} Mixes
-                  </Link>
-                  <a href="https://wa.me/254700000000" target="_blank" rel="noreferrer" className="flex-1 text-center py-1.5 text-xs font-semibold rounded border transition-colors hover:bg-white/10" style={{ borderColor: '#10b981', color: '#10b981' }}>
-                    💬 Book
-                  </a>
-                </div>
-              </div>
+            <div className="flex gap-3 shrink-0">
+              <Link to="/mixes" className="px-5 py-2.5 text-xs font-bold text-black rounded transition-all hover:bg-emerald-400" style={{ background: '#10b981' }}>
+                🎵 Browse All Mixes
+              </Link>
             </div>
           </div>
         </section>
@@ -339,24 +276,30 @@ export default function Home() {
             <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>{t('latestNews')}</h2>
             <Link to="/news" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">{t('viewAll')} →</Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {latestArticles.map(a => (
-              <Link key={a.id} to={`/news/${a.id}`} className="group block rounded-lg overflow-hidden transition-all hover:scale-[1.01]" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-                <div className="relative overflow-hidden" style={{ height: '180px' }}>
-                  <img src={a.image} alt={a.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                  <span className="absolute top-3 left-3 text-[10px] font-black tracking-wider px-2 py-0.5 rounded-sm text-black" style={{ background: '#10b981' }}>{a.tag}</span>
-                </div>
-                <div className="p-4">
-                  <h3 className="text-base font-bold text-white leading-snug group-hover:text-emerald-400 transition-colors line-clamp-2" style={{ fontFamily: 'Big Shoulders Display' }}>{a.title}</h3>
-                  <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
-                    <span>{a.date}</span>
-                    <span>♥ {a.likes}</span>
-                    <span>💬 {a.comments}</span>
+          {latestArticles.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {latestArticles.map(a => (
+                <Link key={a.id} to={`/news/${a.id}`} className="group block rounded-lg overflow-hidden transition-all hover:scale-[1.01]" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
+                  <div className="relative overflow-hidden" style={{ height: '180px' }}>
+                    <img src={a.image} alt={a.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <span className="absolute top-3 left-3 text-[10px] font-black tracking-wider px-2 py-0.5 rounded-sm text-black" style={{ background: '#10b981' }}>{a.tag}</span>
                   </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+                  <div className="p-4">
+                    <h3 className="text-base font-bold text-white leading-snug group-hover:text-emerald-400 transition-colors line-clamp-2" style={{ fontFamily: 'Big Shoulders Display' }}>{a.title}</h3>
+                    <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
+                      <span>{a.date}</span>
+                      <span>♥ {a.likes}</span>
+                      <span>💬 {a.comments}</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center rounded-lg border border-[#1e1e32]" style={{ background: '#131320' }}>
+              <p className="text-xs text-gray-400">No news articles published yet. Check back soon or visit the News page.</p>
+            </div>
+          )}
         </section>
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -367,22 +310,29 @@ export default function Home() {
                 <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>{t('transfers')}</h2>
                 <Link to="/transfers" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">{t('viewAll')} →</Link>
               </div>
-              <div className="space-y-3">
-                {TRANSFER_NEWS.map(tr => (
-                  <Link key={tr.id} to={`/transfers`} className="flex items-center gap-4 p-3 rounded-lg transition-colors hover:bg-white/5" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-                    <img src={tr.image} alt={tr.player} className="w-12 h-12 rounded-full object-cover" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-sm font-bold text-white">{tr.player}</span>
-                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded-sm text-white" style={{ background: statusColor(tr.status) }}>
-                          {tr.status.toUpperCase()}
-                        </span>
+              {TRANSFER_NEWS.length > 0 ? (
+                <div className="space-y-3">
+                  {TRANSFER_NEWS.map(tr => (
+                    <Link key={tr.id} to={`/transfers`} className="flex items-center gap-4 p-3 rounded-lg transition-colors hover:bg-white/5" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
+                      <img src={tr.image} alt={tr.player} className="w-12 h-12 rounded-full object-cover" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-sm font-bold text-white">{tr.player}</span>
+                          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-sm text-white" style={{ background: statusColor(tr.status) }}>
+                            {tr.status.toUpperCase()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500">{tr.from} → {tr.to} • {tr.fee}</p>
                       </div>
-                      <p className="text-xs text-gray-500">{tr.from} → {tr.to} • {tr.fee}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 text-center rounded-lg border border-[#1e1e32]" style={{ background: '#131320' }}>
+                  <p className="text-xs text-gray-400">No transfer news available right now.</p>
+                  <Link to="/transfers" className="text-xs font-bold text-emerald-400 mt-2 inline-block hover:underline">View Live Transfer Tracker →</Link>
+                </div>
+              )}
             </section>
           </div>
 
@@ -393,20 +343,27 @@ export default function Home() {
                 <h2 className="text-lg font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>{t('standings')}</h2>
                 <Link to="/standings" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">{t('viewFull')}</Link>
               </div>
-              <div className="space-y-2 font-mono text-xs">
-                {STANDINGS_MINI.map(st => (
-                  <div key={st.pos} className="flex items-center justify-between py-1 border-b border-white/5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-500 w-4">{st.pos}</span>
-                      <span className="text-white font-bold">{st.team}</span>
+              {STANDINGS_MINI.length > 0 ? (
+                <div className="space-y-2 font-mono text-xs">
+                  {STANDINGS_MINI.map(st => (
+                    <div key={st.pos} className="flex items-center justify-between py-1 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 w-4">{st.pos}</span>
+                        <span className="text-white font-bold">{st.team}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-gray-500">{st.played}p</span>
+                        <span className="text-emerald-400 font-bold w-6 text-right">{st.pts}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-gray-500">{st.played}p</span>
-                      <span className="text-emerald-400 font-bold w-6 text-right">{st.pts}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-4 text-center">
+                  <p className="text-xs text-gray-400">League tables updating...</p>
+                  <Link to="/standings" className="text-xs font-bold text-emerald-400 mt-2 inline-block hover:underline">View All Standings →</Link>
+                </div>
+              )}
             </section>
           </div>
         </div>
