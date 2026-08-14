@@ -253,13 +253,20 @@ export default function Videos() {
   const [videoList, setVideoList] = useState<VideoItem[]>(VIDEOS)
 
   useEffect(() => {
-    // Channel feed for Sky Sports Football / Goal
-    const rssUrl = 'https://www.youtube.com/feeds/videos.xml?channel_id=UCqZQlzSHbVJrwrn5XvzrzcA'
+    // Official Sky Sports Football YouTube RSS feed (channel ID UCNAf1k0yIjyGu3k9BwAg3LG)
+    const rssUrl = 'https://www.youtube.com/feeds/videos.xml?channel_id=UCNAf1k0yIjyGu3k9BwAg3LG'
     fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`)
       .then(r => r.json())
       .then(data => {
         if (data.status === 'ok' && data.items?.length) {
-          const parsed: VideoItem[] = data.items.map((item: any, i: number) => {
+          const footballKeywords = ['football', 'goal', 'match', 'premier', 'soccer', 'highlights', 'league', 'cup', 'united', 'city', 'arsenal', 'chelsea', 'liverpool', 'real madrid', 'barcelona', 'bayern', 'psg', 'derby', 'vs', 'ucl', 'afcon', 'skill']
+          const filtered = data.items.filter((item: any) => {
+            const titleLower = item.title.toLowerCase()
+            return footballKeywords.some(kw => titleLower.includes(kw))
+          })
+
+          const itemsToMap = filtered.length > 0 ? filtered : data.items
+          const parsed: VideoItem[] = itemsToMap.map((item: any, i: number) => {
             const ytMatch = item.link?.match(/v=([^&]+)/)
             const ytId = ytMatch ? ytMatch[1] : 'dQw4w9WgXcQ'
             return {
@@ -278,7 +285,7 @@ export default function Videos() {
               featured: i === 0,
             }
           })
-          setVideoList(prev => [...parsed, ...prev.filter(p => !p.id.startsWith('yt-'))])
+          setVideoList(parsed)
         }
       })
       .catch(() => {})

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
+import { fetchAllTickets } from '../services/supabaseClient'
 
 export interface MixItem {
   id: string
@@ -138,6 +139,8 @@ const EVENTS: EventItem[] = [
   },
 ]
 
+
+
 export default function Mixes() {
   const { t, user } = useApp()
   const [activeEmbedMix, setActiveEmbedMix] = useState<string | null>(null)
@@ -150,27 +153,25 @@ export default function Mixes() {
   const [ticketQty, setTicketQty] = useState(1)
   const [ticketPurchased, setTicketPurchased] = useState(false)
   const [mixList, setMixList] = useState<MixItem[]>(MIXES)
+  const [eventsList, setEventsList] = useState<EventItem[]>(EVENTS)
 
   useEffect(() => {
-    fetch('https://api.mixcloud.com/spinninrecords/cloudcasts/?limit=10')
-      .then(r => r.json())
-      .then(data => {
-        if (data.data?.length) {
-          const parsed: MixItem[] = data.data.map((item: any, i: number) => ({
-            id: `mc-${i}`,
-            title: item.name,
-            genre: item.tags?.[0]?.name ? `${item.tags[0].name} Mix` : 'Dance & House',
-            plays: item.play_count || Math.floor(Math.random() * 3000 + 1000),
-            duration: `${Math.floor((item.audio_length || 3600) / 60)} min`,
-            cover: item.pictures?.large || item.pictures?.medium || 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&h=400&fit=crop',
-            mixcloudId: item.key?.replace(/^\//, '').replace(/\/$/, '') || 'spinninrecords/spinnin-sessions-500',
-            description: item.created_time ? `Released ${new Date(item.created_time).toLocaleDateString('en-GB')}` : 'Official DJ Mix',
-            tracklist: ['1. Intro Track', '2. Main Groove', '3. High Energy Peak', '4. Outro Remix'],
-          }))
-          setMixList(parsed)
-        }
-      })
-      .catch(() => {})
+    // 1. Fetch real events from Supabase tickets table
+    fetchAllTickets().then(({ tickets: dbTickets, error }) => {
+      if (!error && dbTickets && dbTickets.length > 0) {
+        const mapped: EventItem[] = dbTickets.map(t => ({
+          id: t.id,
+          name: t.title,
+          venue: t.venue,
+          city: 'Nairobi, Kenya',
+          date: t.event_date ? new Date(t.event_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase() : 'TBD',
+          poster: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&h=400&fit=crop&auto=format',
+          regularPrice: Number(t.price) || 20,
+          vipPrice: Number(t.price) * 2.5 || 50,
+        }))
+        setEventsList(mapped)
+      }
+    })
   }, [])
 
   const [playCounts, setPlayCounts] = useState<Record<string, number>>({})
@@ -365,7 +366,7 @@ export default function Mixes() {
           </div>
 
           <div className="grid sm:grid-cols-3 gap-6">
-            {EVENTS.map(ev => (
+            {eventsList.map(ev => (
               <div
                 key={ev.id}
                 className="rounded-xl overflow-hidden border border-[#1e1e32] transition-all hover:border-[#00b341]"

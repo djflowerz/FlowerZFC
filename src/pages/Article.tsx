@@ -3,7 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
 import { getArticle } from '../services/articleStore'
-import { saveCommentToDb, fetchAllComments } from '../services/supabaseClient'
+import { fetchAllArticles, saveCommentToDb, fetchAllComments } from '../services/supabaseClient'
+import { getIngestedPosts } from '../services/contentIngestion'
 
 interface CommentItem {
   id: string
@@ -31,315 +32,112 @@ interface ArticleData {
   related: { id: string; title: string; tag: string }[]
 }
 
-const ARTICLES_DATABASE: Record<string, ArticleData> = {
-  a1: {
-    id: 'a1',
-    tag: 'MATCH REPORT',
-    title: 'Arsenal Dominate Derby to Go 3 Points Clear at the Top of the Premier League',
-    subtitle: 'A tactical masterclass at the Emirates saw Saka and Ødegaard dismantle Chelsea in a commanding London derby victory.',
-    author: 'James Mwangi',
-    authorAvatar: 'JM',
-    date: 'Aug 10, 2026',
-    readTime: '4 min read',
-    image: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=900&h=500&fit=crop&auto=format',
-    imageCaption: 'Bukayo Saka celebrates scoring the opening goal in front of the home crowd at the Emirates.',
-    likes: 284,
-    paragraphs: [
-      'Arsenal put on a masterclass at the Emirates on Saturday evening, delivering a dominant 2-1 victory over Chelsea that sent them three points clear at the summit of the Premier League table. In what was a pulsating London derby, the Gunners showcased everything that makes them title contenders — pace, creativity, tactical discipline, and moments of individual brilliance.',
-      'Bukayo Saka opened the scoring in the 12th minute with a trademark run into the box, collecting a perfectly weighted through ball from Martin Ødegaard and finishing clinically past a helpless Sánchez. The Emirates erupted, and Arsenal barely looked back.',
-      'Chelsea responded gamely, and Cole Palmer drew them level with a stunning long-range effort in the 38th minute that left David Raya rooted to the spot. It was a reminder that Chelsea, for all their inconsistency this season, have a genuine match-winner in Palmer.',
-      'But Arsenal, urged on by a thunderous home crowd, regained their lead nine minutes after half-time. Kai Havertz, so often the subject of debate after his expensive arrival from Stamford Bridge, delivered the most emphatic of answers — powering home a near-post header from Martinelli’s whipped cross.',
-      'The final 30 minutes saw Arsenal manage the game intelligently, pressing when needed and soaking up Chelsea pressure with an assured defensive performance led by the imperious William Saliba. Manager Mikel Arteta will be delighted, not just with the result, but with the manner of the performance — clinical in attack and resolute in defence.'
-    ],
-    related: [
-      { id: 'a2', title: 'Here We Go: Chelsea Complete £80m Signing from Bundesliga', tag: 'TRANSFERS' },
-      { id: 'a3', title: "Why Pep's High Press Is Struggling Against Low Blocks", tag: 'ANALYSIS' },
-      { id: 'a6', title: 'UCL Quarter-Finals Preview: Tactical Battles & Key Player Head-to-Heads', tag: 'CHAMPIONS LEAGUE' },
-    ]
-  },
-  a2: {
-    id: 'a2',
-    tag: 'TRANSFERS',
-    title: 'Here We Go: Chelsea Complete £80m Signing of Bundesliga Midfield Prodigy',
-    subtitle: 'The Blues have agreed personal terms and passed medicals ahead of the transfer window deadline.',
-    author: 'Sarah Okonkwo',
-    authorAvatar: 'SO',
-    date: 'Aug 10, 2026',
-    readTime: '3 min read',
-    image: 'https://images.unsplash.com/photo-1589487391730-58f20eb2c308?w=900&h=500&fit=crop&auto=format',
-    imageCaption: 'The 21-year-old playmaker completes medical checks ahead of signing a long-term deal.',
-    likes: 192,
-    paragraphs: [
-      'Chelsea have officially completed the £80m transfer of Bundesliga midfield sensation Florian Wirtz, beating competition from Real Madrid and Bayern Munich to secure one of Europe’s most coveted talents.',
-      'The 21-year-old German international completed his medical examination in London earlier today before putting pen to paper on a long-term six-year contract at Stamford Bridge.',
-      'Known for his exquisite vision, dribbling in tight spaces, and goal-scoring threat from deep, Wirtz is expected to immediately step into Chelsea’s starting XI under Mauricio Pochettino.',
-      '“Joining Chelsea is a dream step for my career,” Wirtz said in his first interview. “The vision presented to me by the club and the project here is something I could not turn down. I can’t wait to play at Stamford Bridge.”'
-    ],
-    related: [
-      { id: 'a1', title: 'Arsenal Dominate Derby to Go 3 Points Clear at the Top', tag: 'MATCH REPORT' },
-      { id: 'a7', title: "Exclusive: Thomas Tuchel Outlines England's Tactical Vision", tag: 'INTERVIEW' },
-      { id: 'a3', title: "Why Pep's High Press Is Struggling Against Low Blocks", tag: 'ANALYSIS' },
-    ]
-  },
-  a3: {
-    id: 'a3',
-    tag: 'ANALYSIS',
-    title: "Tactical Breakdown: Why Pep's High Press Is Struggling Against Low Blocks",
-    subtitle: 'An in-depth statistical analysis revealing how deep-defending teams are exploiting space behind Manchester City full-backs.',
-    author: 'David Kamau',
-    authorAvatar: 'DK',
-    date: 'Aug 10, 2026',
-    readTime: '6 min read',
-    image: 'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=900&h=500&fit=crop&auto=format',
-    imageCaption: 'Tactical positioning overlay showing City’s rest defence against counter-attacking opponents.',
-    likes: 156,
-    paragraphs: [
-      'Manchester City’s relentless dominance over the last five seasons was built on positional play and a choking high counter-press. However, recent fixtures have exposed an emerging vulnerability when facing disciplined, low-block defensive setups.',
-      'Opponents have surrendered possession willingly (averaging less than 32% ball possession), prioritizing central compactness and overloading channels to cut off passes into Erling Haaland.',
-      'When City commit full-backs into inverted midfield positions, turnover transitions leave huge expanses of grass on the flanks. Direct long balls aimed at pacey wingers have yielded an unprecedented number of high-xG counter-attack opportunities against Ederson.',
-      'Pep Guardiola will need to refine City’s rest defence structure before the upcoming Champions League knockout stage if they are to retain their European crown.'
-    ],
-    related: [
-      { id: 'a1', title: 'Arsenal Dominate Derby to Go 3 Points Clear at the Top', tag: 'MATCH REPORT' },
-      { id: 'a6', title: 'UCL Quarter-Finals Preview: Tactical Battles & Key Player Head-to-Heads', tag: 'CHAMPIONS LEAGUE' },
-      { id: 'a5', title: 'Rashford Reborn: Why The Winger Looks Like a World-Class Threat', tag: 'OPINION' },
-    ]
-  },
-  a4: {
-    id: 'a4',
-    tag: 'AFCON',
-    title: 'Harambee Stars Name Strong 26-Man Squad for AFCON Group Stage Battles',
-    subtitle: 'Coach Engin Firat names a powerhouse squad featuring European-based stars as Kenya prepares for crucial opening fixtures.',
-    author: 'Peter Otieno',
-    authorAvatar: 'PO',
-    date: 'Aug 10, 2026',
-    readTime: '5 min read',
-    image: 'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=900&h=500&fit=crop&auto=format',
-    imageCaption: 'Harambee Stars players celebrate during intense training sessions in Nairobi.',
-    likes: 311,
-    paragraphs: [
-      'Kenya national team coach Engin Firat has officially announced the final 26-man Harambee Stars squad set to represent the nation at the Africa Cup of Nations.',
-      'The squad features a potent mix of seasoned international veterans and explosive young domestic talent. Leading the line is striker Michael Olunga alongside fast-rising European stars.',
-      'Group stage opponents present a formidable test, but confidence in camp is at an all-time high following an unbeaten six-match warm-up run.',
-      '“We are going into this tournament not just to participate, but to make our nation proud and fight for a place in the knockout stages,” stated captain Michael Olunga.'
-    ],
-    related: [
-      { id: 'a8', title: 'Tanzania Champions Sign Star Egyptian Playmaker in Record Deal', tag: 'EAST AFRICA' },
-      { id: 'a1', title: 'Arsenal Dominate Derby to Go 3 Points Clear at the Top', tag: 'MATCH REPORT' },
-      { id: 'a7', title: "Exclusive: Thomas Tuchel Outlines England's Tactical Vision", tag: 'INTERVIEW' },
-    ]
-  },
-  a5: {
-    id: 'a5',
-    tag: 'OPINION',
-    title: 'Rashford Reborn: Why The Winger Looks Like a World-Class Threat Again',
-    subtitle: 'Restored confidence and tactical freedom under new management have unleashed Marcus Rashford’s best football in years.',
-    author: 'Janet Wanjiku',
-    authorAvatar: 'JW',
-    date: 'Aug 09, 2026',
-    readTime: '4 min read',
-    image: 'https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?w=900&h=500&fit=crop&auto=format',
-    imageCaption: 'Rashford in full stride during Manchester United’s recent league victory.',
-    likes: 98,
-    paragraphs: [
-      'Football is a game of confidence, and few players demonstrate that truth as vividly as Marcus Rashford.',
-      'After a frustrating period plagued by injuries and tactical instability, Rashford has rediscovered the explosive speed, direct dribbling, and deadly finishing that made him one of world football’s premier wide threats.',
-      'Systematic freedom on the left wing has allowed him to isolate defenders one-on-one, generating double-digit goals and assists already this season.',
-      'If Manchester United are to secure top-four football and silverware this term, maintaining Rashford’s peak form will be paramount.'
-    ],
-    related: [
-      { id: 'a2', title: 'Here We Go: Chelsea Complete £80m Signing from Bundesliga', tag: 'TRANSFERS' },
-      { id: 'a3', title: "Why Pep's High Press Is Struggling Against Low Blocks", tag: 'ANALYSIS' },
-      { id: 'a1', title: 'Arsenal Dominate Derby to Go 3 Points Clear at the Top', tag: 'MATCH REPORT' },
-    ]
-  },
-  a6: {
-    id: 'a6',
-    tag: 'CHAMPIONS LEAGUE',
-    title: 'UCL Quarter-Finals Preview: Tactical Battles & Key Player Head-to-Heads',
-    subtitle: 'Everything you need to know ahead of European football’s most anticipated heavyweight clashes this week.',
-    author: 'John Njoroge',
-    authorAvatar: 'JN',
-    date: 'Aug 09, 2026',
-    readTime: '5 min read',
-    image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=900&h=500&fit=crop&auto=format',
-    imageCaption: 'The Champions League trophy under the lights ahead of knockout football.',
-    likes: 204,
-    paragraphs: [
-      'The UEFA Champions League returns this week with four breathtaking quarter-final match-ups that promise high drama and elite tactical duels.',
-      'Real Madrid host Bayern Munich in a classic European classic, while Arsenal welcome Paris Saint-Germain to London in a high-octane battle of pressing intensity.',
-      'Key tactical battles will hinge on midfield control, transitional speed, and how effectively defenders deal with world-class individual forwards.',
-      'Our team of analysts breakdown every fixture, probable lineups, and key head-to-head battles to watch out for.'
-    ],
-    related: [
-      { id: 'a3', title: "Why Pep's High Press Is Struggling Against Low Blocks", tag: 'ANALYSIS' },
-      { id: 'a1', title: 'Arsenal Dominate Derby to Go 3 Points Clear at the Top', tag: 'MATCH REPORT' },
-      { id: 'a4', title: 'Harambee Stars Name Strong 26-Man Squad for AFCON', tag: 'AFCON' },
-    ]
-  },
-  a7: {
-    id: 'a7',
-    tag: 'INTERVIEW',
-    title: "Exclusive: Thomas Tuchel Outlines England's Tactical Vision for World Cup",
-    subtitle: 'The Three Lions manager opens up about squad selection, tactical adaptability, and building a winning culture.',
-    author: 'Emma Kariuki',
-    authorAvatar: 'EK',
-    date: 'Aug 08, 2026',
-    readTime: '7 min read',
-    image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=900&h=500&fit=crop&auto=format',
-    imageCaption: 'Thomas Tuchel addressing media representatives at Wembley Stadium.',
-    likes: 445,
-    paragraphs: [
-      'In an exclusive sit-down interview, England manager Thomas Tuchel laid out his comprehensive strategic vision as tournament preparation intensifies.',
-      'Tuchel emphasized fluid positional rotation, high physical intensity, and fostering an environment where young talents feel empowered to express themselves.',
-      '“England possesses incredible technical depth across every position,” Tuchel said. “Our challenge is creating tactical clarity so the players can execute instinctively on the biggest stage.”',
-      'The manager also addressed squad selection dilemmas, squad discipline, and managing external expectations heading into tournament football.'
-    ],
-    related: [
-      { id: 'a1', title: 'Arsenal Dominate Derby to Go 3 Points Clear at the Top', tag: 'MATCH REPORT' },
-      { id: 'a2', title: 'Here We Go: Chelsea Complete £80m Signing from Bundesliga', tag: 'TRANSFERS' },
-      { id: 'a4', title: 'Harambee Stars Name Strong 26-Man Squad for AFCON', tag: 'AFCON' },
-    ]
-  },
-  a8: {
-    id: 'a8',
-    tag: 'EAST AFRICA',
-    title: 'Tanzania Champions Sign Star Egyptian Playmaker in Record-Breaking Deal',
-    subtitle: 'Simba SC send shockwaves through East African football by securing the signature of Cairo’s top midfielder.',
-    author: 'Moses Achieng',
-    authorAvatar: 'MA',
-    date: 'Aug 08, 2026',
-    readTime: '3 min read',
-    image: 'https://images.unsplash.com/photo-1624880357913-a8539238245b?w=900&h=500&fit=crop&auto=format',
-    imageCaption: 'Fans assemble at Dar es Salaam airport to welcome the record signing.',
-    likes: 287,
-    paragraphs: [
-      'Simba SC have completed a historic transfer, signing Egyptian international playmaker Ahmed Sayed "Zizo" from Zamalek in a landmark regional deal.',
-      'The transfer signals the growing financial muscle and ambition of East African clubs competing in the CAF Champions League.',
-      'Thousands of passionate supporters gathered in Dar es Salaam to welcome the 28-year-old maestro ahead of his official unveiling.',
-      'Zizo is expected to make his debut in the upcoming derby fixture this weekend.'
-    ],
-    related: [
-      { id: 'a4', title: 'Harambee Stars Name Strong 26-Man Squad for AFCON', tag: 'AFCON' },
-      { id: 'a2', title: 'Here We Go: Chelsea Complete £80m Signing from Bundesliga', tag: 'TRANSFERS' },
-      { id: 'a1', title: 'Arsenal Dominate Derby to Go 3 Points Clear at the Top', tag: 'MATCH REPORT' },
-    ]
-  }
-}
-
-const INITIAL_COMMENTS: CommentItem[] = [
-  {
-    id: 'c1',
-    author: 'GunnerFan254',
-    avatar: '⚽',
-    text: 'What a performance! Saka and Ødegaard were absolutely unreal tonight.',
-    likes: 24,
-    time: '1h ago',
-    replies: [
-      { id: 'r1', author: 'ChelseaBlue', avatar: '🔵', text: 'Fair play, Saka is world class.', likes: 5, time: '45min ago' },
-    ]
-  },
-  {
-    id: 'c2',
-    author: 'NairobiGooner',
-    avatar: '🦁',
-    text: 'Havertz has really settled in. What a header for the winning goal!',
-    likes: 18,
-    time: '2h ago',
-    replies: []
-  },
-  {
-    id: 'c3',
-    author: 'EPLWatcher',
-    avatar: '👀',
-    text: 'Chelsea were poor in that second half. Lack of creativity without Palmer pulling strings.',
-    likes: 11,
-    time: '3h ago',
-    replies: []
-  },
-]
-
-const EXTRA_COMMENTS: CommentItem[] = [
-  {
-    id: 'c4',
-    author: 'TacticalMind',
-    avatar: '🧠',
-    text: 'Saliba and Gabriel’s partnership is the best in Europe right now. Barely gave them a sniff in the 2nd half.',
-    likes: 15,
-    time: '4h ago',
-    replies: []
-  },
-  {
-    id: 'c5',
-    author: 'KPL_Supporter',
-    avatar: '🇰🇪',
-    text: 'Great coverage as always! FlowerZFC bringing top quality football news.',
-    likes: 32,
-    time: '5h ago',
-    replies: []
-  },
-  {
-    id: 'c6',
-    author: 'DerbyKing',
-    avatar: '👑',
-    text: 'The title race is going to go down to the wire. What a season we have on our hands.',
-    likes: 9,
-    time: '6h ago',
-    replies: []
-  }
-]
-
 export default function Article() {
-  const { id = 'a1' } = useParams<{ id: string }>()
+  const { id = '' } = useParams<{ id: string }>()
   const { t, user } = useApp()
   const navigate = useNavigate()
 
-  // Get current article — check admin store first, then hardcoded DB
-  const article = useMemo((): ArticleData => {
-    const stored = getArticle(id)
-    if (stored) {
-      // Convert StoredArticle → ArticleData
-      const wordCount = stored.body.split(/\s+/).filter(Boolean).length
-      const readMin = Math.max(1, Math.round(wordCount / 200))
-      return {
-        id:           stored.id,
-        tag:          stored.category.toUpperCase(),
-        title:        stored.title,
-        subtitle:     stored.metaDescription || undefined,
-        author:       stored.author || 'FlowerZFC Staff',
-        authorAvatar: (stored.author || 'F').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
-        date:         stored.date,
-        readTime:     `${readMin} min read`,
-        image:        stored.imageUrl || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=900&h=500&fit=crop&auto=format',
-        imageCaption: stored.tags ? `Tags: ${stored.tags}` : undefined,
-        likes:        stored.likes ?? 0,
-        paragraphs:   stored.body ? stored.body.split('\n\n').filter(Boolean) : ['Content coming soon.'],
-        related:      [],
-      }
-    }
-    return ARTICLES_DATABASE[id] || ARTICLES_DATABASE['a1']
-  }, [id])
+  const [article, setArticle] = useState<ArticleData | null>(null)
+  const [loading, setLoading] = useState(true)
 
   // Interactive states
   const [liked, setLiked] = useState(false)
-  const [likeCount, setLikeCount] = useState(article.likes)
+  const [likeCount, setLikeCount] = useState(0)
   const [saved, setSaved] = useState(false)
   const [commentInput, setCommentInput] = useState('')
-  const [commentList, setCommentList] = useState<CommentItem[]>(INITIAL_COMMENTS)
+  const [commentList, setCommentList] = useState<CommentItem[]>([])
   const [hasLoadedMore, setHasLoadedMore] = useState(false)
   const [replyTo, setReplyTo] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
   const [linkCopied, setLinkCopied] = useState(false)
   const [commentLikes, setCommentLikes] = useState<Record<string, number>>({})
 
-  // Update like count & reset states when article route parameter changes
   useEffect(() => {
+    setLoading(true)
     setLiked(false)
-    setLikeCount(article.likes)
     setSaved(false)
     setHasLoadedMore(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
-    // Load real comments from Supabase, fallback to INITIAL_COMMENTS
+
+    // 1. Try fetching from Supabase first
+    fetchAllArticles().then(({ articles: dbArts, error }) => {
+      let foundData: ArticleData | null = null
+      if (!error && dbArts && dbArts.length > 0) {
+        const matched = dbArts.find(a => a.id === id || a.slug === id || a.id.toLowerCase() === id.toLowerCase())
+        if (matched) {
+          const wordCount = (matched.body || '').split(/\s+/).filter(Boolean).length
+          const readMin = Math.max(1, Math.round(wordCount / 200))
+          foundData = {
+            id: matched.id,
+            tag: (matched.category || 'NEWS').toUpperCase(),
+            title: matched.title,
+            subtitle: matched.body ? matched.body.slice(0, 140) + '...' : undefined,
+            author: matched.author || 'FlowerZFC Staff',
+            authorAvatar: (matched.author || 'F').charAt(0).toUpperCase(),
+            date: matched.published_at ? new Date(matched.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today',
+            readTime: `${readMin} min read`,
+            image: matched.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=900&h=500&fit=crop&auto=format',
+            imageCaption: matched.tags ? `Tags: ${matched.tags}` : undefined,
+            likes: matched.likes || 0,
+            paragraphs: matched.body ? matched.body.split('\n\n').filter(Boolean) : ['Content coming soon.'],
+            related: [],
+          }
+        }
+      }
+
+      // 2. Fallback to ingested posts if not in Supabase articles table
+      if (!foundData) {
+        const ingested = getIngestedPosts().find(p => p.id === id)
+        if (ingested) {
+          const wordCount = (ingested.transformedBody || '').split(/\s+/).filter(Boolean).length
+          const readMin = Math.max(1, Math.round(wordCount / 200))
+          foundData = {
+            id: ingested.id,
+            tag: ingested.category.toUpperCase(),
+            title: ingested.transformedTitle,
+            subtitle: ingested.transformedBody.slice(0, 140) + '...',
+            author: ingested.author || 'FlowerZFC Newsdesk',
+            authorAvatar: (ingested.author || 'F').charAt(0).toUpperCase(),
+            date: ingested.detectedAt,
+            readTime: `${readMin} min read`,
+            image: ingested.sourceImage || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=900&h=500&fit=crop&auto=format',
+            imageCaption: `Source: ${ingested.sourceUrl}`,
+            likes: 145,
+            paragraphs: ingested.transformedBody ? ingested.transformedBody.split('\n\n').filter(Boolean) : ['Content coming soon.'],
+            related: [],
+          }
+        }
+      }
+
+      // 3. Fallback to localStorage articleStore
+      if (!foundData) {
+        const stored = getArticle(id)
+        if (stored) {
+          const wordCount = (stored.body || '').split(/\s+/).filter(Boolean).length
+          const readMin = Math.max(1, Math.round(wordCount / 200))
+          foundData = {
+            id: stored.id,
+            tag: (stored.category || 'NEWS').toUpperCase(),
+            title: stored.title,
+            subtitle: stored.metaDescription || undefined,
+            author: stored.author || 'FlowerZFC Staff',
+            authorAvatar: (stored.author || 'F').charAt(0).toUpperCase(),
+            date: stored.date || 'Today',
+            readTime: `${readMin} min read`,
+            image: stored.imageUrl || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=900&h=500&fit=crop&auto=format',
+            imageCaption: stored.tags ? `Tags: ${stored.tags}` : undefined,
+            likes: stored.likes || 0,
+            paragraphs: stored.body ? stored.body.split('\n\n').filter(Boolean) : ['Content coming soon.'],
+            related: [],
+          }
+        }
+      }
+
+      setArticle(foundData)
+      if (foundData) setLikeCount(foundData.likes)
+    }).finally(() => setLoading(false))
+
+    // Load real comments from Supabase
     fetchAllComments().then(({ comments: dbComments }) => {
       const forArticle = dbComments.filter(c => c.article_id === id)
       if (forArticle.length > 0) {
@@ -353,10 +151,33 @@ export default function Article() {
           replies: [],
         })))
       } else {
-        setCommentList(INITIAL_COMMENTS)
+        setCommentList([])
       }
-    }).catch(() => setCommentList(INITIAL_COMMENTS))
-  }, [article, id])
+    }).catch(() => setCommentList([]))
+  }, [id])
+
+  if (loading) {
+    return (
+      <div style={{ background: '#0a0a14', minHeight: '100vh' }} className="flex items-center justify-center p-12 text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-[#00b341] border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-sm font-bold text-gray-400">Loading article...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!article) {
+    return (
+      <div style={{ background: '#0a0a14', minHeight: '100vh' }} className="flex items-center justify-center p-12 text-white">
+        <div className="text-center">
+          <h2 className="text-2xl font-black text-white mb-2">Article Not Found</h2>
+          <p className="text-sm text-gray-400 mb-6">The requested news article does not exist or has been removed.</p>
+          <Link to="/news" className="px-6 py-3 bg-[#00b341] text-white font-bold rounded-xl text-xs">Back to News →</Link>
+        </div>
+      </div>
+    )
+  }
 
   const toggleLike = () => {
     if (liked) {
@@ -416,10 +237,7 @@ export default function Article() {
   }
 
   const handleLoadMoreComments = () => {
-    if (!hasLoadedMore) {
-      setCommentList(prev => [...prev, ...EXTRA_COMMENTS])
-      setHasLoadedMore(true)
-    }
+    setHasLoadedMore(true)
   }
 
   const postReply = (cId: string) => {
@@ -691,16 +509,14 @@ export default function Article() {
               </div>
 
               {/* Working Load More Button */}
-              {!hasLoadedMore ? (
+              {commentList.length > 5 && !hasLoadedMore && (
                 <button
                   onClick={handleLoadMoreComments}
                   className="mt-6 w-full py-3 text-xs font-bold text-white rounded-xl transition-all hover:bg-white/5"
                   style={{ background: '#131320', border: '1px solid #1e1e32' }}
                 >
-                  Load More Comments ({EXTRA_COMMENTS.length} more)
+                  Load More Comments
                 </button>
-              ) : (
-                <p className="mt-6 text-center text-xs text-gray-500">All comments loaded.</p>
               )}
             </div>
           </article>

@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { PRODUCTS } from './Shop'
+import { fetchAllProducts } from '../services/supabaseClient'
+import type { ProductType } from './Shop'
 
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
 
@@ -24,7 +25,10 @@ export default function Product() {
   const { id } = useParams()
   const { t, addToCart } = useApp()
   const navigate = useNavigate()
-  const product = PRODUCTS.find(p => p.id === id) || PRODUCTS[0]
+
+  const [product, setProduct] = useState<ProductType | null>(null)
+  const [allProducts, setAllProducts] = useState<ProductType[]>([])
+  const [loading, setLoading] = useState(true)
 
   const [activeImage, setActiveImage] = useState(0)
   const [size, setSize] = useState('')
@@ -32,6 +36,62 @@ export default function Product() {
   const [added, setAdded] = useState(false)
   const [wishlisted, setWishlisted] = useState(false)
   const [activeTab, setActiveTab] = useState<'description' | 'sizing' | 'shipping'>('description')
+
+  useEffect(() => {
+    setLoading(true)
+    fetchAllProducts().then(({ products, error }) => {
+      if (!error && products && products.length > 0) {
+        const formatted: ProductType[] = products.map((p: any) => ({
+          id: String(p.id),
+          name: p.name || 'Unnamed Product',
+          price: typeof p.price === 'number' ? p.price : parseFloat(p.price) || 0,
+          originalPrice: p.originalPrice || p.original_price || p.compare_at_price || null,
+          category: p.category || 'Jerseys',
+          badge: p.badge || (p.is_hot ? 'HOT' : p.is_featured ? 'FEATURED' : null),
+          rating: p.rating || 4.8,
+          reviews: p.reviews || p.comments_count || 18,
+          images: Array.isArray(p.images) ? p.images : (typeof p.images === 'string' && p.images.startsWith('[') ? JSON.parse(p.images) : [p.image || p.images || 'https://images.unsplash.com/photo-1551958219-acbc5dbf7f1e?w=600&h=600&fit=crop']),
+          description: p.description || p.name,
+        }))
+        setAllProducts(formatted)
+        const found = formatted.find(p => p.id === id || p.id.toLowerCase() === (id || '').toLowerCase() || p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === (id || '').toLowerCase())
+        setProduct(found || formatted[0] || null)
+      } else {
+        fetch('/products.json')
+          .then(r => r.json())
+          .then((data: ProductType[]) => {
+            if (Array.isArray(data) && data.length > 0) {
+              setAllProducts(data)
+              const found = data.find(p => p.id === id)
+              setProduct(found || data[0] || null)
+            }
+          }).catch(() => {})
+      }
+    }).finally(() => setLoading(false))
+  }, [id])
+
+  if (loading) {
+    return (
+      <div style={{ background: '#0a0a14', minHeight: '100vh' }} className="flex items-center justify-center p-12 text-white">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-[#00b341] border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-sm font-bold text-gray-400">Loading merchandise item...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!product) {
+    return (
+      <div style={{ background: '#0a0a14', minHeight: '100vh' }} className="flex items-center justify-center p-12 text-white">
+        <div className="text-center">
+          <h2 className="text-2xl font-black text-white mb-2">Product Not Found</h2>
+          <p className="text-sm text-gray-400 mb-6">The requested merchandise item does not exist or has been removed.</p>
+          <Link to="/shop" className="px-6 py-3 bg-[#00b341] text-white font-bold rounded-xl text-xs">Back to Shop →</Link>
+        </div>
+      </div>
+    )
+  }
 
   const handleAdd = () => {
     if (!size) return
@@ -46,8 +106,8 @@ export default function Product() {
     navigate('/checkout')
   }
 
-  const related = PRODUCTS.filter(p => p.id !== product.id && p.category === product.category).slice(0, 4)
-  const allRelated = related.length > 0 ? related : PRODUCTS.filter(p => p.id !== product.id).slice(0, 4)
+  const related = allProducts.filter(p => p.id !== product.id && p.category === product.category).slice(0, 4)
+  const allRelated = related.length > 0 ? related : allProducts.filter(p => p.id !== product.id).slice(0, 4)
 
   const savings = product.originalPrice ? product.originalPrice - product.price : 0
 

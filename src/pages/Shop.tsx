@@ -4,96 +4,23 @@ import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
 import { fetchAllProducts } from '../services/supabaseClient'
 
-export const PRODUCTS = [
-  {
-    id: 'jersey-home',
-    name: 'FlowerZFC Home Jersey 2026',
-    price: 49.99,
-    originalPrice: 64.99,
-    category: 'Apparel',
-    badge: 'BESTSELLER',
-    rating: 4.8,
-    reviews: 214,
-    images: [
-      'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=600&h=700&fit=crop&auto=format',
-      'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=600&h=700&fit=crop&auto=format',
-    ],
-    description: 'Official FlowerZFC Home Jersey 2026 season. Premium breathable performance fabric with moisture-wicking technology. Ideal for match days and training sessions.',
-  },
-  {
-    id: 'jersey-away',
-    name: 'FlowerZFC Away Jersey 2026',
-    price: 49.99,
-    originalPrice: null,
-    category: 'Apparel',
-    badge: null,
-    rating: 4.6,
-    reviews: 87,
-    images: [
-      'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=600&h=700&fit=crop&auto=format',
-    ],
-    description: 'Official FlowerZFC Away Jersey 2026 season. Lightweight performance fabric with heat-transfer badge.',
-  },
-  {
-    id: 'hoodie-bigstone',
-    name: 'Bigstone Entertainment Hoodie',
-    price: 65.00,
-    originalPrice: null,
-    category: 'Apparel',
-    badge: 'NEW',
-    rating: 4.9,
-    reviews: 42,
-    images: [
-      'https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=600&h=700&fit=crop&auto=format',
-    ],
-    description: 'Bigstone Entertainment branded hoodie. Premium 320gsm cotton-polyester blend. Double-lined hood.',
-  },
-  {
-    id: 'cap-flowerz',
-    name: 'DJ Flowerz Snapback Cap',
-    price: 28.00,
-    originalPrice: null,
-    category: 'Accessories',
-    badge: null,
-    rating: 4.7,
-    reviews: 138,
-    images: [
-      'https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=600&h=700&fit=crop&auto=format',
-    ],
-    description: 'Adjustable snapback cap with embroidered DJ Flowerz logo. One size fits all.',
-  },
-  {
-    id: 'poster-afcon',
-    name: 'AFCON 2026 Limited Art Print',
-    price: 18.00,
-    originalPrice: 24.99,
-    category: 'Posters',
-    badge: 'LIMITED',
-    rating: 5.0,
-    reviews: 29,
-    images: [
-      'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=600&h=700&fit=crop&auto=format',
-    ],
-    description: 'Limited edition AFCON 2026 collectible art print. A3 size, 300gsm premium matte paper.',
-  },
-  {
-    id: 'scarf-flowerz',
-    name: 'FlowerZFC Supporters Scarf',
-    price: 22.00,
-    originalPrice: null,
-    category: 'Accessories',
-    badge: null,
-    rating: 4.5,
-    reviews: 61,
-    images: [
-      'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=600&h=700&fit=crop&auto=format',
-    ],
-    description: 'FlowerZFC supporters scarf. 100% acrylic, double-knit. Perfect for matchdays.',
-  },
-]
+export interface ProductType {
+  id: string
+  name: string
+  price: number
+  originalPrice: number | null
+  category: string
+  badge: string | null
+  rating: number
+  reviews: number
+  images: string[]
+  description: string
+}
+
+export const PRODUCTS: ProductType[] = []
 
 type SortOption = 'newest' | 'price-asc' | 'price-desc' | 'popular'
-const CATEGORIES = ['All', 'Apparel', 'Accessories', 'Posters']
+const CATEGORIES = ['All', 'Jerseys', 'Boots', 'Footballs', 'Goalkeeper', 'Accessories', 'Tracksuits', 'Shorts', 'Memorabilia']
 
 const BADGE_COLORS: Record<string, string> = {
   BESTSELLER: '#00b341',
@@ -120,7 +47,8 @@ export default function Shop() {
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [search, setSearch] = useState('')
   const [quickAdded, setQuickAdded] = useState<string | null>(null)
-  const [productList, setProductList] = useState<typeof PRODUCTS>(PRODUCTS)
+  const [productList, setProductList] = useState<ProductType[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchAllProducts().then(({ products, error }) => {
@@ -129,17 +57,16 @@ export default function Shop() {
           id: String(p.id),
           name: p.name || 'Unnamed Product',
           price: typeof p.price === 'number' ? p.price : parseFloat(p.price) || 0,
-          originalPrice: p.originalPrice || p.original_price || null,
-          category: p.category || 'Gear',
-          badge: p.badge || null,
-          rating: p.rating || 4.5,
-          reviews: p.reviews || 12,
-          images: Array.isArray(p.images) ? p.images : (typeof p.images === 'string' && p.images.startsWith('[') ? JSON.parse(p.images) : [p.images || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=600&h=700&fit=crop&auto=format']),
+          originalPrice: p.originalPrice || p.original_price || p.compare_at_price || null,
+          category: p.category || 'Jerseys',
+          badge: p.badge || (p.is_hot ? 'HOT' : p.is_featured ? 'FEATURED' : null),
+          rating: p.rating || 4.8,
+          reviews: p.reviews || p.comments_count || 18,
+          images: Array.isArray(p.images) ? p.images : (typeof p.images === 'string' && p.images.startsWith('[') ? JSON.parse(p.images) : [p.image || p.images || 'https://images.unsplash.com/photo-1551958219-acbc5dbf7f1e?w=600&h=600&fit=crop']),
           description: p.description || p.name,
         }))
-        setProductList(formatted as any)
+        setProductList(formatted)
       } else {
-        // Fallback to products.json
         fetch('/products.json')
           .then(r => r.json())
           .then(data => {
@@ -149,7 +76,7 @@ export default function Shop() {
           })
           .catch(() => {})
       }
-    })
+    }).finally(() => setLoading(false))
   }, [])
 
   const filtered = useMemo(() => {
