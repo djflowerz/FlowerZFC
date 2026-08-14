@@ -119,14 +119,7 @@ export type Order = {
   shippingTier?: 'standard' | 'express' | 'free'
 }
 
-export const INIT_ORDERS: Order[] = [
-  { id:'FZ984120', customer:'James Mwangi',   email:'j.mwangi@gmail.com',  phone:'+254712345678', address:'Westlands, Nairobi',     items:'FlowerZFC Home Jersey 2026 (M)',   total:54.99, method:'M-Pesa', status:'Pending',    date:'2026-08-11 22:15', tracking:'', shippingCourier: 'Fargo Courier Kenya', shippingCostKes: 400, shippingTier: 'standard' },
-  { id:'FZ984119', customer:'Sarah Okonkwo',  email:'sarah.o@yahoo.com',   phone:'+254722998877', address:'Kilimani, Nairobi',      items:'Bigstone Entertainment Hoodie (L)', total:70.00, method:'Card',   status:'Shipped',    date:'2026-08-11 19:40', tracking:'KEN-120-44821', shippingCourier: 'SpeedAF Express', shippingCostKes: 900, shippingTier: 'express' },
-  { id:'FZ984118', customer:'David Kamau',    email:'dkamau@outlook.com',  phone:'+254733112233', address:'Karen, Nairobi',         items:'DJ Flowerz Snapback Cap + Scarf',   total:50.00, method:'M-Pesa', status:'Fulfilled',  date:'2026-08-11 14:10', tracking:'KEN-119-44012', shippingCourier: 'Fargo Courier Kenya', shippingCostKes: 400, shippingTier: 'free' },
-  { id:'FZ984117', customer:'Emmanuel Vance', email:'evance@ukmail.co.uk', phone:'+447911123456', address:'London, UK',             items:'AFCON 2026 Limited Art Print',       total:23.00, method:'Card',   status:'Fulfilled',  date:'2026-08-10 11:05', tracking:'UK-240-11822', shippingCourier: 'DHL Express International', shippingCostKes: 3900, shippingTier: 'express' },
-  { id:'FZ984116', customer:'Amina Hassan',   email:'amina.h@gmail.com',   phone:'+254741887766', address:'Parklands, Nairobi',     items:'FlowerZFC Away Jersey 2026 (S)',     total:49.99, method:'M-Pesa', status:'Processing', date:'2026-08-10 09:30', tracking:'', shippingCourier: 'EasyCoach Express', shippingCostKes: 900, shippingTier: 'express' },
-  { id:'FZ984115', customer:'Peter Otieno',   email:'potieno@gmail.com',   phone:'+254756234567', address:'Kisumu, Kenya',          items:'FlowerZFC Supporters Scarf',         total:22.00, method:'Card',   status:'Refunded',   date:'2026-08-09 17:55', tracking:'', shippingCourier: 'Fargo Courier Kenya', shippingCostKes: 400, shippingTier: 'standard' },
-]
+export const INIT_ORDERS: Order[] = []
 
 export type Product = {
   id: string
@@ -204,158 +197,33 @@ export type Ticket = { id: string; event: string; venue: string; date: string; r
 export const INIT_TICKETS: Ticket[] = []
 
 export type AppUser = { id: string; name: string; email: string; role: string; joined: string; orders: number; tips: string; status: string; avatar?: string }
-export const INIT_USERS: AppUser[] = [
-  { id:'u1', name:'James Mwangi',   email:'j.mwangi@gmail.com',  role:'user',   joined:'Mar 12, 2026', orders:3, tips:'$12.00', status:'Active' },
-  { id:'u2', name:'Sarah Okonkwo',  email:'sarah.o@yahoo.com',   role:'user',   joined:'Jan 08, 2026', orders:1, tips:'$0.00',  status:'Active' },
-  { id:'u3', name:'David Kamau',    email:'dkamau@outlook.com',  role:'editor', joined:'Feb 14, 2026', orders:2, tips:'$5.00',  status:'Active' },
-  { id:'u4', name:'Emmanuel Vance', email:'evance@ukmail.co.uk', role:'user',   joined:'Jul 04, 2026', orders:1, tips:'$25.00', status:'Active' },
-  { id:'u5', name:'Amina Hassan',   email:'amina.h@gmail.com',   role:'user',   joined:'Jun 19, 2026', orders:1, tips:'$0.00',  status:'Banned' },
-  { id:'u6', name:'Peter Otieno',   email:'potieno@gmail.com',   role:'writer', joined:'Apr 01, 2026', orders:1, tips:'$8.00',  status:'Active' },
-  { id:'u7', name:'Admin',          email:'admin@flowerz.fc',    role:'admin',  joined:'Jan 01, 2026', orders:0, tips:'$0.00',  status:'Active' },
-]
+export const INIT_USERS: AppUser[] = []
 
-const TIPS_DATA = [
-  { id:'t1', from:'Anonymous',    amount:5.00,  recipient:'Platform',   method:'Card',   date:'Aug 11 22:40', ref:'ps_tip_9821aa', status:'Success' },
-  { id:'t2', from:'James Mwangi', amount:10.00, recipient:'DJ Flowerz', method:'M-Pesa', date:'Aug 11 20:15', ref:'ps_tip_8820bb', status:'Success' },
-  { id:'t3', from:'Emmanuel V.',  amount:25.00, recipient:'Platform',   method:'Card',   date:'Aug 10 18:00', ref:'ps_tip_7744cc', status:'Success' },
-  { id:'t4', from:'Anonymous',    amount:3.00,  recipient:'Writer',     method:'M-Pesa', date:'Aug 10 11:30', ref:'ps_tip_6633dd', status:'Success' },
-  { id:'t5', from:'Sarah O.',     amount:7.50,  recipient:'DJ Flowerz', method:'Card',   date:'Aug 09 15:45', ref:'ps_tip_5522ee', status:'Success' },
-]
+const TIPS_DATA: { id:string; from:string; amount:number; recipient:string; method:string; date:string; ref:string; status:string }[] = []
 
 export type Comment = { id: string; user: string; article: string; body: string; date: string; status: string; reported: boolean }
 export const INIT_COMMENTS: Comment[] = []
 
 type AdSlot = { id: string; slot: string; page: string; size: string; price: number; status: string; advertiser: string; start: string; end: string }
-const INIT_ADS: AdSlot[] = [
-  { id:'ad1', slot:'Homepage Leaderboard (728×90)',    page:'/',          size:'728×90',  price:250, status:'Booked',    advertiser:'Betika Kenya', start:'Aug 1',  end:'Aug 31' },
-  { id:'ad2', slot:'News Sidebar Half Page (300×600)', page:'/news',      size:'300×600', price:180, status:'Booked',    advertiser:'SportPesa',    start:'Aug 10', end:'Aug 25' },
-  { id:'ad3', slot:'Article In-Feed Native',           page:'/news/:id',  size:'Native',  price:120, status:'Available', advertiser:'—',            start:'—',      end:'—' },
-  { id:'ad4', slot:'Transfers Wide Skyscraper',        page:'/transfers', size:'160×600', price:150, status:'Available', advertiser:'—',            start:'—',      end:'—' },
-  { id:'ad5', slot:'Mobile Banner (320×50)',           page:'All pages',  size:'320×50',  price:80,  status:'Booked',    advertiser:'Safaricom',    start:'Aug 5',  end:'Sep 5'  },
-  { id:'ad6', slot:'Shop Header Leaderboard',          page:'/shop',      size:'728×90',  price:200, status:'Available', advertiser:'—',            start:'—',      end:'—' },
-]
+const INIT_ADS: AdSlot[] = []
+const AD_REQUESTS: { id:string; company:string; contact:string; size:string; budget:string; date:string; status:string }[] = []
 
-const AD_REQUESTS = [
-  { id:'req1', company:'MTN Kenya', contact:'john@mtn.com',        size:'728×90', budget:'$300/mo', date:'Aug 10, 2026', status:'Pending' },
-  { id:'req2', company:'Safaricom',contact:'ads@safaricom.ke',     size:'All',    budget:'$800/mo', date:'Aug 08, 2026', status:'Approved' },
-  { id:'req3', company:'Pesapal',  contact:'mkt@pesapal.com',      size:'300×250',budget:'$150/mo', date:'Aug 06, 2026', status:'Pending' },
-]
-
-const INIT_SUBS = [
-  { id:'ns1', email:'j.mwangi@gmail.com',  name:'James Mwangi',  joined:'Mar 12, 2026', status:'Active',   opens:42, clicks:18 },
-  { id:'ns2', email:'sarah.o@yahoo.com',   name:'Sarah Okonkwo', joined:'Jan 08, 2026', status:'Active',   opens:31, clicks:9  },
-  { id:'ns3', email:'dkamau@outlook.com',  name:'David Kamau',   joined:'Feb 14, 2026', status:'Active',   opens:67, clicks:28 },
-  { id:'ns4', email:'fan2026@gmail.com',   name:'—',             joined:'Jul 30, 2026', status:'Active',   opens:3,  clicks:1  },
-  { id:'ns5', email:'olduser@yahoo.com',   name:'—',             joined:'Jan 10, 2026', status:'Inactive', opens:0,  clicks:0  },
-  { id:'ns6', email:'evance@ukmail.co.uk', name:'Emmanuel V.',   joined:'Jul 04, 2026', status:'Active',   opens:15, clicks:5  },
-]
-
-const WEBHOOKS = [
-  { id:'wh1', event:'charge.success',      ref:'ps_ref_99821', amount:'$54.99', customer:'James Mwangi',  date:'Aug 11 22:16', status:'Success' },
-  { id:'wh2', event:'charge.success',      ref:'ps_ref_99820', amount:'$70.00', customer:'Sarah Okonkwo', date:'Aug 11 19:41', status:'Success' },
-  { id:'wh3', event:'charge.failed',       ref:'ps_ref_99819', amount:'$49.99', customer:'Unknown',       date:'Aug 11 18:30', status:'Failed'  },
-  { id:'wh4', event:'transfer.success',    ref:'ps_ref_99818', amount:'$10.00', customer:'Tip — DJ Fz',  date:'Aug 11 20:16', status:'Success' },
-  { id:'wh5', event:'charge.success',      ref:'ps_ref_99817', amount:'$50.00', customer:'David Kamau',   date:'Aug 11 14:11', status:'Success' },
-  { id:'wh6', event:'subscription.create', ref:'ps_ref_99816', amount:'—',      customer:'Amina Hassan',  date:'Aug 10 09:31', status:'Success' },
-  { id:'wh7', event:'charge.failed',       ref:'ps_ref_99815', amount:'$23.00', customer:'Unknown',       date:'Aug 10 08:00', status:'Failed'  },
-]
+const INIT_SUBS: { id:string; email:string; name:string; joined:string; status:string; opens:number; clicks:number }[] = []
+const WEBHOOKS: { id:string; event:string; ref:string; amount:string; customer:string; date:string; status:string }[] = []
 
 type LiveBlogUpdate = { id:string; minute:string; type:'Goal'|'Card'|'Sub'|'Update'|'Transfer'|'FT'; text:string; postedAt:string }
 type LiveBlog = { id:string; title:string; category:'Match'|'News'|'Transfer'; match:string; coverImage:string; status:'Live'|'Scheduled'|'Ended'; viewers:number; scheduledAt:string; createdAt:string; updates:LiveBlogUpdate[] }
-const INIT_LIVE_BLOGS: LiveBlog[] = [
-  {
-    id: 'lb1',
-    title: 'Arsenal vs Chelsea — Community Shield 2026',
-    category: 'Match' as const,
-    match: 'Arsenal vs Chelsea',
-    coverImage: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=600&h=200&fit=crop',
-    status: 'Live' as const,
-    viewers: 2100,
-    scheduledAt: '',
-    createdAt: 'Aug 11, 2026 14:30',
-    updates: [
-      { id:'u1', minute: "74'", type: 'Goal' as const, text: "GOAL! Saka taps in from close range after a stunning cross from Martinelli. Arsenal 1-0 Chelsea.", postedAt: '2 min ago' },
-      { id:'u2', minute: "61'", type: 'Card' as const, text: 'Yellow card shown to Reece James for a cynical foul on Odegaard in midfield.', postedAt: '15 min ago' },
-      { id:'u3', minute: "45+2'", type: 'Update' as const, text: 'Half time. Goalless so far. Chelsea have had the better of the first half but Arsenal are growing into the game.', postedAt: '32 min ago' },
-    ],
-  },
-  {
-    id: 'lb2',
-    title: 'Kenya vs Tanzania — AFCON Qualifier Pre-Match',
-    category: 'Match' as const,
-    match: 'Kenya vs Tanzania',
-    coverImage: 'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=600&h=200&fit=crop',
-    status: 'Scheduled' as const,
-    viewers: 0,
-    scheduledAt: '2026-08-13T20:00',
-    createdAt: 'Aug 11, 2026 10:00',
-    updates: [],
-  },
-  {
-    id: 'lb3',
-    title: 'Transfer Deadline Day — August 2026',
-    category: 'News' as const,
-    match: '',
-    coverImage: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=600&h=200&fit=crop',
-    status: 'Ended' as const,
-    viewers: 8400,
-    scheduledAt: '',
-    createdAt: 'Aug 8, 2026 09:00',
-    updates: [
-      { id:'u4', minute: 'FT', type: 'FT' as const, text: 'Deadline Day is over! 47 transfers confirmed. Full summary to follow.', postedAt: 'Aug 8, 23:00' },
-      { id:'u5', minute: '23:45', type: 'Transfer' as const, text: 'OFFICIAL: Victor Osimhen joins Al-Hilal on a 70M deal. Napoli confirm.', postedAt: 'Aug 8, 23:45' },
-    ],
-  },
-]
+const INIT_LIVE_BLOGS: LiveBlog[] = []
 
-const DISCOUNTS_INIT = [
-  { id:'d1', code:'LAUNCH20',   type:'Percent', value:20, uses:48,  maxUses:100, status:'Active',   expires:'Aug 31, 2026' },
-  { id:'d2', code:'WELCOME10',  type:'Percent', value:10, uses:124, maxUses:500, status:'Active',   expires:'Dec 31, 2026' },
-  { id:'d3', code:'KENYA500',   type:'Fixed',   value:5,  uses:18,  maxUses:50,  status:'Active',   expires:'Sep 15, 2026' },
-  { id:'d4', code:'SUMMER2025', type:'Percent', value:15, uses:89,  maxUses:89,  status:'Inactive', expires:'Jul 31, 2025' },
-]
+const DISCOUNTS_INIT: { id:string; code:string; type:string; value:number; uses:number; maxUses:number; status:string; expires:string }[] = []
+const QUIZ_INIT: { id:string; question:string; options:string[]; correct:number; category:string; plays:number }[] = []
+const PREDICTIONS_DATA: { id:string; match:string; user:string; predicted:string; actual:string; points:number; date:string }[] = []
 
-const QUIZ_INIT = [
-  { id:'q1', question:'Who won the 2026 AFCON?',                 options:['Morocco','Nigeria','Senegal','Egypt'],     correct:0, category:'AFCON',    plays:342 },
-  { id:'q2', question:'Which club is Erling Haaland at?',        options:['Man City','Real Madrid','PSG','Bayern'],   correct:0, category:'Trivia',    plays:891 },
-  { id:'q3', question:"What year was FlowerZFC's kit launched?", options:['2025','2026','2027','2024'],               correct:1, category:'FlowerZFC', plays:128 },
-]
-
-const PREDICTIONS_DATA = [
-  { id:'p1', match:'Arsenal vs Chelsea',    user:'James Mwangi',   predicted:'Arsenal 2-1', actual:'Arsenal 2-0', points:5,  date:'Aug 11' },
-  { id:'p2', match:'Arsenal vs Chelsea',    user:'Sarah Okonkwo',  predicted:'Draw 1-1',    actual:'Arsenal 2-0', points:0,  date:'Aug 11' },
-  { id:'p3', match:'Man City vs Liverpool', user:'David Kamau',    predicted:'City 3-1',    actual:'—',           points:0,  date:'Aug 10' },
-  { id:'p4', match:'Arsenal vs Chelsea',    user:'Emmanuel Vance', predicted:'Arsenal 2-0', actual:'Arsenal 2-0', points:10, date:'Aug 11' },
-]
-
-const AUDIT_LOG = [
-  { id:'al1', admin:'Admin', action:'Updated order FZ984119 → Shipped',        ip:'41.90.64.2', date:'Aug 11 22:30' },
-  { id:'al2', admin:'Admin', action:'Published article: Chelsea £80m Signing', ip:'41.90.64.2', date:'Aug 11 20:05' },
-  { id:'al3', admin:'Admin', action:'Banned user: Amina Hassan',               ip:'41.90.64.2', date:'Aug 11 19:00' },
-  { id:'al4', admin:'Admin', action:'Deleted comment #c5 (SpamBot)',           ip:'41.90.64.2', date:'Aug 10 10:05' },
-  { id:'al5', admin:'Admin', action:'Created discount code: KENYA500',         ip:'41.90.64.2', date:'Aug 09 15:00' },
-]
-
-const HEALTH_DATA: HealthCheck[] = [
-  { service:'Paystack API',      status:'Online',   uptime:'99.98%', latency:'142ms', lastCheck:'Just now'  },
-  { service:'Firestore DB',      status:'Online',   uptime:'99.97%', latency:'88ms',  lastCheck:'Just now'  },
-  { service:'Vercel Hosting',    status:'Online',   uptime:'100%',   latency:'210ms', lastCheck:'Just now'  },
-  { service:'Newsletter (SMTP)', status:'Online',   uptime:'99.80%', latency:'320ms', lastCheck:'1 min ago' },
-  { service:'Media CDN',         status:'Degraded', uptime:'97.40%', latency:'890ms', lastCheck:'2 min ago' },
-  { service:'Webhook Listener',  status:'Online',   uptime:'99.95%', latency:'55ms',  lastCheck:'Just now'  },
-]
-
-const REV_DAYS = [
-  { day:'Mon', val:820 },{ day:'Tue', val:1240 },{ day:'Wed', val:680 },
-  { day:'Thu', val:1580 },{ day:'Fri', val:2100 },{ day:'Sat', val:1760 },{ day:'Sun', val:970 },
-]
-const MAX_REV = Math.max(...REV_DAYS.map(d => d.val))
-
-const SENT_EMAILS_INIT = [
-  { id:'se1', subject:'⚽ Matchday Preview — Arsenal vs Chelsea', sentTo:420, date:'Aug 11, 2026 18:00', opens:218 },
-  { id:'se2', subject:'🛒 New Drop: AFCON 2026 Limited Print',   sentTo:398, date:'Aug 08, 2026 12:00', opens:176 },
-  { id:'se3', subject:'🎟️ AFRO-FOOTBALL NIGHT VIBEZ Tickets',   sentTo:450, date:'Aug 01, 2026 09:00', opens:301 },
-]
+const AUDIT_LOG: { id:string; admin:string; action:string; ip:string; date:string }[] = []
+const HEALTH_DATA: HealthCheck[] = []
+const REV_DAYS: { day:string; val:number }[] = []
+const MAX_REV = 0
+const SENT_EMAILS_INIT: { id:string; subject:string; sentTo:number; date:string; opens:number }[] = []
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Admin() {
@@ -564,7 +432,7 @@ export default function Admin() {
   const [analyticsCategory,  setAnalyticsCategory]  = useState('All')
   const [tipSearch,      setTipSearch]      = useState('')
   const [showPayoutModal, setShowPayoutModal]= useState(false)
-  const [payoutForm,      setPayoutForm]     = useState({ recipient: 'James Mwangi', amount: '150', mpesa: '+254712345678' })
+  const [payoutForm,      setPayoutForm]     = useState({ recipient: '', amount: '', mpesa: '' })
   const [userRoleFilter, setUserRoleFilter] = useState('All')
   const [showAddUser,    setShowAddUser]    = useState(false)
   const [newAppUser,     setNewAppUser]     = useState({ name: '', email: '', role: 'user', avatar: '' })
@@ -654,7 +522,7 @@ export default function Admin() {
     title: '',
     slug: '',
     category: 'Match Report',
-    author: 'James Mwangi',
+    author: '',
     excerpt: '',
     body: '',
     imageUrl: '',
@@ -1148,12 +1016,12 @@ export default function Admin() {
               </div>
               <div className="space-y-2">
                 {[
-                  { icon:'🛒', type:'Orders', text:'New order FZ984120 · James Mwangi · $54.99', time:'2m', c:'#00b341', action: () => setDetailOrder(orders[0] || null) },
-                  { icon:'💬', type:'Comments', text:'Comment flagged · TrollUser99 on Arsenal article', time:'8m', c:'#ef4444', action: () => setTab('comments') },
-                  { icon:'☕', type:'Tips', text:'Tip · $10.00 from James → DJ Flowerz', time:'14m', c:'#8b5cf6', action: () => setTab('financials') },
-                  { icon:'👤', type:'Users', text:'New user registered · potieno@gmail.com', time:'38m', c:'#3b82f6', action: () => setDetailUser(users[0] || null) },
-                  { icon:'🎟️', type:'Orders', text:'Ticket sold · AFRO-FOOTBALL NIGHT VIBEZ · VIP Pass', time:'1h', c:'#00b341', action: () => setTab('tickets') },
-                  { icon:'📢', type:'Ads', text:'Ad booking request from MTN Kenya · $300/mo', time:'2h', c:'#f59e0b', action: () => setTab('ads') },
+                  { icon:'🛒', type:'Orders', text:'No new orders', time:'', c:'#00b341', action: () => setTab('orders') },
+                  { icon:'💬', type:'Comments', text:'No flagged comments', time:'', c:'#ef4444', action: () => setTab('comments') },
+                  { icon:'☕', type:'Tips', text:'No recent tips', time:'', c:'#8b5cf6', action: () => setTab('financials') },
+                  { icon:'👤', type:'Users', text:'No new registrations', time:'', c:'#3b82f6', action: () => setTab('users') },
+                  { icon:'🎟️', type:'Orders', text:'No ticket sales', time:'', c:'#00b341', action: () => setTab('tickets') },
+                  { icon:'📢', type:'Ads', text:'No ad booking requests', time:'', c:'#f59e0b', action: () => setTab('ads') },
                 ].map((item, i) => (
                   <div key={i} onClick={item.action} className="flex items-center gap-3 p-3 rounded-xl border border-[#1e1e32] hover:border-[#00b341]/50 transition-all cursor-pointer group" style={{ background: '#0d0d1e' }}>
                     <span className="text-base shrink-0 group-hover:scale-110 transition-transform">{item.icon}</span>
@@ -2874,11 +2742,11 @@ export default function Admin() {
                   <p className="text-[10px] font-black uppercase text-gray-500 mb-3">Leaderboard (All Time)</p>
                   <div className="space-y-2">
                     {[
-                      { rank:1, user:'Emmanuel Vance', pts:850, badge:'🥇' },
-                      { rank:2, user:'James Mwangi',   pts:720, badge:'🥈' },
-                      { rank:3, user:'David Kamau',     pts:610, badge:'🥉' },
-                      { rank:4, user:'Sarah Okonkwo',   pts:540, badge:'4️⃣' },
-                      { rank:5, user:'Peter Otieno',    pts:480, badge:'5️⃣' },
+                      { rank:1, user:'—', pts:0, badge:'🥇' },
+                      { rank:2, user:'—', pts:0, badge:'🥈' },
+                      { rank:3, user:'—', pts:0, badge:'🥉' },
+                      { rank:4, user:'—', pts:0, badge:'4️⃣' },
+                      { rank:5, user:'—', pts:0, badge:'5️⃣' },
                     ].map(l => (
                       <div key={l.rank} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: '#0d0d1e', border: '1px solid #1e1e32' }}>
                         <span className="text-lg">{l.badge}</span>
