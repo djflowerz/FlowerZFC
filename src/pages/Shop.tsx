@@ -280,10 +280,12 @@ export default function Shop() {
                   {/* Price */}
                   <div className="flex items-baseline gap-2">
                     <span className="text-lg font-black text-[#00b341]" style={{ fontFamily: 'Big Shoulders Display' }}>
-                      ${p.price.toFixed(2)}
+                      {typeof p.price === 'number' ? (p.price >= 500 ? `KES ${p.price.toLocaleString()}` : `$${p.price.toFixed(2)}`) : `KES ${p.price}`}
                     </span>
-                    {p.originalPrice && (
-                      <span className="text-xs text-gray-500 line-through">${p.originalPrice.toFixed(2)}</span>
+                    {p.originalPrice != null && (
+                      <span className="text-xs text-gray-500 line-through">
+                        {typeof p.originalPrice === 'number' ? (p.originalPrice >= 500 ? `KES ${p.originalPrice.toLocaleString()}` : `$${p.originalPrice.toFixed(2)}`) : `KES ${p.originalPrice}`}
+                      </span>
                     )}
                   </div>
                 </div>

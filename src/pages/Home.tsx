@@ -158,7 +158,16 @@ export default function Home() {
     return () => clearInterval(timer)
   }, [heroSlides.length])
 
-  const currentSlide = heroSlides[slide] || heroSlides[0] || DEFAULT_HERO_SLIDES[0]
+  const currentSlide = heroSlides[slide] || heroSlides[0] || {
+    id: 'hero-main',
+    tag: 'FOOTBALL',
+    title: 'FlowerZFC — Global Football & Media Platform',
+    excerpt: 'Live scores, transfer updates, match highlights, and culture across East Africa and worldwide.',
+    image: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
+    likes: 120,
+    comments: 18,
+    date: 'Today',
+  }
 
   const statusColor = (s: string) =>
     s === 'confirmed' ? '#10b981' : s === 'rumour' ? '#f4a261' : '#3b82f6'
