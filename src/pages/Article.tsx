@@ -85,28 +85,11 @@ export default function Article() {
         }
       }
 
-      // 2. Fallback to ingested posts if not in Supabase articles table
-      if (!foundData) {
-        const ingested = getIngestedPosts().find(p => p.id === id)
-        if (ingested) {
-          const wordCount = (ingested.transformedBody || '').split(/\s+/).filter(Boolean).length
-          const readMin = Math.max(1, Math.round(wordCount / 200))
-          foundData = {
-            id: ingested.id,
-            tag: ingested.category.toUpperCase(),
-            title: ingested.transformedTitle,
-            subtitle: ingested.transformedBody.slice(0, 140) + '...',
-            author: ingested.author || 'FlowerZFC Newsdesk',
-            authorAvatar: (ingested.author || 'F').charAt(0).toUpperCase(),
-            date: ingested.detectedAt,
-            readTime: `${readMin} min read`,
-            image: ingested.sourceImage || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=900&h=500&fit=crop&auto=format',
-            imageCaption: `Source: ${ingested.sourceUrl}`,
-            likes: 145,
-            paragraphs: ingested.transformedBody ? ingested.transformedBody.split('\n\n').filter(Boolean) : ['Content coming soon.'],
-            related: [],
-          }
-        }
+      // 2. Block any legacy ingested post IDs
+      if (id.startsWith('ing-')) {
+        setArticle(null)
+        setLoading(false)
+        return
       }
 
       // 3. Fallback to localStorage articleStore

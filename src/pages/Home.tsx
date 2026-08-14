@@ -114,62 +114,26 @@ export default function Home() {
   const [dbArticles, setDbArticles] = useState<any[]>([])
 
   useEffect(() => {
-    Promise.all([
-      fetchLiveIngestedPosts(),
-      fetchAllArticles(),
-    ]).then(([posts, { articles: arts }]) => {
-      if (posts && posts.length > 0) {
-        setIngestedPosts(posts)
-        posts.forEach(p => {
-          saveArticle({
-            id: p.id,
-            title: p.transformedTitle || p.sourceTitle,
-            category: p.category,
-            body: p.transformedBody || p.sourceBody,
-            imageUrl: p.sourceImage,
-            author: p.author || 'FlowerZFC Newsdesk',
-            date: p.sourceDate,
-            status: 'Published',
-            tags: p.category,
-            slug: p.id,
-            scheduled: '',
-            views: '1.4k',
-            likes: 145,
-            metaDescription: p.sourceTitle
-          })
-        })
-      }
+    fetchAllArticles().then(({ articles: arts }) => {
       if (arts && arts.length > 0) {
         setDbArticles(arts)
       }
     })
   }, [])
 
-  const allFeedItems = [
-    ...dbArticles.map(a => ({
-      id: a.id,
-      tag: (a.category || 'NEWS').toUpperCase(),
-      title: a.title,
-      excerpt: a.body ? a.body.slice(0, 140) + '...' : '',
-      image: a.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
-      likes: a.likes || 140,
-      comments: 18,
-      date: a.published_at ? new Date(a.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Today',
-    })),
-    ...ingestedPosts.map(p => ({
-      id: p.id,
-      tag: p.category.toUpperCase(),
-      title: p.transformedTitle || p.sourceTitle,
-      excerpt: (p.transformedBody || p.sourceBody).slice(0, 140) + '...',
-      image: p.sourceImage || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
-      likes: 185,
-      comments: 24,
-      date: p.detectedAt || p.sourceDate,
-    })),
-  ]
+  const allFeedItems = dbArticles.map(a => ({
+    id: a.id,
+    tag: (a.category || 'NEWS').toUpperCase(),
+    title: a.title,
+    excerpt: a.body ? a.body.slice(0, 140) + '...' : '',
+    image: a.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
+    likes: a.likes || 140,
+    comments: 18,
+    date: a.published_at ? new Date(a.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Today',
+  }))
 
   const heroSlides = allFeedItems.slice(0, 4)
-  const breakingPost = ingestedPosts.length > 0 ? ingestedPosts[0] : null
+  const breakingPost = null
   const latestArticles = allFeedItems.slice(4, 10)
 
   useEffect(() => {

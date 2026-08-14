@@ -58,7 +58,7 @@ export function getAllArticles(): StoredArticle[] {
     const raw = localStorage.getItem(STORE_KEY)
     const list = raw ? (JSON.parse(raw) as StoredArticle[]) : []
     const deleted = getDeletedArticleIds()
-    return list.filter(a => !deleted.includes(a.id) && !DUMMY_IDS.includes(a.id))
+    return list.filter(a => !deleted.includes(a.id) && !DUMMY_IDS.includes(a.id) && !a.id.startsWith('ing-'))
   } catch {
     return []
   }
