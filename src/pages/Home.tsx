@@ -5,47 +5,8 @@ import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
 import { fetchLiveMatches, LiveMatch } from '../services/liveScoreApi'
 import { fetchLiveIngestedPosts, IngestedPost } from '../services/contentIngestion'
+import { fetchAllArticles } from '../services/supabaseClient'
 import { saveArticle } from '../services/articleStore'
-
-const HERO_SLIDES_FALLBACK = [
-  {
-    id: 'arsenal-win',
-    image: 'https://images.unsplash.com/photo-1624880357913-a8539238245b?w=1400&h=700&fit=crop&auto=format',
-    tag: 'CHAMPIONS LEAGUE',
-    title: 'Arsenal Reach UCL Final With Dramatic Comeback Against PSG',
-    excerpt: 'The Gunners scored two late goals to overturn a 2-0 deficit at the Emirates, booking their place in the final.',
-  },
-  {
-    id: 'transfer-mbappe',
-    image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1400&h=700&fit=crop&auto=format',
-    tag: 'TRANSFERS',
-    title: 'Massive Summer Move: Real Madrid Close In On Premier League Star',
-    excerpt: 'Reports from Spain and England confirm a deal is imminent, with a fee of €120m agreed between the clubs.',
-  },
-  {
-    id: 'afcon',
-    image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1400&h=700&fit=crop&auto=format',
-    tag: 'AFCON 2026',
-    title: 'Kenya, Tanzania Set For AFCON Group Stage Drama',
-    excerpt: "Both East African nations face must-win games as the group stage reaches its climax.",
-  },
-  {
-    id: 'bigstone',
-    image: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=1400&h=700&fit=crop&auto=format',
-    tag: 'DJ FLOWERZ',
-    title: 'Bigstone Entertainment Drops Massive New Mix — Stream Now',
-    excerpt: 'DJ Flowerz returns with a fire Afrobeats × Genge blend, dropping exclusively on Mixcloud.',
-  },
-]
-
-const ARTICLES_FALLBACK = [
-  { id: 'a1', tag: 'MATCH REPORT', title: 'Arsenal Dominate Derby to Go 3 Points Clear at the Top', image: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=600&h=400&fit=crop&auto=format', likes: 284, comments: 47, date: '2h ago' },
-  { id: 'a2', tag: 'TRANSFERS', title: 'Here We Go: Chelsea Complete £80m Signing from Bundesliga', image: 'https://images.unsplash.com/photo-1589487391730-58f20eb2c308?w=600&h=400&fit=crop&auto=format', likes: 192, comments: 33, date: '4h ago' },
-  { id: 'a3', tag: 'ANALYSIS', title: 'Why Pep\'s High Press Is Struggling Against Low Blocks', image: 'https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=600&h=400&fit=crop&auto=format', likes: 156, comments: 28, date: '6h ago' },
-  { id: 'a4', tag: 'AFCON', title: 'Harambee Stars Name Strong Squad for AFCON Group Stage', image: 'https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=600&h=400&fit=crop&auto=format', likes: 311, comments: 62, date: '8h ago' },
-  { id: 'a5', tag: 'OPINION', title: 'Rashford Reborn: Why The Winger Looks Like a Different Player', image: 'https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?w=600&h=400&fit=crop&auto=format', likes: 98, comments: 21, date: '10h ago' },
-  { id: 'a6', tag: 'CHAMPIONS LEAGUE', title: 'UCL Quarter-Finals Preview: Our Predictions and Key Battles', image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=600&h=400&fit=crop&auto=format', likes: 204, comments: 39, date: '12h ago' },
-]
 
 const TRANSFER_NEWS = [
   { id: 't1', player: 'Vinicius Jr.', from: 'Real Madrid', to: 'Man City', status: 'rumour', fee: '€200m', image: 'https://images.unsplash.com/photo-1517927033932-b3d18e61fb3a?w=300&h=300&fit=crop&auto=format' },
@@ -153,17 +114,22 @@ function LiveTicker() {
   )
 }
 
+
+
 export default function Home() {
   const { t } = useApp()
   const [slide, setSlide] = useState(0)
   const [dismissed, setDismissed] = useState(false)
   const [ingestedPosts, setIngestedPosts] = useState<IngestedPost[]>([])
+  const [dbArticles, setDbArticles] = useState<any[]>([])
 
   useEffect(() => {
-    fetchLiveIngestedPosts().then(posts => {
+    Promise.all([
+      fetchLiveIngestedPosts(),
+      fetchAllArticles(),
+    ]).then(([posts, { articles: arts }]) => {
       if (posts && posts.length > 0) {
         setIngestedPosts(posts)
-        // Store into articleStore for seamless reading in Article.tsx
         posts.forEach(p => {
           saveArticle({
             id: p.id,
@@ -183,27 +149,38 @@ export default function Home() {
           })
         })
       }
+      if (arts && arts.length > 0) {
+        setDbArticles(arts)
+      }
     })
   }, [])
 
-  const heroSlides = ingestedPosts.length >= 4 ? ingestedPosts.slice(0, 4).map(p => ({
-    id: p.id,
-    image: p.sourceImage || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
-    tag: p.category.toUpperCase(),
-    title: p.transformedTitle || p.sourceTitle,
-    excerpt: (p.transformedBody || p.sourceBody).slice(0, 140) + '...',
-  })) : HERO_SLIDES_FALLBACK
+  const allFeedItems = [
+    ...dbArticles.map(a => ({
+      id: a.id,
+      tag: (a.category || 'NEWS').toUpperCase(),
+      title: a.title,
+      excerpt: a.body ? a.body.slice(0, 140) + '...' : '',
+      image: a.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
+      likes: a.likes || 140,
+      comments: 18,
+      date: a.published_at ? new Date(a.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Today',
+    })),
+    ...ingestedPosts.map(p => ({
+      id: p.id,
+      tag: p.category.toUpperCase(),
+      title: p.transformedTitle || p.sourceTitle,
+      excerpt: (p.transformedBody || p.sourceBody).slice(0, 140) + '...',
+      image: p.sourceImage || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
+      likes: 185,
+      comments: 24,
+      date: p.detectedAt || p.sourceDate,
+    })),
+  ]
 
+  const heroSlides = allFeedItems.slice(0, 4)
   const breakingPost = ingestedPosts.length > 0 ? ingestedPosts[0] : null
-  const latestArticles = ingestedPosts.length >= 4 ? ingestedPosts.slice(4, 10).map((p, idx) => ({
-    id: p.id,
-    tag: p.category.toUpperCase(),
-    title: p.transformedTitle || p.sourceTitle,
-    image: p.sourceImage || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=600&h=400&fit=crop&auto=format',
-    likes: 180 + idx * 19,
-    comments: 15 + idx * 4,
-    date: p.detectedAt || p.sourceDate,
-  })) : ARTICLES_FALLBACK
+  const latestArticles = allFeedItems.slice(4, 10)
 
   useEffect(() => {
     const timer = setInterval(() => setSlide(s => (s + 1) % heroSlides.length), 5000)

@@ -51,12 +51,14 @@ export function getDeletedArticleIds(): string[] {
   }
 }
 
+const DUMMY_IDS = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8']
+
 export function getAllArticles(): StoredArticle[] {
   try {
     const raw = localStorage.getItem(STORE_KEY)
     const list = raw ? (JSON.parse(raw) as StoredArticle[]) : []
     const deleted = getDeletedArticleIds()
-    return list.filter(a => !deleted.includes(a.id))
+    return list.filter(a => !deleted.includes(a.id) && !DUMMY_IDS.includes(a.id))
   } catch {
     return []
   }
