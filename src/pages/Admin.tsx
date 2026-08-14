@@ -6,7 +6,7 @@ import { getPaymentConfig } from '../services/paymentService'
 import { fetchLiveMatches, fetchLiveStandings, fetchLiveFixtures, getUserTimezoneInfo, fetchLiveCatalogStats, type LiveMatch, type LiveStanding, type LiveFixture, type LiveCatalogStats } from '../services/liveScoreApi'
 import { getIngestedPosts, fetchLiveIngestedPosts, transformContentContext, filterPostsByDate, downloadImageAsset, IngestedPost } from '../services/contentIngestion'
 import { getAuthUser, loginWithEmail, hasTabAccess, setAuthSession, SUPER_ADMIN_EMAIL, type UserRole, type AuthProfile } from '../services/authService'
-import { supabase } from '../services/supabaseClient'
+import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders } from '../services/supabaseClient'
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
 import {
@@ -716,6 +716,94 @@ export default function Admin() {
   const [adReqs,    setAdReqs]    = useState(AD_REQUESTS)
   const [discounts, setDiscounts] = useState(DISCOUNTS_INIT)
   const [liveBlogs, setLiveBlogs]   = useState<LiveBlog[]>(INIT_LIVE_BLOGS)
+
+  useEffect(() => {
+    // 1. Fetch 33 real user accounts from Supabase profiles table
+    fetchAllProfiles().then(({ profiles, error }) => {
+      if (!error && profiles && profiles.length > 0) {
+        const mappedUsers: AppUser[] = profiles.map(p => ({
+          id: p.id,
+          name: p.name || p.email.split('@')[0],
+          email: p.email,
+          role: p.role || 'user',
+          joined: p.created_at ? new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '2026',
+          orders: 0,
+          tips: '$0.00',
+          status: 'Active',
+          avatar: p.avatar_url || undefined,
+        }))
+        setUsers(mappedUsers)
+      }
+    })
+
+    // 2. Fetch 48 real products from Supabase products table
+    fetchAllProducts().then(({ products: realProds, error }) => {
+      if (!error && realProds && realProds.length > 0) {
+        const mappedProds: Product[] = realProds.map((p: any) => {
+          const imgUrl = Array.isArray(p.images) ? p.images[0] : (typeof p.images === 'string' && p.images.startsWith('[') ? JSON.parse(p.images)[0] : p.images || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=200')
+          return {
+            id: String(p.id),
+            name: p.name || 'Product',
+            sku: p.sku || `PROD-${p.id}`,
+            description: p.description || p.name || '',
+            category: p.category || 'Gear',
+            team: p.team || 'Global',
+            league: p.league || 'General',
+            season: p.season || '2026',
+            kitType: p.kitType || 'Merch',
+            version: p.version || 'Standard',
+            price: typeof p.price === 'number' ? p.price : parseFloat(p.price) || 0,
+            comparePrice: p.comparePrice || p.originalPrice || 0,
+            costPerItem: p.costPerItem || 0,
+            stock: p.stock || 50,
+            lowStockThreshold: p.lowStockThreshold || 5,
+            sales: p.sales || 0,
+            status: p.status || 'Active',
+            featured: Boolean(p.featured || p.badge),
+            images: [imgUrl],
+            imageUrl: imgUrl,
+            sizeChartUrl: '',
+            sizes: p.sizes || ['S', 'M', 'L', 'XL'],
+            gender: p.gender || 'Unisex',
+            customizable: Boolean(p.customizable),
+            playerList: '',
+            customNameLimit: 12,
+            availablePatches: [],
+            weight: '0.3 kg',
+            dimensions: { length: '30', width: '20', height: '5' },
+            slug: (p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+            metaTitle: p.name || '',
+            metaDescription: p.description || '',
+            colors: p.colors || 'Standard',
+            tags: p.category || '',
+          }
+        })
+        setProducts(mappedProds)
+      }
+    })
+
+    // 3. Fetch real orders from Supabase orders table
+    fetchAllOrders().then(({ orders: realOrders, error }) => {
+      if (!error && realOrders && realOrders.length > 0) {
+        const mappedOrders: Order[] = realOrders.map(o => ({
+          id: o.id,
+          customer: o.customer || 'Customer',
+          email: o.email || '',
+          phone: o.phone || '',
+          address: o.address || '',
+          items: o.items || '',
+          total: Number(o.total) || 0,
+          method: o.method || 'Card',
+          status: o.status || 'Pending',
+          date: o.date || new Date().toISOString().slice(0, 16),
+          tracking: o.tracking || '',
+          shippingCourier: o.shippingCourier,
+          shippingCostKes: o.shippingCostKes,
+        }))
+        setOrders(mappedOrders)
+      }
+    })
+  }, [])
   const [showNewBlog,     setShowNewBlog]     = useState(false)
   const [showPostUpdate,  setShowPostUpdate]  = useState(false)
   const [activeBlogId,    setActiveBlogId]    = useState<string|null>(null)

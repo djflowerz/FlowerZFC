@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getAuthUser, setAuthSession, type AuthProfile } from '../services/authService'
 import { logAdminAction } from '../services/adminDataService'
-import { supabase } from '../services/supabaseClient'
+import { supabase, fetchAllProfiles, fetchAllOrders } from '../services/supabaseClient'
 import { INIT_ORDERS, INIT_USERS, INIT_TICKETS, type Order, type AppUser, type Ticket } from './Admin'
 
 export default function SupportDashboard() {
@@ -14,6 +14,48 @@ export default function SupportDashboard() {
   const [tickets] = useState<Ticket[]>(INIT_TICKETS)
   const [orderSearch, setOrderSearch] = useState('')
   const [userSearch, setUserSearch] = useState('')
+
+  useEffect(() => {
+    // Load real user profiles from Supabase
+    fetchAllProfiles().then(({ profiles, error }) => {
+      if (!error && profiles && profiles.length > 0) {
+        const mappedUsers: AppUser[] = profiles.map(p => ({
+          id: p.id,
+          name: p.name || p.email.split('@')[0],
+          email: p.email,
+          role: p.role || 'user',
+          joined: p.created_at ? new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '2026',
+          orders: 0,
+          tips: '$0.00',
+          status: 'Active',
+          avatar: p.avatar_url || undefined,
+        }))
+        setUsers(mappedUsers)
+      }
+    })
+
+    // Load real orders from Supabase if any
+    fetchAllOrders().then(({ orders: realOrders, error }) => {
+      if (!error && realOrders && realOrders.length > 0) {
+        const mappedOrders: Order[] = realOrders.map(o => ({
+          id: o.id,
+          customer: o.customer || 'Customer',
+          email: o.email || '',
+          phone: o.phone || '',
+          address: o.address || '',
+          items: o.items || '',
+          total: Number(o.total) || 0,
+          method: o.method || 'Card',
+          status: o.status || 'Pending',
+          date: o.date || new Date().toISOString().slice(0, 16),
+          tracking: o.tracking || '',
+          shippingCourier: o.shippingCourier,
+          shippingCostKes: o.shippingCostKes,
+        }))
+        setOrders(mappedOrders)
+      }
+    })
+  }, [])
 
   const userRole = authProfile?.role || 'user'
   const isAuthorized = authProfile && (userRole === 'support' || userRole === 'super_admin')

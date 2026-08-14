@@ -17,6 +17,39 @@ export interface ProfileRow {
   last_login: string | null
 }
 
+export interface ProductRow {
+  id: string
+  name: string
+  price: number
+  originalPrice?: number
+  category?: string
+  badge?: string
+  rating?: number
+  reviews?: number
+  images?: string[] | string
+  description?: string
+  stock?: number
+  created_at?: string
+}
+
+export interface OrderRow {
+  id: string
+  customer: string
+  email: string
+  phone?: string
+  address?: string
+  items: string
+  total: number
+  method?: string
+  status: string
+  date?: string
+  created_at?: string
+  tracking?: string
+  shippingCourier?: string
+  shippingCostKes?: number
+  shippingTier?: string
+}
+
 export interface AdminActionRow {
   id: string
   admin_email: string
@@ -81,6 +114,18 @@ export async function fetchProfile(userId: string): Promise<{ profile: ProfileRo
   }
 }
 
+export async function fetchAllProfiles(): Promise<{ profiles: ProfileRow[]; error: any }> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false })
+    return { profiles: (data as ProfileRow[]) || [], error }
+  } catch (err) {
+    return { profiles: [], error: err }
+  }
+}
+
 export async function upsertProfile(userId: string, email: string, name: string): Promise<{ profile: ProfileRow | null; error: any }> {
   try {
     const { data, error } = await (supabase.from('profiles') as any)
@@ -103,5 +148,32 @@ export async function updateLastLogin(userId: string) {
       .eq('id', userId)
   } catch (e) {
     /* ignore */
+  }
+}
+
+// ─── Product helpers ──────────────────────────────────────────────────────────
+
+export async function fetchAllProducts(): Promise<{ products: ProductRow[]; error: any }> {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+    return { products: (data as ProductRow[]) || [], error }
+  } catch (err) {
+    return { products: [], error: err }
+  }
+}
+
+// ─── Order helpers ────────────────────────────────────────────────────────────
+
+export async function fetchAllOrders(): Promise<{ orders: OrderRow[]; error: any }> {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .order('created_at', { ascending: false })
+    return { orders: (data as OrderRow[]) || [], error }
+  } catch (err) {
+    return { orders: [], error: err }
   }
 }

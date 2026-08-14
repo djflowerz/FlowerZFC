@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
+import { fetchAllProducts } from '../services/supabaseClient'
 
 export const PRODUCTS = [
   {
@@ -122,14 +123,33 @@ export default function Shop() {
   const [productList, setProductList] = useState<typeof PRODUCTS>(PRODUCTS)
 
   useEffect(() => {
-    fetch('/products.json')
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          setProductList(data)
-        }
-      })
-      .catch(() => {})
+    fetchAllProducts().then(({ products, error }) => {
+      if (!error && products && products.length > 0) {
+        const formatted = products.map((p: any) => ({
+          id: String(p.id),
+          name: p.name || 'Unnamed Product',
+          price: typeof p.price === 'number' ? p.price : parseFloat(p.price) || 0,
+          originalPrice: p.originalPrice || p.original_price || null,
+          category: p.category || 'Gear',
+          badge: p.badge || null,
+          rating: p.rating || 4.5,
+          reviews: p.reviews || 12,
+          images: Array.isArray(p.images) ? p.images : (typeof p.images === 'string' && p.images.startsWith('[') ? JSON.parse(p.images) : [p.images || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=600&h=700&fit=crop&auto=format']),
+          description: p.description || p.name,
+        }))
+        setProductList(formatted as any)
+      } else {
+        // Fallback to products.json
+        fetch('/products.json')
+          .then(r => r.json())
+          .then(data => {
+            if (Array.isArray(data) && data.length > 0) {
+              setProductList(data)
+            }
+          })
+          .catch(() => {})
+      }
+    })
   }, [])
 
   const filtered = useMemo(() => {
