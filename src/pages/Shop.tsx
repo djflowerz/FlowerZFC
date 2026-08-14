@@ -133,7 +133,7 @@ export default function Shop() {
     return list
   }, [productList, activeCategory, sortBy, search])
 
-  const handleQuickAdd = (e: React.MouseEvent, p: typeof PRODUCTS[0]) => {
+  const handleQuickAdd = (e: React.MouseEvent, p: ProductType) => {
     e.preventDefault()
     e.stopPropagation()
     addToCart({ id: p.id, name: p.name, price: p.price, size: 'M', quantity: 1, image: p.images[0] })

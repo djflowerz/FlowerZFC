@@ -6,10 +6,10 @@ import AdBanner from '../components/AdBanner'
 const AD_PACKAGES = [
   {
     name: 'Starter',
-    price: '$99',
-    period: '/month',
+    price: 'Custom Quote',
+    period: '',
     slots: '300×250 In-Feed',
-    reach: '10K–50K impressions',
+    reach: 'Targeted Local Reach',
     features: [
       '1 ad placement',
       'In-feed rectangle banner',
@@ -20,31 +20,31 @@ const AD_PACKAGES = [
   },
   {
     name: 'Growth',
-    price: '$299',
-    period: '/month',
+    price: 'Custom Quote',
+    period: '',
     slots: '728×90 + 300×250',
-    reach: '100K–500K impressions',
+    reach: 'High Volume Reach',
     features: [
       '3 ad placements',
       'Leaderboard + Rectangle',
       'Weekly analytics dashboard',
-      'Priority support (24h response)',
-      'Social media mention (1×/month)',
+      'Priority support',
+      'Social media mention',
       'A/B creative testing',
     ],
     popular: true,
   },
   {
     name: 'Premium',
-    price: '$799',
-    period: '/month',
+    price: 'Custom Quote',
+    period: '',
     slots: 'All placements + Homepage',
-    reach: '500K+ impressions',
+    reach: 'Maximum Site Impact',
     features: [
       'All ad placements',
       'Homepage takeover option',
-      'Sponsored article (2,000 words)',
-      'Newsletter slot (80K subscribers)',
+      'Sponsored article feature',
+      'Newsletter sponsorship slot',
       'Real-time analytics dashboard',
       'Dedicated account manager',
       'Custom creative production',
@@ -54,12 +54,12 @@ const AD_PACKAGES = [
 ]
 
 const AD_SLOTS = [
-  { size: '728×90', name: 'Leaderboard (Desktop)', position: 'Top of every page', rate: '$5 CPM', icon: '📐' },
-  { size: '300×250', name: 'Medium Rectangle', position: 'In-feed, sidebar, in-article', rate: '$4 CPM', icon: '🟩' },
-  { size: '320×50', name: 'Mobile Banner', position: 'Sticky mobile footer', rate: '$3 CPM', icon: '📱' },
-  { size: '160×600', name: 'Wide Skyscraper', position: 'Sticky desktop sidebar', rate: '$6 CPM', icon: '🗼' },
-  { size: '300×600', name: 'Half Page', position: 'Sidebar, major sections', rate: '$7 CPM', icon: '📄' },
-  { size: 'Native', name: 'Sponsored Content Card', position: 'In-feed native ad', rate: '$8 CPM', icon: '✍️' },
+  { size: '728×90', name: 'Leaderboard (Desktop)', position: 'Top of every page', rate: 'Contact for Rate Card', icon: '📐' },
+  { size: '300×250', name: 'Medium Rectangle', position: 'In-feed, sidebar, in-article', rate: 'Contact for Rate Card', icon: '🟩' },
+  { size: '320×50', name: 'Mobile Banner', position: 'Sticky mobile footer', rate: 'Contact for Rate Card', icon: '📱' },
+  { size: '160×600', name: 'Wide Skyscraper', position: 'Sticky desktop sidebar', rate: 'Contact for Rate Card', icon: '🗼' },
+  { size: '300×600', name: 'Half Page', position: 'Sidebar, major sections', rate: 'Contact for Rate Card', icon: '📄' },
+  { size: 'Native', name: 'Sponsored Content Card', position: 'In-feed native ad', rate: 'Contact for Rate Card', icon: '✍️' },
 ]
 
 const AUDIENCE_STATS = [

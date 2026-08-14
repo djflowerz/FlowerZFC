@@ -19,7 +19,7 @@ function LiveTicker() {
   const prevScoresRef = useRef<Record<string, { homeScore: number; awayScore: number }>>({})
 
   const processLiveMatches = (apiMatches: LiveMatch[]) => {
-    // Filter to ONLY show live matches currently playing
+    // Filter to live matches currently playing
     const liveOnly = apiMatches.filter(m => {
       if (m.live) return true
       const st = (m.status || '').toUpperCase()
@@ -47,7 +47,8 @@ function LiveTicker() {
       }
     })
 
-    setMatches(liveOnly)
+    // Display live in-play matches, or fall back to today's top scheduled/completed matches if none currently in-play
+    setMatches(liveOnly.length > 0 ? liveOnly : apiMatches.slice(0, 12))
   }
 
   useEffect(() => {
@@ -69,7 +70,7 @@ function LiveTicker() {
       <div className="ticker-scroll flex items-center gap-2 px-4 py-2" style={{ overflowX: 'auto' }}>
         <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded text-[11px] font-black text-emerald-400 shrink-0">
           <span className="live-dot bg-emerald-500" />
-          <span>LIVE GAMES ({matches.length})</span>
+          <span>TODAY'S MATCHES ({matches.length})</span>
         </div>
 
         {matches.length > 0 ? (
@@ -86,7 +87,7 @@ function LiveTicker() {
                   {m.homeScore !== null && m.awayScore !== null ? `${m.homeScore} – ${m.awayScore}` : 'vs'}
                 </div>
                 <div className="flex items-center gap-1 justify-center mt-0.5">
-                  <span className="live-dot bg-emerald-500" />
+                  {m.live && <span className="live-dot bg-emerald-500" />}
                   <span className="text-[10px] font-bold text-emerald-400">{m.status || (m.minute ? `${m.minute}'` : 'LIVE')}</span>
                 </div>
               </div>
@@ -95,7 +96,7 @@ function LiveTicker() {
           ))
         ) : (
           <div className="py-1.5 text-xs text-gray-400 font-medium italic flex items-center gap-2">
-            <span>No live matches in progress right now.</span>
+            <span>Loading today's matches...</span>
             <Link to="/scores" className="text-emerald-400 font-bold not-italic hover:underline">View today's full match schedule →</Link>
           </div>
         )}
@@ -103,41 +104,6 @@ function LiveTicker() {
     </div>
   )
 }
-
-
-
-const DEFAULT_HERO_SLIDES = [
-  {
-    id: 'a1',
-    tag: 'TRANSFERS',
-    title: 'Vinicius Jr Reaches Agreement in Principle For Record Move',
-    excerpt: 'Sensational reports confirm Real Madrid superstar has agreed personal terms following intense negotiations.',
-    image: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
-    likes: 240,
-    comments: 42,
-    date: 'Today',
-  },
-  {
-    id: 'a2',
-    tag: 'MATCH REPORT',
-    title: 'Arsenal 3-1 Chelsea: Gunners Masterclass Reclaims Premier League Top Spot',
-    excerpt: 'A dominant second-half display at Emirates Stadium keeps title ambitions ablaze.',
-    image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1400&h=700&fit=crop&auto=format',
-    likes: 180,
-    comments: 31,
-    date: 'Today',
-  },
-  {
-    id: 'a3',
-    tag: 'EAST AFRICA',
-    title: 'Gor Mahia Clinch Mashemeji Derby Victory Over AFC Leopards',
-    excerpt: 'KPL champions extend lead at the top of the table after dramatic late winner.',
-    image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1400&h=700&fit=crop&auto=format',
-    likes: 310,
-    comments: 54,
-    date: 'Today',
-  },
-]
 
 export default function Home() {
   const { t } = useApp()
@@ -152,18 +118,35 @@ export default function Home() {
         setDbArticles(arts)
       }
     })
+    fetchLiveIngestedPosts().then(posts => {
+      if (posts && posts.length > 0) {
+        setIngestedPosts(posts)
+      }
+    })
   }, [])
 
-  const allFeedItems = dbArticles.length > 0 ? dbArticles.map(a => ({
-    id: a.id,
-    tag: (a.category || 'NEWS').toUpperCase(),
-    title: a.title,
-    excerpt: a.body ? a.body.slice(0, 140) + '...' : '',
-    image: a.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
-    likes: a.likes || 140,
-    comments: 18,
-    date: a.published_at ? new Date(a.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Today',
-  })) : DEFAULT_HERO_SLIDES
+  // Priority 1: DB Articles | Priority 2: Real Ingested LiveScore Articles | Priority 3: []
+  const allFeedItems = dbArticles.length > 0
+    ? dbArticles.map(a => ({
+        id: a.id,
+        tag: (a.category || 'NEWS').toUpperCase(),
+        title: a.title,
+        excerpt: a.body ? a.body.slice(0, 140) + '...' : '',
+        image: a.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
+        likes: a.likes || 140,
+        comments: 18,
+        date: a.published_at ? new Date(a.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Today',
+      }))
+    : ingestedPosts.map(p => ({
+        id: p.id,
+        tag: (p.category || 'FOOTBALL').toUpperCase(),
+        title: p.transformedTitle || p.sourceTitle,
+        excerpt: p.transformedBody ? p.transformedBody.slice(0, 140) + '...' : '',
+        image: p.sourceImage || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
+        likes: 120,
+        comments: 12,
+        date: p.detectedAt || 'Today',
+      }))
 
   const heroSlides = allFeedItems.slice(0, 4)
   const breakingPost = null
