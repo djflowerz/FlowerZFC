@@ -3,6 +3,30 @@
   publish = "dist"
 
 [[redirects]]
+  from = "/api/livescore/*"
+  to = "https://prod-cdn-public-api.livescore.com/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/ls-cdn/*"
+  to = "https://lsm-static-prod.livescore.com/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/ls-page/*"
+  to = "https://www.livescore.com/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/ls-commentary/*"
+  to = "https://prod-cdn-commentary-api.livescore.com/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

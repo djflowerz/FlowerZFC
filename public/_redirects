@@ -1,1 +1,5 @@
+/api/livescore/* https://prod-cdn-public-api.livescore.com/:splat 200!
+/api/ls-cdn/* https://lsm-static-prod.livescore.com/:splat 200!
+/api/ls-page/* https://www.livescore.com/:splat 200!
+/api/ls-commentary/* https://prod-cdn-commentary-api.livescore.com/:splat 200!
 /* /index.html 200

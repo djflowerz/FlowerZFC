@@ -393,19 +393,42 @@ export function formatLeagueName(stage: any): string {
   return snm || cnm || 'Football'
 }
 
+export async function fetchLiveScoreEndpoint(pathAndQuery: string): Promise<any> {
+  const primaryUrl = `/api/livescore${pathAndQuery}`
+  const directUrl = `https://prod-cdn-public-api.livescore.com${pathAndQuery}`
+  const corsProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`
+
+  // 1. Try Netlify / Vite proxy
+  try {
+    const res = await fetch(primaryUrl, { headers: { 'Accept': 'application/json' } })
+    if (res.ok) {
+      const data = await res.json()
+      if (data && (data.Stages || data.Stage)) return data
+    }
+  } catch (e) { /* ignore */ }
+
+  // 2. Try direct CDN fetch
+  try {
+    const res2 = await fetch(directUrl, { headers: { 'Accept': 'application/json' } })
+    if (res2.ok) {
+      const data2 = await res2.json()
+      if (data2 && (data2.Stages || data2.Stage)) return data2
+    }
+  } catch (e) { /* ignore */ }
+
+  // 3. Fallback to AllOrigins CORS Proxy
+  const res3 = await fetch(corsProxyUrl, { headers: { 'Accept': 'application/json' } })
+  if (!res3.ok) throw new Error(`HTTP ${res3.status}`)
+  return await res3.json()
+}
+
 // ─── Live Scores — uses /en/football/live/ feed ───────────────────────────────
 export async function fetchLiveMatches(dateStr?: string, liveOnly = false): Promise<LiveMatch[]> {
   try {
     const formattedDate = formatDateForApi(dateStr)
     const liveFilter = liveOnly ? '&Lf=1' : ''
-    // Route through Vite proxy /api/livescore -> prod-cdn-public-api.livescore.com (bypasses CORS)
-    const url = `/api/livescore/v1/api/app/date/soccer/${formattedDate}/0?MD=1${liveFilter}`
-
-    const res = await fetch(url, {
-      headers: { 'Accept': 'application/json' }
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = await res.json()
+    const pathAndQuery = `/v1/api/app/date/soccer/${formattedDate}/0?MD=1${liveFilter}`
+    const data = await fetchLiveScoreEndpoint(pathAndQuery)
 
     const matches: LiveMatch[] = []
     if (data?.Stages && Array.isArray(data.Stages)) {
