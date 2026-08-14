@@ -14,14 +14,16 @@ const STORAGE_KEY = 'flowerzfc_notifications'
 function loadNotifications(): SiteNotification[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
+    if (raw) {
+      const parsed: SiteNotification[] = JSON.parse(raw)
+      // Filter out any legacy dummy notifications
+      const clean = parsed.filter(n => !['n1', 'n2', 'n3', 'n4'].includes(n.id))
+      return clean
+    }
   } catch { /* ignore */ }
-  // Default seed notifications
+  // Clean default notification
   return [
-    { id: 'n1', title: '⚽ GOAL! Arsenal 1-0 Chelsea', body: "Bukayo Saka fires in from 20 yards — 23'", time: '2m ago', read: false, icon: '⚽' },
-    { id: 'n2', title: '🔴 RED CARD: Liverpool vs Man City', body: "Phil Foden dismissed after a second yellow — 67'", time: '18m ago', read: false, icon: '🔴' },
-    { id: 'n3', title: '📰 OFFICIAL: Vinicius Jr signs for Man City', body: 'Record €200m deal confirmed by both clubs', time: '1h ago', read: true, icon: '📰' },
-    { id: 'n4', title: '⏱️ FT: Real Madrid 3-1 Barcelona', body: 'El Clásico result — Bellingham hat-trick', time: '3h ago', read: true, icon: '⏱️' },
+    { id: 'welcome', title: '⚽ Welcome to FlowerZFC', body: 'Enable push notifications to receive live goal alerts for your favorite teams.', time: 'Just now', read: false, icon: '⚽' },
   ]
 }
 
