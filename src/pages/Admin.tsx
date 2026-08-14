@@ -692,7 +692,7 @@ const SENT_EMAILS_INIT = [
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Admin() {
-  const { user } = useApp()
+  const { user, logout } = useApp()
   const navigate = useNavigate()
   const [tab, setTab]         = useState<AdminTab>('overview')
   const [loginEmail, setLoginEmail] = useState(SUPER_ADMIN_EMAIL)
@@ -702,6 +702,7 @@ export default function Admin() {
   const isSuperAdminEmail = userEmail === SUPER_ADMIN_EMAIL.toLowerCase()
   const isSuperAdminRole = user?.role === 'super_admin'
   const isAuthed = Boolean(user && isSuperAdminEmail && isSuperAdminRole)
+  const userRole: UserRole = (user?.role || 'super_admin') as UserRole
 
   // Data
   const [orders,    setOrders]    = useState(INIT_ORDERS)
@@ -1227,12 +1228,12 @@ export default function Admin() {
                 </span>
               </div>
               <h1 className="text-3xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>
-                FlowerZFC Control Center <span className="text-xs text-gray-500 font-normal">({authProfile?.email})</span>
+                FlowerZFC Control Center <span className="text-xs text-gray-500 font-normal">({user?.email})</span>
               </h1>
             </div>
             <div className="flex gap-2 shrink-0">
               <Link to="/" className="px-3 py-2 text-[11px] font-bold text-gray-400 hover:text-white rounded-xl border border-[#1e1e32] transition-colors">← Site</Link>
-              <button onClick={async () => { await supabase.auth.signOut(); setAuthProfile(null) }} className="px-3 py-2 text-[11px] font-bold text-gray-400 hover:text-red-400 rounded-xl border border-[#1e1e32] transition-colors">🔒 Sign Out</button>
+              <button onClick={async () => { await logout() }} className="px-3 py-2 text-[11px] font-bold text-gray-400 hover:text-red-400 rounded-xl border border-[#1e1e32] transition-colors">🔒 Sign Out</button>
             </div>
           </div>
 
@@ -2866,7 +2867,7 @@ export default function Admin() {
                         opens: 0
                       }
                       setSentEmails(p => [newCampaign, ...p])
-                      logAdminAction(authProfile?.email || 'admin@flowerz.fc', 'SEND_BROADCAST', 'EmailCampaign', newCampaign.id, `Sent ${commsMode} broadcast "${composeSub}" to ${newCampaign.sentTo} subscribers`)
+                      logAdminAction(user?.email || 'admin@flowerz.fc', 'SEND_BROADCAST', 'EmailCampaign', newCampaign.id, `Sent ${commsMode} broadcast "${composeSub}" to ${newCampaign.sentTo} subscribers`)
                       setComposeSent(true)
                     }} className="flex-1 py-3 text-sm font-black text-white rounded-xl hover:opacity-90 transition-all" style={{ background: commsMode === 'email' ? '#00b341' : '#8b5cf6' }}>
                       🚀 {commsMode === 'email' ? 'Send Newsletter to All Subscribers' : 'Broadcast Push Notification Now'}
@@ -3284,7 +3285,7 @@ export default function Admin() {
                     toastLib.info('📡 Pinging microservice endpoints...')
                     const res = await pingAllServices()
                     setHealthData(res)
-                    logAdminAction(authProfile?.email || 'admin@flowerz.fc', 'PING_SERVICES', 'System', 'microservices', 'Pinged all telemetry endpoints')
+                    logAdminAction(user?.email || 'admin@flowerz.fc', 'PING_SERVICES', 'System', 'microservices', 'Pinged all telemetry endpoints')
                     toastLib.success('✅ Microservice telemetry updated!')
                   }}
                   className="px-4 py-2 text-xs font-black text-black rounded-xl hover:opacity-90 transition-all shadow-md"
@@ -6066,7 +6067,7 @@ export default function Admin() {
           <form onSubmit={e => {
             e.preventDefault()
             const ref = `PAY-${Date.now()}`
-            logAdminAction(authProfile?.email || 'admin@flowerz.fc', 'INITIATE_PAYOUT', 'Payout', ref, `Initiated B2C transfer of $${payoutForm.amount} USD to ${payoutForm.recipient} (${payoutForm.mpesa})`)
+            logAdminAction(user?.email || 'admin@flowerz.fc', 'INITIATE_PAYOUT', 'Payout', ref, `Initiated B2C transfer of $${payoutForm.amount} USD to ${payoutForm.recipient} (${payoutForm.mpesa})`)
             toast(`✅ Paystack B2C Payout of $${payoutForm.amount} sent to ${payoutForm.recipient} via M-Pesa. Ref: ${ref}`, 'success')
             setShowPayoutModal(false)
           }} className="space-y-4">
