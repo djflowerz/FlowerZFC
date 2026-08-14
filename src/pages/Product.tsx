@@ -249,7 +249,7 @@ export default function Product() {
             <div className="flex gap-3 mb-6">
               <button
                 onClick={handleAdd}
-                disabled={!size}
+                disabled={isApparel && !size}
                 className="flex-1 py-4 text-sm font-black rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
                 style={{
                   background: added ? '#22c55e' : '#131320',
@@ -263,7 +263,7 @@ export default function Product() {
               </button>
               <button
                 onClick={handleBuyNow}
-                disabled={!size}
+                disabled={isApparel && !size}
                 className="flex-1 py-4 text-sm font-black rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
                 style={{ background: '#00b341', color: '#fff', fontFamily: 'Big Shoulders Display', fontSize: '15px' }}
               >
@@ -303,7 +303,7 @@ export default function Product() {
             </div>
             <div className="text-xs text-gray-400 leading-relaxed">
               {activeTab === 'description' && (
-                <p>{product.description} Made with sustainable materials. Official FlowerZFC merchandise. Machine washable at 30°C. Eco-certified packaging.</p>
+                <p>{product.description}</p>
               )}
               {activeTab === 'sizing' && (
                 <table className="w-full">
