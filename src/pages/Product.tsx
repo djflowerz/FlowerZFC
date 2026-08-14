@@ -54,18 +54,10 @@ export default function Product() {
           description: p.description || p.name,
         }))
         setAllProducts(formatted)
-        const found = formatted.find(p => p.id === id || p.id.toLowerCase() === (id || '').toLowerCase() || p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === (id || '').toLowerCase())
-        setProduct(found || formatted[0] || null)
+        const found = formatted.find(p => String(p.id) === String(id) || p.id.toLowerCase() === (id || '').toLowerCase() || p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === (id || '').toLowerCase())
+        setProduct(found || null)
       } else {
-        fetch('/products.json')
-          .then(r => r.json())
-          .then((data: ProductType[]) => {
-            if (Array.isArray(data) && data.length > 0) {
-              setAllProducts(data)
-              const found = data.find(p => p.id === id)
-              setProduct(found || data[0] || null)
-            }
-          }).catch(() => {})
+        setProduct(null)
       }
     }).finally(() => setLoading(false))
   }, [id])

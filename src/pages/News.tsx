@@ -295,14 +295,23 @@ export default function News() {
               </div>
             )}
           </div>
+        ) : dynamicArticles.length === 0 ? (
+          <div className="text-center py-20 rounded-2xl border border-[#1e1e32]" style={{ background: '#131320' }}>
+            <p className="text-5xl mb-3">📰</p>
+            <h3 className="text-2xl font-black text-white mb-2" style={{ fontFamily: 'Big Shoulders Display' }}>No News Articles Published Yet</h3>
+            <p className="text-xs text-gray-400 max-w-md mx-auto">
+              Articles created and published from the admin dashboard will appear here in real time.
+            </p>
+          </div>
         ) : selectedCategory === 'All' && !searchQuery ? (
           <>
             {/* Featured Main Story Hero */}
-            <Link
-              to={`/news/${featured.id}`}
-              className="group block mb-10 rounded-xl overflow-hidden relative transition-all duration-300 hover:border-[#00b341]"
-              style={{ height: '420px', border: '1px solid #1e1e32' }}
-            >
+            {featured && (
+              <Link
+                to={`/news/${featured.id}`}
+                className="group block mb-10 rounded-xl overflow-hidden relative transition-all duration-300 hover:border-[#00b341]"
+                style={{ height: '420px', border: '1px solid #1e1e32' }}
+              >
               <img
                 src={featured.image}
                 alt={featured.title}
@@ -351,6 +360,7 @@ export default function News() {
                 </div>
               </div>
             </Link>
+            )}
 
             {/* Content Grid (2 columns main + 1 column sidebar) */}
             <div className="grid lg:grid-cols-3 gap-8">
@@ -364,7 +374,7 @@ export default function News() {
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-5">
-                  {ARTICLES.filter(a => a.id !== featured.id).map((a, i) => (
+                  {filteredArticles.filter(a => a.id !== featured.id).map((a, i) => (
                     <div key={a.id} className="contents">
                       {i === 4 && (
                         <div className="sm:col-span-2 flex justify-center py-2">
@@ -417,65 +427,69 @@ export default function News() {
               {/* Right Sidebar */}
               <div className="space-y-6">
                 {/* Editor's Picks Widget */}
-                <div className="rounded-xl p-5" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-                  <h3
-                    className="font-black text-white text-base mb-4 flex items-center justify-between uppercase tracking-wider"
-                    style={{ fontFamily: 'Big Shoulders Display' }}
-                  >
-                    <span>⭐ Editor's Picks</span>
-                    <span className="text-xs text-[#00b341]">Must Read</span>
-                  </h3>
-                  <div className="space-y-4">
-                    {editorPicks.map((pick, idx) => (
-                      <Link
-                        key={pick.id}
-                        to={`/news/${pick.id}`}
-                        className="group flex gap-3 items-start pb-3 border-b last:border-b-0 last:pb-0 transition-colors"
-                        style={{ borderColor: '#1e1e32' }}
-                      >
-                        <span className="text-xl font-black text-gray-600 w-5 shrink-0 pt-0.5" style={{ fontFamily: 'Big Shoulders Display' }}>
-                          0{idx + 1}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <span className="text-[9px] font-black text-[#00b341] block mb-0.5">{pick.tag}</span>
-                          <h5 className="text-xs font-bold text-white group-hover:text-[#00b341] transition-colors line-clamp-2 leading-snug">
-                            {pick.title}
-                          </h5>
-                          <span className="text-[10px] text-gray-500 mt-1 block">{pick.readTime}</span>
-                        </div>
-                      </Link>
-                    ))}
+                {editorPicks.length > 0 && (
+                  <div className="rounded-xl p-5" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
+                    <h3
+                      className="font-black text-white text-base mb-4 flex items-center justify-between uppercase tracking-wider"
+                      style={{ fontFamily: 'Big Shoulders Display' }}
+                    >
+                      <span>⭐ Editor's Picks</span>
+                      <span className="text-xs text-[#00b341]">Must Read</span>
+                    </h3>
+                    <div className="space-y-4">
+                      {editorPicks.map((pick, idx) => (
+                        <Link
+                          key={pick.id}
+                          to={`/news/${pick.id}`}
+                          className="group flex gap-3 items-start pb-3 border-b last:border-b-0 last:pb-0 transition-colors"
+                          style={{ borderColor: '#1e1e32' }}
+                        >
+                          <span className="text-xl font-black text-gray-600 w-5 shrink-0 pt-0.5" style={{ fontFamily: 'Big Shoulders Display' }}>
+                            0{idx + 1}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[9px] font-black text-[#00b341] block mb-0.5">{pick.tag}</span>
+                            <h5 className="text-xs font-bold text-white group-hover:text-[#00b341] transition-colors line-clamp-2 leading-snug">
+                              {pick.title}
+                            </h5>
+                            <span className="text-[10px] text-gray-500 mt-1 block">{pick.readTime}</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Trending News Widget */}
-                <div className="rounded-xl p-5" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-                  <h3
-                    className="font-black text-white text-base mb-4 uppercase tracking-wider"
-                    style={{ fontFamily: 'Big Shoulders Display' }}
-                  >
-                    🔥 Trending Stories
-                  </h3>
-                  <div className="space-y-3">
-                    {ARTICLES.slice(0, 5).map((a, i) => (
-                      <Link
-                        key={a.id}
-                        to={`/news/${a.id}`}
-                        className="flex items-start gap-3 p-2 rounded-lg transition-colors hover:bg-white/5"
-                      >
-                        <span className="text-2xl font-black text-gray-600 w-6 shrink-0 text-center" style={{ fontFamily: 'Big Shoulders Display' }}>
-                          {i + 1}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-gray-200 line-clamp-2 group-hover:text-white">
-                            {a.title}
-                          </p>
-                          <span className="text-[10px] text-gray-500 mt-1 block">♥ {a.likes} likes</span>
-                        </div>
-                      </Link>
-                    ))}
+                {filteredArticles.length > 0 && (
+                  <div className="rounded-xl p-5" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
+                    <h3
+                      className="font-black text-white text-base mb-4 uppercase tracking-wider"
+                      style={{ fontFamily: 'Big Shoulders Display' }}
+                    >
+                      🔥 Trending Stories
+                    </h3>
+                    <div className="space-y-3">
+                      {filteredArticles.slice(0, 5).map((a, i) => (
+                        <Link
+                          key={a.id}
+                          to={`/news/${a.id}`}
+                          className="flex items-start gap-3 p-2 rounded-lg transition-colors hover:bg-white/5"
+                        >
+                          <span className="text-2xl font-black text-gray-600 w-6 shrink-0 text-center" style={{ fontFamily: 'Big Shoulders Display' }}>
+                            {i + 1}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-gray-200 line-clamp-2 group-hover:text-white">
+                              {a.title}
+                            </p>
+                            <span className="text-[10px] text-gray-500 mt-1 block">♥ {a.likes} likes</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Sidebar 300x600 Half Page Ad */}
                 <AdBanner size="halfpage" label="News Sponsor — 300×600 Space" />

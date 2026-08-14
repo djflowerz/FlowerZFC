@@ -67,14 +67,7 @@ export default function Shop() {
         }))
         setProductList(formatted)
       } else {
-        fetch('/products.json')
-          .then(r => r.json())
-          .then(data => {
-            if (Array.isArray(data) && data.length > 0) {
-              setProductList(data)
-            }
-          })
-          .catch(() => {})
+        setProductList([])
       }
     }).finally(() => setLoading(false))
   }, [])
