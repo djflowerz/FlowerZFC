@@ -136,10 +136,13 @@ export async function sendPasswordReset(email: string) {
 }
 
 export async function signInWithGoogle() {
+  const redirectUrl = window.location.hostname.includes('djflowerz.co.ke')
+    ? 'https://djflowerz.co.ke/account'
+    : `${window.location.origin}/account`
   return supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/`,
+      redirectTo: redirectUrl,
     },
   })
 }

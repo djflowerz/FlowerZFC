@@ -7,7 +7,10 @@ import { fetchLiveMatches, fetchOnlyLiveMatches, getUserTimezoneInfo, getInitial
 function getFormattedDate(offsetDays: number = 0): string {
   const d = new Date()
   d.setDate(d.getDate() + offsetDays)
-  return d.toISOString().slice(0, 10)
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
 }
 
 function formatDateHeader(dateStr: string): string {
@@ -51,7 +54,14 @@ export default function Fixtures() {
   const [selectedTeam, setSelectedTeam] = useState('All Teams')
   const [searchQuery, setSearchQuery] = useState('')
   const [liveOnly, setLiveOnly] = useState(false)
-  const [starredTeams, setStarredTeams] = useState<Set<string>>(new Set(['Arsenal', 'Gor Mahia']))
+  const [starredTeams, setStarredTeams] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('flowerzfc_starred_teams')
+      return saved ? new Set(JSON.parse(saved)) : new Set()
+    } catch {
+      return new Set()
+    }
+  })
   
   // Data States
   const [liveRibbonMatches, setLiveRibbonMatches] = useState<LiveMatch[]>([])
@@ -70,21 +80,21 @@ export default function Fixtures() {
 
   // Fetch Live-Only Ribbon Matches (strictly live === true)
   useEffect(() => {
+    // 1. Fetch live matches for the top ticker ribbon
     fetchOnlyLiveMatches().then(setLiveRibbonMatches)
+
+    // 2. Fetch full matches schedule for the selected date
+    setLoadingFixtures(true)
+    fetchLiveMatches(activeDateArg).then(data => {
+      setFixturesMatches(data)
+      setLoadingFixtures(false)
+      setSelectedTeam('All Teams')
+    })
+    
     const interval = setInterval(() => {
       fetchOnlyLiveMatches().then(setLiveRibbonMatches)
     }, 15000)
     return () => clearInterval(interval)
-  }, [])
-
-  // Fetch Fixtures for active Date
-  useEffect(() => {
-    setLoadingFixtures(true)
-    fetchLiveMatches(activeDateArg).then(matches => {
-      setFixturesMatches(matches)
-      setLoadingFixtures(false)
-      setSelectedTeam('All Teams')
-    })
   }, [activeDateArg])
 
   const toggleStarTeam = (teamName: string, e: React.MouseEvent) => {
@@ -94,6 +104,7 @@ export default function Fixtures() {
       const next = new Set(prev)
       if (next.has(teamName)) next.delete(teamName)
       else next.add(teamName)
+      try { localStorage.setItem('flowerzfc_starred_teams', JSON.stringify(Array.from(next))) } catch {}
       return next
     })
   }

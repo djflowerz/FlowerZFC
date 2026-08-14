@@ -106,6 +106,39 @@ function LiveTicker() {
 
 
 
+const DEFAULT_HERO_SLIDES = [
+  {
+    id: 'a1',
+    tag: 'TRANSFERS',
+    title: 'Vinicius Jr Reaches Agreement in Principle For Record Move',
+    excerpt: 'Sensational reports confirm Real Madrid superstar has agreed personal terms following intense negotiations.',
+    image: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
+    likes: 240,
+    comments: 42,
+    date: 'Today',
+  },
+  {
+    id: 'a2',
+    tag: 'MATCH REPORT',
+    title: 'Arsenal 3-1 Chelsea: Gunners Masterclass Reclaims Premier League Top Spot',
+    excerpt: 'A dominant second-half display at Emirates Stadium keeps title ambitions ablaze.',
+    image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1400&h=700&fit=crop&auto=format',
+    likes: 180,
+    comments: 31,
+    date: 'Today',
+  },
+  {
+    id: 'a3',
+    tag: 'EAST AFRICA',
+    title: 'Gor Mahia Clinch Mashemeji Derby Victory Over AFC Leopards',
+    excerpt: 'KPL champions extend lead at the top of the table after dramatic late winner.',
+    image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1400&h=700&fit=crop&auto=format',
+    likes: 310,
+    comments: 54,
+    date: 'Today',
+  },
+]
+
 export default function Home() {
   const { t } = useApp()
   const [slide, setSlide] = useState(0)
@@ -121,7 +154,7 @@ export default function Home() {
     })
   }, [])
 
-  const allFeedItems = dbArticles.map(a => ({
+  const allFeedItems = dbArticles.length > 0 ? dbArticles.map(a => ({
     id: a.id,
     tag: (a.category || 'NEWS').toUpperCase(),
     title: a.title,
@@ -130,18 +163,19 @@ export default function Home() {
     likes: a.likes || 140,
     comments: 18,
     date: a.published_at ? new Date(a.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Today',
-  }))
+  })) : DEFAULT_HERO_SLIDES
 
   const heroSlides = allFeedItems.slice(0, 4)
   const breakingPost = null
   const latestArticles = allFeedItems.slice(4, 10)
 
   useEffect(() => {
+    if (heroSlides.length === 0) return
     const timer = setInterval(() => setSlide(s => (s + 1) % heroSlides.length), 5000)
     return () => clearInterval(timer)
   }, [heroSlides.length])
 
-  const currentSlide = heroSlides[slide] || heroSlides[0]
+  const currentSlide = heroSlides[slide] || heroSlides[0] || DEFAULT_HERO_SLIDES[0]
 
   const statusColor = (s: string) =>
     s === 'confirmed' ? '#10b981' : s === 'rumour' ? '#f4a261' : '#3b82f6'

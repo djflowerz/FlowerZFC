@@ -17,7 +17,56 @@ export interface ProductType {
   description: string
 }
 
-export const PRODUCTS: ProductType[] = []
+const DEFAULT_SHOP_PRODUCTS: ProductType[] = [
+  {
+    id: 'p1771285147628',
+    name: 'Dell Latitude 5420',
+    price: 43000,
+    originalPrice: 55000,
+    category: 'Laptops',
+    badge: 'HOT',
+    rating: 4.8,
+    reviews: 18,
+    images: ['https://pub-8ce7dd1a0bfc42fb9e3a130e1f5f5aae.r2.dev/images/products/p1771285147628_0.png'],
+    description: '11th Gen Intel Core i7-1185G7 Quad-Core Processor, 16GB DDR4 RAM, 512GB NVMe SSD, 14-inch Full HD Display, Windows 11 Pro.',
+  },
+  {
+    id: 'p1771285147629',
+    name: 'Pioneer DDJ-REV1',
+    price: 50000,
+    originalPrice: 62000,
+    category: 'DJ Controllers',
+    badge: 'BESTSELLER',
+    rating: 4.9,
+    reviews: 24,
+    images: ['https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=600&h=600&fit=crop'],
+    description: '2-channel DJ controller for Serato DJ Lite. Battle-style layout with 60mm tempo sliders and Tracking Scratch feature.',
+  },
+  {
+    id: 'p1771285147630',
+    name: 'FlowerZFC Official Home Jersey 2026',
+    price: 49.99,
+    originalPrice: 64.99,
+    category: 'Jerseys',
+    badge: 'OFFICIAL',
+    rating: 4.9,
+    reviews: 214,
+    images: ['https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=600&h=600&fit=crop'],
+    description: 'Official FlowerZFC Home Jersey 2026 season. Premium breathable performance fabric with moisture-wicking technology.',
+  },
+  {
+    id: 'p1771285147631',
+    name: 'HP ZBook Power 15U G8',
+    price: 70000,
+    originalPrice: 85000,
+    category: 'Laptops',
+    badge: 'PRO',
+    rating: 4.8,
+    reviews: 12,
+    images: ['https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=600&h=600&fit=crop'],
+    description: 'Intel Core i7-11800H, 32GB RAM, 1TB NVMe SSD, NVIDIA T1200 4GB GPU, 15.6-inch FHD IPS Display.',
+  }
+]
 
 export default function Shop() {
   const { t, addToCart } = useApp()
@@ -25,28 +74,45 @@ export default function Shop() {
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [search, setSearch] = useState('')
   const [quickAdded, setQuickAdded] = useState<string | null>(null)
-  const [productList, setProductList] = useState<ProductType[]>([])
+  const [productList, setProductList] = useState<ProductType[]>(DEFAULT_SHOP_PRODUCTS)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchAllProducts().then(({ products, error }) => {
       if (!error && products && products.length > 0) {
-        const formatted = products.map((p: any) => ({
-          id: String(p.id),
-          name: p.name || 'Unnamed Product',
-          price: typeof p.price === 'number' ? p.price : parseFloat(p.price) || 0,
-          originalPrice: p.originalPrice || p.original_price || p.compare_at_price || null,
-          category: p.category || 'General',
-          badge: p.badge || (p.is_hot ? 'HOT' : p.is_featured ? 'FEATURED' : null),
-          rating: p.rating || 4.8,
-          reviews: p.reviews || p.comments_count || 18,
-          images: Array.isArray(p.images) ? p.images : (typeof p.images === 'string' && p.images.startsWith('[') ? JSON.parse(p.images) : [p.image || p.images || 'https://images.unsplash.com/photo-1551958219-acbc5dbf7f1e?w=600&h=600&fit=crop']),
-          description: p.description || p.name,
-        }))
-        setProductList(formatted)
+        const formatted = products.map((p: any) => {
+          let parsedImages = ['https://images.unsplash.com/photo-1551958219-acbc5dbf7f1e?w=600&h=600&fit=crop']
+          if (Array.isArray(p.images) && p.images.length > 0) {
+            parsedImages = p.images
+          } else if (typeof p.images === 'string') {
+            if (p.images.startsWith('[')) {
+              try { parsedImages = JSON.parse(p.images) } catch { parsedImages = [p.images] }
+            } else {
+              parsedImages = [p.images]
+            }
+          } else if (p.image) {
+            parsedImages = [p.image]
+          }
+
+          return {
+            id: String(p.id),
+            name: p.name || 'Unnamed Product',
+            price: typeof p.price === 'number' ? p.price : parseFloat(p.price) || 0,
+            originalPrice: p.originalPrice || p.original_price || p.compare_at_price || null,
+            category: p.category || 'General',
+            badge: p.badge || (p.is_hot ? 'HOT' : p.is_featured ? 'FEATURED' : null),
+            rating: p.rating || 4.8,
+            reviews: p.reviews || p.comments_count || 18,
+            images: parsedImages,
+            description: p.description || p.name,
+          }
+        })
+        setProductList(formatted.length > 0 ? formatted : DEFAULT_SHOP_PRODUCTS)
       } else {
-        setProductList([])
+        setProductList(DEFAULT_SHOP_PRODUCTS)
       }
+    }).catch(() => {
+      setProductList(DEFAULT_SHOP_PRODUCTS)
     }).finally(() => setLoading(false))
   }, [])
 

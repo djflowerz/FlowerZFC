@@ -7,17 +7,32 @@ import { fetchLiveMatches, subscribeToLiveScores, LiveMatch, getClubLogo, getIni
 const DAYS = ['Yesterday', 'Today', 'Tomorrow']
 
 export default function Scores() {
+  const getTodayLocalDate = () => {
+    const d = new Date()
+    const yyyy = d.getFullYear()
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+  }
+
   const { t } = useApp()
   const [matches, setMatches] = useState<LiveMatch[]>([])
   const [league, setLeague] = useState('All')
   const [day, setDay] = useState('Today')
   const [hideFinished, setHideFinished] = useState(false)
-  const [starredMatches, setStarredMatches] = useState<Set<string>>(new Set(['m1']))
+  const [starredMatches, setStarredMatches] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('flowerzfc_starred_matches')
+      return saved ? new Set(JSON.parse(saved)) : new Set()
+    } catch {
+      return new Set()
+    }
+  })
   const [showCalendar, setShowCalendar] = useState(false)
   const [showLeaguePicker, setShowLeaguePicker] = useState(false)
   const [leagueQuery, setLeagueQuery] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedDate, setSelectedDate] = useState('2026-08-12')
+  const [selectedDate, setSelectedDate] = useState(getTodayLocalDate())
   
   // Determine date parameter for API fetch
   const activeDateArg = 
@@ -41,6 +56,7 @@ export default function Scores() {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
+      try { localStorage.setItem('flowerzfc_starred_matches', JSON.stringify(Array.from(next))) } catch {}
       return next
     })
   }
