@@ -1131,22 +1131,7 @@ export default function Admin() {
     const matchStatus = articleFilter === 'All' || a.status === articleFilter
     return matchSearch && matchStatus
   })
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoginErr('')
-    const res = await loginWithEmail(loginEmail, loginPass)
-    if (res.success && res.profile) {
-      setAuthProfile(res.profile)
-      toastLib.success(`Welcome back, ${res.profile.name}! Logged in as ${res.profile.role.toUpperCase()}.`)
-      if (res.profile.role === 'editor') {
-        navigate('/editor-dashboard')
-      } else if (res.profile.role === 'support') {
-        navigate('/support-dashboard')
-      }
-    } else {
-      setLoginErr(res.error || 'Invalid credentials or unauthorized role.')
-    }
-  }
+
   const filteredComments = comments.filter(c => {
     const matchFilter = commentFilter === 'All' || c.status === commentFilter
     const matchSearch = !commentSearch || c.user.toLowerCase().includes(commentSearch.toLowerCase()) || c.body.toLowerCase().includes(commentSearch.toLowerCase()) || c.article.toLowerCase().includes(commentSearch.toLowerCase())
