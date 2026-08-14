@@ -17,82 +17,7 @@ export interface ProductType {
   description: string
 }
 
-export const DEFAULT_FLOWERZ_PRODUCTS: ProductType[] = [
-  {
-    id: 'fz-prod-1',
-    name: 'FlowerZFC Official Home Jersey 2026',
-    price: 4500,
-    originalPrice: 5500,
-    category: 'Jerseys',
-    badge: 'BESTSELLER',
-    rating: 4.9,
-    reviews: 24,
-    images: ['https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=600&h=600&fit=crop'],
-    description: 'Official 2026 FlowerZFC Home kit engineered with breathable moisture-wicking fabric, dynamic green gradient trim, and high-definition crest.',
-  },
-  {
-    id: 'fz-prod-2',
-    name: 'FlowerZFC Away Kit 2026 (Pro Edition)',
-    price: 4500,
-    originalPrice: 5200,
-    category: 'Jerseys',
-    badge: 'NEW',
-    rating: 4.8,
-    reviews: 19,
-    images: ['https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=600&h=600&fit=crop'],
-    description: 'Sleek dark edition away jersey featuring gold accents and custom ventilation panels for peak athletic performance.',
-  },
-  {
-    id: 'fz-prod-3',
-    name: 'Bigstone Entertainment Heavyweight Hoodie',
-    price: 5500,
-    originalPrice: 6500,
-    category: 'Tracksuits',
-    badge: 'HOT',
-    rating: 5.0,
-    reviews: 31,
-    images: ['https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600&h=600&fit=crop'],
-    description: 'Premium 400GSM fleece hoodie with high-density embroidered DJ Flowerz & Bigstone Entertainment logos.',
-  },
-  {
-    id: 'fz-prod-4',
-    name: 'DJ Flowerz Signature Snapback + Scarf Pack',
-    price: 2500,
-    originalPrice: 3200,
-    category: 'Accessories',
-    badge: 'LIMITED',
-    rating: 4.7,
-    reviews: 14,
-    images: ['https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=600&h=600&fit=crop'],
-    description: 'Limited edition matchday accessory pack including high-density embroidered snapback and double-knit woven fan scarf.',
-  },
-  {
-    id: 'fz-prod-5',
-    name: 'FlowerZFC Official Matchball (FIFA Quality Pro)',
-    price: 3800,
-    originalPrice: 4500,
-    category: 'Footballs',
-    badge: 'BESTSELLER',
-    rating: 4.9,
-    reviews: 18,
-    images: ['https://images.unsplash.com/photo-1614632537190-23e4146777db?w=600&h=600&fit=crop'],
-    description: 'Thermally bonded 12-panel match football with micro-textured aerow-trac grooves for true flight precision.',
-  },
-  {
-    id: 'fz-prod-6',
-    name: 'AFCON 2026 Commemorative Art Print',
-    price: 1800,
-    originalPrice: 2400,
-    category: 'Memorabilia',
-    badge: 'LIMITED',
-    rating: 4.9,
-    reviews: 12,
-    images: ['https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=600&h=600&fit=crop'],
-    description: 'Hand-numbered giclée art print celebrating East African football culture and matchday energy.',
-  },
-]
-
-export const PRODUCTS: ProductType[] = DEFAULT_FLOWERZ_PRODUCTS
+export const PRODUCTS: ProductType[] = []
 
 export default function Shop() {
   const { t, addToCart } = useApp()
@@ -100,7 +25,7 @@ export default function Shop() {
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [search, setSearch] = useState('')
   const [quickAdded, setQuickAdded] = useState<string | null>(null)
-  const [productList, setProductList] = useState<ProductType[]>(DEFAULT_FLOWERZ_PRODUCTS)
+  const [productList, setProductList] = useState<ProductType[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -111,7 +36,7 @@ export default function Shop() {
           name: p.name || 'Unnamed Product',
           price: typeof p.price === 'number' ? p.price : parseFloat(p.price) || 0,
           originalPrice: p.originalPrice || p.original_price || p.compare_at_price || null,
-          category: p.category || 'Jerseys',
+          category: p.category || 'General',
           badge: p.badge || (p.is_hot ? 'HOT' : p.is_featured ? 'FEATURED' : null),
           rating: p.rating || 4.8,
           reviews: p.reviews || p.comments_count || 18,
@@ -120,10 +45,15 @@ export default function Shop() {
         }))
         setProductList(formatted)
       } else {
-        setProductList(DEFAULT_FLOWERZ_PRODUCTS)
+        setProductList([])
       }
     }).finally(() => setLoading(false))
   }, [])
+
+  const categories = useMemo(() => {
+    const cats = new Set(productList.map(p => p.category).filter(Boolean))
+    return ['All', ...Array.from(cats)]
+  }, [productList])
 
   const filtered = useMemo(() => {
     let list = productList.filter(p => {
@@ -187,7 +117,7 @@ export default function Shop() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           {/* Category Chips */}
           <div className="flex gap-2 flex-wrap">
-            {CATEGORIES.map(c => (
+            {categories.map(c => (
               <button
                 key={c}
                 onClick={() => setActiveCategory(c)}

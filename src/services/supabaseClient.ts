@@ -201,25 +201,13 @@ export async function updateLastLogin(userId: string) {
   }
 }
 
-const EXCLUDED_CATEGORIES = ['Laptops', 'Software', 'DJ Controllers', 'Audio Equipment', 'Monitors', 'Cables', 'Speakers', 'All-In-One Desktops']
-const EXCLUDED_KEYWORDS = ['dell', 'hp', 'lenovo', 'macbook', 'pioneer', 'atomix', 'oraimo', 'magix', 'serato', 'havit', 'imac', 'vegas', 'thinkpad', 'probook', 'zbook', 'spacebuds', 'boompop']
-
 export async function fetchAllProducts(): Promise<{ products: ProductRow[]; error: any }> {
   try {
     const { data, error } = await supabase
       .from('products')
       .select('*')
-    if (error || !data) return { products: [], error }
-
-    const filtered = (data as ProductRow[]).filter(p => {
-      const cat = (p.category || '').trim()
-      const nameLower = (p.name || '').toLowerCase()
-      if (EXCLUDED_CATEGORIES.some(c => c.toLowerCase() === cat.toLowerCase())) return false
-      if (EXCLUDED_KEYWORDS.some(kw => nameLower.includes(kw))) return false
-      return true
-    })
-
-    return { products: filtered, error: null }
+      .order('created_at', { ascending: false })
+    return { products: (data as ProductRow[]) || [], error }
   } catch (err) {
     return { products: [], error: err }
   }

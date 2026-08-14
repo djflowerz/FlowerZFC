@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { fetchAllProducts } from '../services/supabaseClient'
-import { ProductType, DEFAULT_FLOWERZ_PRODUCTS } from './Shop'
+import type { ProductType } from './Shop'
 
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
 
@@ -47,18 +47,16 @@ export default function Product() {
           name: p.name || 'Unnamed Product',
           price: typeof p.price === 'number' ? p.price : parseFloat(p.price) || 0,
           originalPrice: p.originalPrice || p.original_price || p.compare_at_price || null,
-          category: p.category || 'Jerseys',
+          category: p.category || 'General',
           badge: p.badge || (p.is_hot ? 'HOT' : p.is_featured ? 'FEATURED' : null),
           rating: p.rating || 4.8,
           reviews: p.reviews || p.comments_count || 18,
           images: Array.isArray(p.images) ? p.images : (typeof p.images === 'string' && p.images.startsWith('[') ? JSON.parse(p.images) : [p.image || p.images || 'https://images.unsplash.com/photo-1551958219-acbc5dbf7f1e?w=600&h=600&fit=crop']),
           description: p.description || p.name,
         }))
-      } else {
-        formatted = DEFAULT_FLOWERZ_PRODUCTS
       }
       setAllProducts(formatted)
-      const found = formatted.find(p => String(p.id) === String(id) || p.id.toLowerCase() === (id || '').toLowerCase() || p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === (id || '').toLowerCase()) || DEFAULT_FLOWERZ_PRODUCTS.find(p => String(p.id) === String(id))
+      const found = formatted.find(p => String(p.id) === String(id) || p.id.toLowerCase() === (id || '').toLowerCase() || p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') === (id || '').toLowerCase())
       setProduct(found || null)
     }).finally(() => setLoading(false))
   }, [id])
@@ -68,7 +66,7 @@ export default function Product() {
       <div style={{ background: '#0a0a14', minHeight: '100vh' }} className="flex items-center justify-center p-12 text-white">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 border-4 border-[#00b341] border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-bold text-gray-400">Loading merchandise item...</span>
+          <span className="text-sm font-bold text-gray-400">Loading product...</span>
         </div>
       </div>
     )
@@ -79,23 +77,27 @@ export default function Product() {
       <div style={{ background: '#0a0a14', minHeight: '100vh' }} className="flex items-center justify-center p-12 text-white">
         <div className="text-center">
           <h2 className="text-2xl font-black text-white mb-2">Product Not Found</h2>
-          <p className="text-sm text-gray-400 mb-6">The requested merchandise item does not exist or has been removed.</p>
+          <p className="text-sm text-gray-400 mb-6">The requested product item does not exist or has been removed.</p>
           <Link to="/shop" className="px-6 py-3 bg-[#00b341] text-white font-bold rounded-xl text-xs">Back to Shop →</Link>
         </div>
       </div>
     )
   }
 
+  const isApparel = ['jerseys', 'shorts', 'tracksuits', 'apparel', 'clothing', 'boots', 'shoes'].includes((product.category || '').toLowerCase())
+
   const handleAdd = () => {
-    if (!size) return
-    addToCart({ id: product.id, name: product.name, price: product.price, size, quantity: qty, image: product.images[0] })
+    const chosenSize = isApparel ? size : (size || 'Standard')
+    if (isApparel && !size) return
+    addToCart({ id: product.id, name: product.name, price: product.price, size: chosenSize, quantity: qty, image: product.images[0] })
     setAdded(true)
     setTimeout(() => setAdded(false), 2500)
   }
 
   const handleBuyNow = () => {
-    if (!size) return
-    addToCart({ id: product.id, name: product.name, price: product.price, size, quantity: qty, image: product.images[0] })
+    const chosenSize = isApparel ? size : (size || 'Standard')
+    if (isApparel && !size) return
+    addToCart({ id: product.id, name: product.name, price: product.price, size: chosenSize, quantity: qty, image: product.images[0] })
     navigate('/checkout')
   }
 
@@ -103,6 +105,7 @@ export default function Product() {
   const allRelated = related.length > 0 ? related : allProducts.filter(p => p.id !== product.id).slice(0, 4)
 
   const savings = product.originalPrice ? product.originalPrice - product.price : 0
+  const formatPrice = (amt: number) => amt >= 500 ? `KES ${amt.toLocaleString()}` : `$${amt.toFixed(2)}`
 
   return (
     <div style={{ background: '#0a0a14', minHeight: '100vh' }}>
@@ -182,41 +185,43 @@ export default function Product() {
             {/* Price */}
             <div className="flex items-baseline gap-3 mb-6">
               <span className="text-4xl font-black text-[#00b341]" style={{ fontFamily: 'Big Shoulders Display' }}>
-                ${product.price.toFixed(2)}
+                {formatPrice(product.price)}
               </span>
-              {product.originalPrice && (
+              {product.originalPrice && product.originalPrice > product.price && (
                 <>
-                  <span className="text-lg text-gray-500 line-through">${product.originalPrice.toFixed(2)}</span>
+                  <span className="text-lg text-gray-500 line-through">{formatPrice(product.originalPrice)}</span>
                   <span className="text-xs font-black px-2 py-0.5 rounded-full text-white bg-red-500">
-                    Save ${savings.toFixed(2)}
+                    Save {formatPrice(savings)}
                   </span>
                 </>
               )}
             </div>
 
-            {/* Size selector */}
-            <div className="mb-5">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-bold text-gray-300">Select Size</span>
-                {!size && <span className="text-xs text-red-400 animate-pulse">← Please select a size</span>}
+            {/* Size selector (Only for Apparel) */}
+            {isApparel && (
+              <div className="mb-5">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-bold text-gray-300">Select Size</span>
+                  {!size && <span className="text-xs text-red-400 animate-pulse">← Please select a size</span>}
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {SIZES.map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setSize(s)}
+                      className="w-11 h-11 text-sm font-bold rounded-xl transition-all"
+                      style={
+                        size === s
+                          ? { background: '#00b341', border: '2px solid #00b341', color: '#fff' }
+                          : { background: '#131320', border: '2px solid #1e1e32', color: '#9ca3af' }
+                      }
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                {SIZES.map(s => (
-                  <button
-                    key={s}
-                    onClick={() => setSize(s)}
-                    className="w-11 h-11 text-sm font-bold rounded-xl transition-all"
-                    style={
-                      size === s
-                        ? { background: '#00b341', border: '2px solid #00b341', color: '#fff' }
-                        : { background: '#131320', border: '2px solid #1e1e32', color: '#9ca3af' }
-                    }
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
+            )}
 
             {/* Quantity */}
             <div className="mb-6">
