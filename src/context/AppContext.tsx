@@ -15,6 +15,7 @@ export interface CartItem {
 }
 
 interface AppContextType {
+  refreshProfile: () => Promise<void>
   lang: Lang
   setLang: (l: Lang) => void
   t: (key: string) => string
@@ -27,7 +28,7 @@ interface AppContextType {
   clearCart: () => void
   cartTotal: number
   cartCount: number
-  user: { name: string; email: string; role: string } | null
+  user: { id: string; name: string; email: string; role: string; avatar_url: string | null } | null
   authLoading: boolean
   login: (email: string, password: string) => Promise<{ error?: string }>
   logout: () => Promise<void>
@@ -348,12 +349,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   })
 
   // ── Supabase auth state listener ─────────────────────────────────────────
-  const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(() => {
+  const [user, setUser] = useState<{ id: string; name: string; email: string; role: string; avatar_url: string | null } | null>(() => {
     try {
       const saved = localStorage.getItem('flowerzfc_user')
       if (!saved) return null
       const parsed = JSON.parse(saved)
-      return { name: parsed.name || '', email: parsed.email || '', role: parsed.role || 'user' }
+      return { id: parsed.id || '', name: parsed.name || '', email: parsed.email || '', role: parsed.role || 'user', avatar_url: parsed.avatar_url || null }
     } catch { return null }
   })
   const [authLoading, setAuthLoading] = useState(true)
@@ -366,7 +367,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const role = profile?.role || 'user'
         const name = profile?.name || session.user.email?.split('@')[0] || 'User'
         const email = session.user.email || ''
-        const resolved = { name, email, role }
+        const resolved = { id: session.user.id, name, email, role, avatar_url: profile?.avatar_url || null }
         setUser(resolved)
         localStorage.setItem('flowerzfc_user', JSON.stringify(resolved))
       } else {
@@ -383,7 +384,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const role = profile?.role || 'user'
         const name = profile?.name || session.user.email?.split('@')[0] || 'User'
         const email = session.user.email || ''
-        const resolved = { name, email, role }
+        const resolved = { id: session.user.id, name, email, role, avatar_url: profile?.avatar_url || null }
         setUser(resolved)
         localStorage.setItem('flowerzfc_user', JSON.stringify(resolved))
       } else {
@@ -470,12 +471,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('flz_auth_user_v1')
   }
 
+  const refreshProfile = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) return
+    const { profile } = await fetchProfile(session.user.id)
+    const role = profile?.role || 'user'
+    const name = profile?.name || session.user.email?.split('@')[0] || 'User'
+    const email = session.user.email || ''
+    const resolved = { id: session.user.id, name, email, role, avatar_url: profile?.avatar_url || null }
+    setUser(resolved)
+    localStorage.setItem('flowerzfc_user', JSON.stringify(resolved))
+  }
+
   return (
     <AppContext.Provider
       value={{
         lang, setLang, t, darkMode, toggleDark,
         cart, addToCart, removeFromCart, updateQty, clearCart,
-        cartTotal, cartCount, user, authLoading, login, logout,
+        cartTotal, cartCount, user, authLoading, login, logout, refreshProfile,
       }}
     >
       {children}

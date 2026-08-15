@@ -346,3 +346,25 @@ export async function deleteTicketFromDb(id: string): Promise<{ error: any }> {
     return { error: err }
   }
 }
+
+
+export async function uploadAvatar(userId: string, file: File): Promise<{ url: string | null; error: any }> {
+  try {
+    const ext = file.name.split('.').pop() || 'jpg'
+    const path = `${userId}/avatar-${Date.now()}.${ext}`
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+    if (uploadError) return { url: null, error: uploadError }
+    const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+    const { error: updateError } = await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', userId)
+    if (updateError) return { url: null, error: updateError }
+    return { url: data.publicUrl, error: null }
+  } catch (error) {
+    return { url: null, error }
+  }
+}
+
+
+export async function changePassword(newPassword: string): Promise<{ error: any }> {
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+  return { error }
+}

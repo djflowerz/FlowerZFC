@@ -20,6 +20,7 @@ import Checkout from './pages/Checkout'
 import Predictions from './pages/Predictions'
 import Advertise from './pages/Advertise'
 import Login from './pages/Login'
+import ResetPassword from './pages/ResetPassword'
 import Account from './pages/Account'
 import About from './pages/About'
 import Contact from './pages/Contact'
@@ -105,6 +106,7 @@ export default function App() {
           <Route path="/advertise" element={<Layout><Advertise /></Layout>} />
           <Route path="/admin" element={<Layout><Admin /></Layout>} />
           <Route path="/login" element={<Layout><Login /></Layout>} />
+        <Route path="/reset-password" element={<Layout><ResetPassword /></Layout>} />
           <Route path="/account" element={<Layout><Account /></Layout>} />
           <Route path="/account/:section" element={<Layout><Account /></Layout>} />
           <Route path="/about" element={<Layout><About /></Layout>} />
