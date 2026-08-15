@@ -16,6 +16,8 @@ export interface ProductType {
   images: string[]
   description: string
 }
+type SortOption = 'newest' | 'popular' | 'price-asc' | 'price-desc'
+
 
 const DEFAULT_SHOP_PRODUCTS: ProductType[] = [
   {
@@ -72,6 +74,17 @@ const BADGE_COLORS: Record<string, string> = {
   BESTSELLER: '#00b341',
   FEATURED: '#3b82f6',
   NEW: '#f59e0b',
+}
+
+function StarRating({ rating }: { rating: number }) {
+  const full = Math.round(rating)
+  return (
+    <div className="flex items-center gap-0.5" style={{ color: '#f59e0b' }}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <span key={i} style={{ opacity: i < full ? 1 : 0.25 }}>★</span>
+      ))}
+    </div>
+  )
 }
 
 
