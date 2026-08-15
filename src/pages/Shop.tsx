@@ -67,6 +67,13 @@ const DEFAULT_SHOP_PRODUCTS: ProductType[] = [
     description: 'Intel Core i7-11800H, 32GB RAM, 1TB NVMe SSD, NVIDIA T1200 4GB GPU, 15.6-inch FHD IPS Display.',
   }
 ]
+const BADGE_COLORS: Record<string, string> = {
+  HOT: '#ef4444',
+  BESTSELLER: '#00b341',
+  FEATURED: '#3b82f6',
+  NEW: '#f59e0b',
+}
+
 
 export default function Shop() {
   const { t, addToCart } = useApp()
