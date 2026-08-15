@@ -205,7 +205,14 @@ export type Comment = { id: string; user: string; article: string; body: string;
 export const INIT_COMMENTS: Comment[] = []
 
 type AdSlot = { id: string; slot: string; page: string; size: string; price: number; status: string; advertiser: string; start: string; end: string }
-const INIT_ADS: AdSlot[] = []
+const INIT_ADS: AdSlot[] = [
+  { id: 'ad_1', slot: 'Header Leaderboard Banner', page: 'Global (All Pages)', size: '728×90', price: 299, status: 'Available', advertiser: '—', start: '—', end: '—' },
+  { id: 'ad_2', slot: 'In-Feed Medium Rectangle', page: 'Homepage & News Feed', size: '300×250', price: 199, status: 'Available', advertiser: '—', start: '—', end: '—' },
+  { id: 'ad_3', slot: 'Sticky Mobile Footer Banner', page: 'Mobile Global Footer', size: '320×50', price: 149, status: 'Available', advertiser: '—', start: '—', end: '—' },
+  { id: 'ad_4', slot: 'Desktop Wide Skyscraper', page: 'Sidebar (News & Scores)', size: '160×600', price: 249, status: 'Available', advertiser: '—', start: '—', end: '—' },
+  { id: 'ad_5', slot: 'Sidebar Half Page Banner', page: 'Shop & Articles Sidebar', size: '300×600', price: 349, status: 'Available', advertiser: '—', start: '—', end: '—' },
+  { id: 'ad_6', slot: 'Sponsored Native Content Card', page: 'News Feed Grid', size: 'Native', price: 399, status: 'Available', advertiser: '—', start: '—', end: '—' },
+]
 const AD_REQUESTS: { id:string; company:string; contact:string; size:string; budget:string; date:string; status:string }[] = []
 
 const INIT_SUBS: { id:string; email:string; name:string; joined:string; status:string; opens:number; clicks:number }[] = []
@@ -562,56 +569,56 @@ export default function Admin() {
   const [composeSent, setComposeSent] = useState(false)
 
   // Settings
-  const [settings, setSettings] = useState({
-    siteName:'FlowerZFC', tagline:'Your Global Football Home',
-    adminEmail:'djflowerz@globalfootball.com',
-    supportEmail:'support@globalfootball.com',
-    timezone:'Africa/Nairobi',
-    currency:'KES',
-    callbackUrl:'https://www.djflowerz.co.ke/success', minTipAmount:'2',
-    maxTipAmount:'5000',
-    tipsEnabled:true, shopEnabled:true, allowGuestCheckout:false,
-    maintenanceMode:false, commentsEnabled:true, predictionsEnabled:true, fantasyEnabled:true,
-    adsEnabled:true, pushEnabled:true, liveScoresEnabled:true, quizEnabled:true,
-    registrationOpen:true, emailVerificationRequired:true,
-    twoFactorRequired:false, autoBackup:true,
-    // SEO & Social
-    seoDescription:'The home of global football media, live scores, breaking news, merchandise, and fan engagement.',
-    ogImageUrl:'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1200&h=630&fit=crop',
-    twitterHandle:'@FlowerZFC',
-    gaMeasurementId:'G-FLOWERZ2026',
-    // Email Gateway
-    emailDriver:'Resend (Recommended)',
-    smtpHost:'smtp.resend.com',
-    smtpPort:'587',
-    emailFromName:'FlowerZFC Media',
-    // M-Pesa B2C
-    mpesaShortcode:'600000',
-    mpesaEnv:'Sandbox',
-    mpesaMaxDailyPayout:'5000',
-    // Custom Maintenance Message
-    maintenanceMessage:'FlowerZFC is currently undergoing scheduled platform upgrades. We will be back live shortly!',
-    // Branding & Theme
-    logoUrl:'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=100&h=100&fit=crop',
-    faviconUrl:'/favicon.ico',
-    primaryColor:'#00b341',
-    fontFamily:'Big Shoulders Display',
-    // Legal Policies
-    termsOfService:'Welcome to GlobalFootballMedia (FlowerZFC). By accessing our website, purchasing products, or using tips, you agree to our terms...',
-    privacyPolicy:'We respect your privacy. Data collected is strictly governed by the Kenya Data Protection Act 2019 and GDPR...',
-    refundPolicy:'Shop merchandise can be returned within 14 days of delivery if unused and in original packaging...',
-    cookiePolicy:'We use essential cookies to maintain session authorization and store user preferences...',
-    // Social Media Links
-    youtubeUrl:'https://youtube.com/@FlowerZFC',
-    instagramUrl:'https://instagram.com/FlowerZFC',
-    tiktokUrl:'https://tiktok.com/@FlowerZFC',
-    facebookUrl:'https://facebook.com/FlowerZFC',
-    whatsappChannelUrl:'https://whatsapp.com/channel/FlowerZFC',
-    discordUrl:'https://discord.gg/flowerzfc',
-    // Push VAPID & Webhooks
-    vapidPublicKey:'BEl62iUYgUivxIkv69yViEuiBIa-M9-pG9Q1Vb_P...',
-    fcmSenderId:'109284729104',
-    outgoingWebhookUrl:'https://api.djflowerz.co.ke/webhooks/events',
+  const [settings, setSettings] = useState(() => {
+    try {
+      const raw = localStorage.getItem('flowerzfc_settings')
+      if (raw) return JSON.parse(raw)
+    } catch {}
+    return {
+      siteName:'FlowerZFC', tagline:'Your Global Football Home',
+      adminEmail:'ianmuriithiflowerz@gmail.com',
+      supportEmail:'support@flowerz.fc',
+      timezone:'Africa/Nairobi',
+      currency:'KES',
+      callbackUrl:'https://djflowerz.co.ke/account', minTipAmount:'2',
+      maxTipAmount:'5000',
+      tipsEnabled:true, shopEnabled:true, allowGuestCheckout:false,
+      maintenanceMode:false, commentsEnabled:true, predictionsEnabled:true, fantasyEnabled:true,
+      adsEnabled:true, pushEnabled:true, liveScoresEnabled:true, quizEnabled:true,
+      registrationOpen:true, emailVerificationRequired:true,
+      twoFactorRequired:false, autoBackup:true,
+      seoDescription:'The home of global football media, live scores, breaking news, merchandise, and fan engagement.',
+      ogImageUrl:'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1200&h=630&fit=crop',
+      twitterHandle:'@FlowerZFC',
+      gaMeasurementId:'G-FLOWERZ2026',
+      emailDriver:'Resend (Recommended)',
+      smtpHost:'smtp.resend.com',
+      smtpPort:'587',
+      emailFromName:'FlowerZFC Media',
+      mpesaShortcode:'600000',
+      mpesaEnv:'Sandbox',
+      mpesaMaxDailyPayout:'5000',
+      maintenanceMessage:'FlowerZFC is currently undergoing scheduled platform upgrades. We will be back live shortly!',
+      logoUrl:'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=100&h=100&fit=crop',
+      faviconUrl:'/favicon.ico',
+      primaryColor:'#00b341',
+      fontFamily:'Big Shoulders Display',
+      termsOfService:'Welcome to GlobalFootballMedia (FlowerZFC). By accessing our website, purchasing products, or using tips, you agree to our terms...',
+      privacyPolicy:'We respect your privacy. Data collected is strictly governed by the Kenya Data Protection Act 2019 and GDPR...',
+      refundPolicy:'Shop merchandise can be returned within 14 days of delivery if unused and in original packaging...',
+      cookiePolicy:'We use essential cookies to maintain session authorization and store user preferences...',
+      // Social Media Links
+      youtubeUrl:'https://youtube.com/@FlowerZFC',
+      instagramUrl:'https://instagram.com/FlowerZFC',
+      tiktokUrl:'https://tiktok.com/@FlowerZFC',
+      facebookUrl:'https://facebook.com/FlowerZFC',
+      whatsappChannelUrl:'https://whatsapp.com/channel/FlowerZFC',
+      discordUrl:'https://discord.gg/flowerzfc',
+      // Push VAPID & Webhooks
+      vapidPublicKey:'BEl62iUYgUivxIkv69yViEuiBIa-M9-pG9Q1Vb_P...',
+      fcmSenderId:'109284729104',
+      outgoingWebhookUrl:'https://api.djflowerz.co.ke/webhooks/events',
+    }
   })
   const [settingsSaved, setSettingsSaved] = useState(false)
   const [newAdminPass,  setNewAdminPass]  = useState('')
@@ -774,6 +781,7 @@ export default function Admin() {
     { id:'orders',     icon:'🛒', label:'Orders',     badge:pendingOrders   },
     { id:'products',   icon:'👕', label:'Products'                         },
     { id:'articles',   icon:'📰', label:'Articles'                         },
+    { id:'mixes',      icon:'🎧', label:'Mixes'                            },
     { id:'tickets',    icon:'🎟️', label:'Tickets'                         },
     { id:'users',      icon:'👥', label:'Users'                            },
     { id:'financials', icon:'💰', label:'Financials'                       },
@@ -2343,6 +2351,29 @@ export default function Admin() {
               </div>
             </Card>
 
+            {/* Google AdSense & Third-Party Ad Code Integration */}
+            <Card className="p-6 space-y-4">
+              <h3 className="text-sm font-black text-white uppercase tracking-wider border-b border-[#1e1e32] pb-3 flex items-center justify-between">
+                <span>🌐 Google AdSense &amp; Third-Party Ad Script Code</span>
+                <span className="text-[10px] text-[#00b341] font-bold">Live Script Injector</span>
+              </h3>
+              <p className="text-xs text-gray-400">
+                Paste your Google AdSense script tag (e.g. <code className="text-emerald-400 font-mono">&lt;script async src="https://pagead2.googlesyndication.com/..."&gt;&lt;/script&gt;</code>) or any custom ad network embed code. It will inject into all ad banner slots across the site instantly.
+              </p>
+              <textarea
+                defaultValue={localStorage.getItem('flowerzfc_adsense_code') || ''}
+                onBlur={e => {
+                  const code = e.target.value
+                  localStorage.setItem('flowerzfc_adsense_code', code)
+                  toastLib.success('Ad embed code saved! Live on all site ad banners.')
+                }}
+                rows={4}
+                placeholder="<script async src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXXX' crossorigin='anonymous'></script>"
+                className={`${INPUT} font-mono text-xs`}
+                style={INPUT_STYLE}
+              />
+            </Card>
+
             {/* Booking Requests */}
             <Card className="p-5">
               <SectionHead title="📬 Incoming Advertiser Requests" sub="Direct advertising enquiries submitted via the platform." />
@@ -3755,7 +3786,15 @@ export default function Admin() {
               </button>
             </Card>
 
-            <button onClick={() => { setSettingsSaved(true); setTimeout(() => setSettingsSaved(false), 3000) }}
+            <button onClick={() => {
+              try {
+                localStorage.setItem('flowerzfc_settings', JSON.stringify(settings))
+                window.dispatchEvent(new Event('flowerzfc_config_updated'))
+              } catch {}
+              setSettingsSaved(true)
+              toastLib.success('✓ Settings Saved! Applied site-wide.')
+              setTimeout(() => setSettingsSaved(false), 3000)
+            }}
               className="w-full py-4 font-black text-white rounded-xl shadow-xl transition-all hover:opacity-90"
               style={{ background: settingsSaved ? '#00b341' : 'linear-gradient(135deg,#00b341,#00d94f)', fontFamily: 'Big Shoulders Display', fontSize: '16px' }}>
               {settingsSaved ? '✓ Settings Saved!' : 'Save Settings →'}

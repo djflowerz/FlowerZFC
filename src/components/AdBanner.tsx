@@ -27,7 +27,7 @@ const AD_SPONSORS = [
 export default function AdBanner({ size, label, className = '' }: Props) {
   const cfg = SIZES[size]
   const [sponsor] = useState(() => AD_SPONSORS[Math.floor(Math.random() * AD_SPONSORS.length)])
-  const [customAd, setCustomAd] = useState<{ imageUrl?: string; linkUrl?: string } | null>(null)
+  const [adsenseCode, setAdsenseCode] = useState<string>('')
 
   useEffect(() => {
     try {
@@ -38,6 +38,8 @@ export default function AdBanner({ size, label, className = '' }: Props) {
           setCustomAd(parsed[size])
         }
       }
+      const code = localStorage.getItem('flowerzfc_adsense_code')
+      if (code) setAdsenseCode(code)
     } catch {}
   }, [size])
 
@@ -53,6 +55,16 @@ export default function AdBanner({ size, label, className = '' }: Props) {
         <img src={customAd.imageUrl} alt="Advertisement" className="w-full h-full object-cover" />
         <span className="absolute top-1 right-1 text-[8px] font-black uppercase text-white bg-black/60 px-1.5 py-0.5 rounded">AD</span>
       </a>
+    )
+  }
+
+  if (adsenseCode) {
+    return (
+      <div
+        className={`flex items-center justify-center rounded-xl overflow-hidden relative mx-auto ${className}`}
+        style={{ width: cfg.w, maxWidth: cfg.maxW, height: cfg.h, background: '#0a0a14', border: '1px solid #1e1e32' }}
+        dangerouslySetInnerHTML={{ __html: adsenseCode }}
+      />
     )
   }
 

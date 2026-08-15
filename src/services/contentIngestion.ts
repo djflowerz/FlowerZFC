@@ -122,26 +122,26 @@ export function transformContentContext(
   title: string,
   body: string,
 ): { title: string; body: string } {
-  let t = (title || '')
-    .replace(/LiveScore\s*(Exclusive|Report|Match Summary|Preview)?:?\s*/gi, '')
-    .replace(/\bLiveScore\b/gi, 'FlowerZFC')
+  // DO NOT rewrite or alter the title — ONLY replace literal "LiveScore" with "FlowerZFC" if present
+  const t = (title || '')
+    .replace(/LiveScore/gi, 'FlowerZFC')
     .trim()
 
-  let b = (body || '')
-    .replace(/LiveScore reports that/gi, 'FlowerZFC media understands that')
-    .replace(/according to LiveScore/gi, 'as FlowerZFC can confirm')
-    .replace(/Read more on LiveScore/gi, 'Follow FlowerZFC for more')
-    .replace(/Read the full match details on LiveScore/gi, 'Follow FlowerZFC for complete coverage')
-    .replace(/\bLiveScore\b/gi, 'FlowerZFC')
+  const b = (body || '')
+    .replace(/LiveScore/gi, 'FlowerZFC')
     .trim()
-
-  // Add FlowerZFC prefix if missing
-  if (!t.toLowerCase().includes('flowerzfc') && !t.includes(' - ') && !t.includes(': ')) {
-    t = `FlowerZFC Bulletin: ${t}`
-  }
 
   return { title: t, body: b }
 }
+
+const FOOTBALL_IMAGES = [
+  'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1400&h=700&fit=crop&auto=format',
+  'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
+  'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1400&h=700&fit=crop&auto=format',
+  'https://images.unsplash.com/photo-1518091043644-c1d4457512c6?w=1400&h=700&fit=crop&auto=format',
+  'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=1400&h=700&fit=crop&auto=format',
+  'https://images.unsplash.com/photo-1517466787929-bc90951d0974?w=1400&h=700&fit=crop&auto=format',
+]
 
 // ─── Main Fetcher ────────────────────────────────────────────────────────────
 export async function fetchLiveIngestedPosts(): Promise<IngestedPost[]> {
@@ -164,7 +164,8 @@ export async function fetchLiveIngestedPosts(): Promise<IngestedPost[]> {
 
       const parsed: IngestedPost[] = []
 
-      for (const item of entries) {
+      for (let idx = 0; idx < entries.length; idx++) {
+        const item = entries[idx]
         const f = item.fields || {}
         const title = f.title || f.headline || f.name || ''
         const slug = f.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-')
@@ -172,8 +173,9 @@ export async function fetchLiveIngestedPosts(): Promise<IngestedPost[]> {
         if (!title || isPromotionalPost(title, slug)) continue
 
         const body = f.body || f.content || f.summary || f.teaser || title
-        const imgAssetId = f.mainImage?.sys?.id || f.image?.sys?.id || f.heroImage?.sys?.id
-        const imageUrl = assets.get(imgAssetId) || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format'
+        const imgAssetId = f.mainImage?.sys?.id || f.image?.sys?.id || f.heroImage?.sys?.id || f.thumbnail?.sys?.id || f.photo?.sys?.id || f.media?.sys?.id
+        const fallbackImg = FOOTBALL_IMAGES[idx % FOOTBALL_IMAGES.length]
+        const imageUrl = (imgAssetId ? assets.get(imgAssetId) : null) || fallbackImg
         
         const rawDate = item.sys?.createdAt || new Date().toISOString()
         const sourceDate = rawDate.slice(0, 10)
@@ -183,7 +185,7 @@ export async function fetchLiveIngestedPosts(): Promise<IngestedPost[]> {
         const transformed = transformContentContext(title, body)
 
         parsed.push({
-          id: item.sys?.id || `ls_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          id: item.sys?.id || `ls_${Date.now()}_${idx}`,
           sourceUrl: `https://www.livescore.com/en/news/${slug}/`,
           sourceTitle: title,
           sourceBody: body,
@@ -194,7 +196,7 @@ export async function fetchLiveIngestedPosts(): Promise<IngestedPost[]> {
           transformedTitle: transformed.title,
           transformedBody: transformed.body,
           category: category,
-          author: f.authorName || 'LiveScore Desk',
+          author: 'FlowerZFC Editorial',
           status: 'Pending',
           detectedAt: new Date(timestampMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         })
