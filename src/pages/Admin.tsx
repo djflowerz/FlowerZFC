@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext'
 import { getPaymentConfig } from '../services/paymentService'
 import { fetchLiveMatches, fetchLiveStandings, fetchLiveFixtures, getUserTimezoneInfo, fetchLiveCatalogStats, type LiveMatch, type LiveStanding, type LiveFixture, type LiveCatalogStats } from '../services/liveScoreApi'
 import { getIngestedPosts, fetchLiveIngestedPosts, transformContentContext, filterPostsByDate, downloadImageAsset, IngestedPost } from '../services/contentIngestion'
-import { getAuthUser, loginWithEmail, hasTabAccess, setAuthSession, SUPER_ADMIN_EMAIL, type UserRole, type AuthProfile } from '../services/authService'
+import { getAuthUser, loginWithEmail, hasTabAccessRole, setAuthSession, SUPER_ADMIN_EMAIL, type UserRole, type AuthProfile } from '../services/authService'
 import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, type ArticleRow, type CommentRow, type TicketRow } from '../services/supabaseClient'
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
@@ -779,7 +779,7 @@ export default function Admin() {
     { id:'scores',     icon:'📡', label:'Scores Data'                       },
   ]
 
-  const TABS = ALL_TABS.filter(t => hasTabAccess(userRole, t.id))
+  const TABS = ALL_TABS.filter(t => hasTabAccessRole(userRole, t.id))
 
   return (
     <div style={{ background: '#080810', minHeight: '100vh' }}>
