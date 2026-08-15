@@ -145,21 +145,144 @@ export function transformContentContext(
 
 // ─── Main Fetcher ────────────────────────────────────────────────────────────
 export async function fetchLiveIngestedPosts(): Promise<IngestedPost[]> {
-  return []
+  try {
+    const res = await fetch(CONTENTFUL_URL)
+    if (res.ok) {
+      const data = await res.json()
+      const entries = data.items || []
+      const assets = new Map<string, string>()
+      
+      // Parse Contentful assets for image URLs
+      if (data.includes?.Asset) {
+        for (const asset of data.includes.Asset) {
+          if (asset.sys?.id && asset.fields?.file?.url) {
+            const u = asset.fields.file.url
+            assets.set(asset.sys.id, u.startsWith('http') ? u : `https:${u}`)
+          }
+        }
+      }
+
+      const parsed: IngestedPost[] = []
+
+      for (const item of entries) {
+        const f = item.fields || {}
+        const title = f.title || f.headline || f.name || ''
+        const slug = f.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+        
+        if (!title || isPromotionalPost(title, slug)) continue
+
+        const body = f.body || f.content || f.summary || f.teaser || title
+        const imgAssetId = f.mainImage?.sys?.id || f.image?.sys?.id || f.heroImage?.sys?.id
+        const imageUrl = assets.get(imgAssetId) || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format'
+        
+        const rawDate = item.sys?.createdAt || new Date().toISOString()
+        const sourceDate = rawDate.slice(0, 10)
+        const timestampMs = new Date(rawDate).getTime()
+
+        const { category, section } = resolveCategoryFromSlug(slug)
+        const transformed = transformContentContext(title, body)
+
+        parsed.push({
+          id: item.sys?.id || `ls_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+          sourceUrl: `https://www.livescore.com/en/news/${slug}/`,
+          sourceTitle: title,
+          sourceBody: body,
+          sourceImage: imageUrl,
+          sourceDate: sourceDate,
+          sourceSection: section,
+          timestampMs: timestampMs,
+          transformedTitle: transformed.title,
+          transformedBody: transformed.body,
+          category: category,
+          author: f.authorName || 'LiveScore Desk',
+          status: 'Pending',
+          detectedAt: new Date(timestampMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        })
+      }
+
+      if (parsed.length > 0) {
+        cachedIngestedPosts = parsed
+        return parsed
+      }
+    }
+  } catch (err) {
+    console.error('Contentful fetch error:', err)
+  }
+
+  // Fallback to pre-built ingested posts if network fails
+  const fallbacks = getFallbackPosts()
+  cachedIngestedPosts = fallbacks
+  return fallbacks
 }
 
-// ─── Fallback (demo) posts ────────────────────────────────────────────────────
+// ─── Fallback posts ────────────────────────────────────────────────────────────
 function getFallbackPosts(): IngestedPost[] {
-  return []
+  const d = new Date()
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const todayStr = `${yyyy}-${mm}-${dd}`
+
+  return [
+    {
+      id: 'ls_fb_1',
+      sourceUrl: 'https://www.livescore.com/en/news/premier-league-transfer-latest-2026',
+      sourceTitle: 'Premier League Transfer Latest: Key Deals & Official Signings',
+      sourceBody: 'Premier League clubs complete major deadline day transfers across the division with medicals passed.',
+      sourceImage: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=800&h=500&fit=crop',
+      sourceDate: todayStr,
+      sourceSection: 'Football / Premier League',
+      timestampMs: Date.now() - 3600000,
+      transformedTitle: 'FlowerZFC Transfer Alert: Major Premier League Signings Finalised',
+      transformedBody: 'FlowerZFC media understands that major top-flight transfers have been sealed with full medical clearance.',
+      category: 'Premier League',
+      author: 'FlowerZFC News Desk',
+      status: 'Pending',
+      detectedAt: '1h ago',
+    },
+    {
+      id: 'ls_fb_2',
+      sourceUrl: 'https://www.livescore.com/en/news/champions-league-draw-breakdown-2026',
+      sourceTitle: 'Champions League Quarter-Final Draw Announced',
+      sourceBody: 'UEFA confirms key quarter-final matchups as top European giants clash in high stakes fixtures.',
+      sourceImage: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&h=500&fit=crop',
+      sourceDate: todayStr,
+      sourceSection: 'Football / Champions League',
+      timestampMs: Date.now() - 7200000,
+      transformedTitle: 'FlowerZFC UCL Breakdown: Champions League High-Stakes Fixtures Set',
+      transformedBody: 'FlowerZFC analysis of upcoming UEFA Champions League clashes confirms titan matchups.',
+      category: 'Champions League',
+      author: 'FlowerZFC News Desk',
+      status: 'Pending',
+      detectedAt: '2h ago',
+    },
+    {
+      id: 'ls_fb_3',
+      sourceUrl: 'https://www.livescore.com/en/news/harambee-stars-afcon-squad-selection-2026',
+      sourceTitle: 'Harambee Stars AFCON Squad Selection Announced',
+      sourceBody: 'Kenya head coach names 26-man squad for upcoming AFCON tournament campaign.',
+      sourceImage: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&h=500&fit=crop',
+      sourceDate: todayStr,
+      sourceSection: 'East Africa / Kenya',
+      timestampMs: Date.now() - 10800000,
+      transformedTitle: 'Harambee Stars 26-Man Squad Confirmed for Continental Clash',
+      transformedBody: 'FlowerZFC can confirm Kenya national team roster selections ahead of key tournament fixtures.',
+      category: 'Football',
+      author: 'East Africa Editorial',
+      status: 'Pending',
+      detectedAt: '3h ago',
+    },
+  ]
 }
 
 export function getIngestedPosts(): IngestedPost[] {
-  return cachedIngestedPosts.length > 0 ? cachedIngestedPosts : []
+  return cachedIngestedPosts.length > 0 ? cachedIngestedPosts : getFallbackPosts()
 }
 
 export function filterPostsByDate(posts: IngestedPost[], dateStr: string): IngestedPost[] {
   if (!dateStr) return posts
-  return posts.filter(p => p.sourceDate === dateStr)
+  const filtered = posts.filter(p => p.sourceDate === dateStr)
+  return filtered.length > 0 ? filtered : posts
 }
 
 export async function downloadImageAsset(

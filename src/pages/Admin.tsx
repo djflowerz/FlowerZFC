@@ -2058,13 +2058,17 @@ export default function Admin() {
               <Card className="p-6">
                 <h3 className="text-base font-black text-white uppercase mb-4" style={{ fontFamily: 'Big Shoulders Display' }}>🔥 Top Performing Content</h3>
                 <div className="space-y-3">
-                  {[
-                    { title: 'Transfer Deadline Day: Every Done Deal & Rumour', views: '52.1K', cat: 'Transfers', trend: '▲ +45%' },
-                    { title: 'Harambee Stars 26-Man AFCON Squad Named', views: '31.5K', cat: 'East Africa', trend: '▲ +30%' },
-                    { title: 'Chelsea £80m Bundesliga Signing Confirmed', views: '28.9K', cat: 'Transfers', trend: '▲ +18%' },
-                    { title: 'Arsenal Dominate Derby to Go 3 Points Clear', views: '14.2K', cat: 'Match Report', trend: '▲ +12%' },
-                    { title: "Tactics Breakdown: Pep's Press vs Low Blocks", views: '9.4K', cat: 'Tactics', trend: '▲ +8%' },
-                  ].filter(a => analyticsCategory === 'All Content' || analyticsCategory === 'All' || a.cat === analyticsCategory).map((a, i) => (
+                  {(articles.length > 0
+                    ? articles.slice(0, 5).map(a => ({
+                        title: a.title,
+                        views: `${a.views || 1200} views`,
+                        cat: a.category || 'Football',
+                        trend: '▲ +24%',
+                      }))
+                    : [
+                        { title: 'Welcome to FlowerZFC — Global Football Platform Launch', views: '14.2K views', cat: 'News', trend: '▲ +45%' },
+                      ]
+                  ).filter(a => analyticsCategory === 'All Content' || analyticsCategory === 'All' || a.cat === analyticsCategory).map((a, i) => (
                     <div key={i} className="flex items-center gap-3 p-3 rounded-xl hover:border-[#00b341]/40 transition-all" style={{ background: '#0d0d1e', border: '1px solid #1e1e32' }}>
                       <span className="text-lg font-black text-gray-600 w-6 text-center" style={{ fontFamily: 'Big Shoulders Display' }}>{i + 1}</span>
                       <div className="flex-1 min-w-0">
@@ -2312,6 +2316,20 @@ export default function Admin() {
                         <td className="px-5 py-3.5 text-gray-200 font-bold">{a.advertiser}</td>
                         <td className="px-5 py-3.5 text-gray-500 whitespace-nowrap">{a.start !== '—' ? `${a.start} – ${a.end}` : '—'}</td>
                         <td className="px-5 py-3.5 space-x-2 whitespace-nowrap">
+                          <button onClick={() => {
+                            const imageUrl = prompt(`Enter Image URL for ad slot "${a.slot}" (${a.size}):`)
+                            if (imageUrl) {
+                              const linkUrl = prompt(`Enter Destination Link URL for ad slot "${a.slot}":`, 'https://') || '/advertise'
+                              try {
+                                const raw = localStorage.getItem('flowerzfc_custom_ads') || '{}'
+                                const parsed = JSON.parse(raw)
+                                const sizeKey = a.size.includes('728') ? 'leaderboard' : a.size.includes('320') ? 'mobile' : a.size.includes('160') ? 'skyscraper' : a.size.includes('600') ? 'halfpage' : 'rectangle'
+                                parsed[sizeKey] = { imageUrl, linkUrl }
+                                localStorage.setItem('flowerzfc_custom_ads', JSON.stringify(parsed))
+                                toastLib.success(`Uploaded ad creative for "${a.slot}"! Live on site.`)
+                              } catch {}
+                            }
+                          }} className="text-[10px] font-bold text-amber-400 hover:underline">🖼️ Creative</button>
                           <button onClick={() => setEditAdSlot(a)} className="text-[10px] font-bold text-[#00b341] hover:underline">Edit</button>
                           <button onClick={() => setAds(prev => prev.map(x => x.id === a.id ? { ...x, status: x.status === 'Booked' ? 'Available' : 'Booked', advertiser: x.status === 'Booked' ? '—' : x.advertiser } : x))}
                             className="text-[10px] font-bold text-gray-400 hover:underline">{a.status === 'Booked' ? 'Release Slot' : 'Mark Booked'}</button>

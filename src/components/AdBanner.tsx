@@ -27,6 +27,34 @@ const AD_SPONSORS = [
 export default function AdBanner({ size, label, className = '' }: Props) {
   const cfg = SIZES[size]
   const [sponsor] = useState(() => AD_SPONSORS[Math.floor(Math.random() * AD_SPONSORS.length)])
+  const [customAd, setCustomAd] = useState<{ imageUrl?: string; linkUrl?: string } | null>(null)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('flowerzfc_custom_ads')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed[size] && parsed[size].imageUrl) {
+          setCustomAd(parsed[size])
+        }
+      }
+    } catch {}
+  }, [size])
+
+  if (customAd?.imageUrl) {
+    return (
+      <a
+        href={customAd.linkUrl || '/advertise'}
+        target={customAd.linkUrl?.startsWith('http') ? '_blank' : '_self'}
+        rel="noopener noreferrer"
+        className={`block rounded-xl overflow-hidden relative mx-auto transition-transform hover:scale-[1.01] ${className}`}
+        style={{ width: cfg.w, maxWidth: cfg.maxW, height: cfg.h, border: '1px solid #1e1e32' }}
+      >
+        <img src={customAd.imageUrl} alt="Advertisement" className="w-full h-full object-cover" />
+        <span className="absolute top-1 right-1 text-[8px] font-black uppercase text-white bg-black/60 px-1.5 py-0.5 rounded">AD</span>
+      </a>
+    )
+  }
 
   return (
     <div
@@ -55,7 +83,7 @@ export default function AdBanner({ size, label, className = '' }: Props) {
         )}
         {size === 'rectangle' || size === 'halfpage' || size === 'skyscraper' ? (
           <a
-            href="#/advertise"
+            href="/advertise"
             className="inline-block mt-3 px-3 py-1 text-[9px] font-bold text-[#00b341] border border-[#00b341]/40 rounded-full hover:bg-[#00b341]/10 transition-colors"
           >
             Book This Space →
