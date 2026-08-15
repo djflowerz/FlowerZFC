@@ -347,6 +347,63 @@ export async function deleteTicketFromDb(id: string): Promise<{ error: any }> {
   }
 }
 
+// ─── Product deletion helper ──────────────────────────────────────────────────
+
+export async function deleteProductFromDb(id: string): Promise<{ error: any }> {
+  try {
+    const { error } = await supabase.from('products').delete().eq('id', id)
+    return { error }
+  } catch (err) {
+    return { error: err }
+  }
+}
+
+// ─── Mixes helpers ─────────────────────────────────────────────────────────────
+
+export interface MixRow {
+  id: string
+  title: string
+  mixcloud_url?: string
+  mixcloud_id?: string
+  plays?: number
+  genre?: string
+  cover_url?: string
+  created_at?: string
+}
+
+export async function fetchAllMixes(): Promise<{ mixes: MixRow[]; error: any }> {
+  try {
+    const { data, error } = await supabase
+      .from('mixes')
+      .select('*')
+      .order('created_at', { ascending: false })
+    return { mixes: (data as MixRow[]) || [], error }
+  } catch (err) {
+    return { mixes: [], error: err }
+  }
+}
+
+export async function saveMixToDb(mix: Partial<MixRow>): Promise<{ mix: MixRow | null; error: any }> {
+  try {
+    const { data, error } = await (supabase.from('mixes') as any)
+      .upsert(mix, { onConflict: 'id' })
+      .select()
+      .single()
+    return { mix: data as MixRow | null, error }
+  } catch (err) {
+    return { mix: null, error: err }
+  }
+}
+
+export async function deleteMixFromDb(id: string): Promise<{ error: any }> {
+  try {
+    const { error } = await supabase.from('mixes').delete().eq('id', id)
+    return { error }
+  } catch (err) {
+    return { error: err }
+  }
+}
+
 
 export async function uploadAvatar(userId: string, file: File): Promise<{ url: string | null; error: any }> {
   try {

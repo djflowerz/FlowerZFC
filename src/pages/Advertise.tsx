@@ -89,6 +89,29 @@ export default function Advertise() {
   const [sent, setSent] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
 
+  // Load custom admin-configured packages and slots if present
+  const [packages] = useState(() => {
+    try {
+      const raw = localStorage.getItem('flowerzfc_advertise_config')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed.packages?.length) return parsed.packages
+      }
+    } catch {}
+    return AD_PACKAGES
+  })
+
+  const [slots] = useState(() => {
+    try {
+      const raw = localStorage.getItem('flowerzfc_advertise_config')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed.slots?.length) return parsed.slots
+      }
+    } catch {}
+    return AD_SLOTS
+  })
+
   const selectPackage = (pkgName: string) => {
     setForm(f => ({ ...f, package: pkgName }))
     document.getElementById('contact-form')?.scrollIntoView({ behavior: 'smooth' })
@@ -152,7 +175,7 @@ export default function Advertise() {
             <span className="text-xs text-gray-500">All formats • IAB standard</span>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {AD_SLOTS.map(slot => (
+            {slots.map((slot: any) => (
               <div
                 key={slot.name}
                 className="p-5 rounded-2xl border border-[#1e1e32] hover:border-[#00b341] transition-all"
@@ -160,17 +183,17 @@ export default function Advertise() {
               >
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-black tracking-wider text-[#00b341] font-mono">{slot.size}</span>
-                  <span className="text-lg">{slot.icon}</span>
+                  <span className="text-lg">{slot.icon || '📐'}</span>
                 </div>
                 <h3 className="font-black text-white text-base mb-1" style={{ fontFamily: 'Big Shoulders Display' }}>{slot.name}</h3>
                 <p className="text-xs text-gray-500 mb-3">{slot.position}</p>
                 <div className="rounded-lg overflow-hidden border border-[#1e1e32] mb-3">
-                  <AdBanner size={slot.size.includes('728') ? 'leaderboard' : slot.size.includes('320') ? 'mobile' : slot.size.includes('160') ? 'skyscraper' : 'rectangle'} />
+                  <AdBanner size={slot.size?.includes('728') ? 'leaderboard' : slot.size?.includes('320') ? 'mobile' : slot.size?.includes('160') ? 'skyscraper' : 'rectangle'} />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-black text-[#00b341]" style={{ fontFamily: 'Big Shoulders Display' }}>{slot.rate}</span>
                   <button
-                    onClick={() => selectPackage('Growth')}
+                    onClick={() => selectPackage(slot.name)}
                     className="text-xs font-bold text-[#00b341] hover:underline"
                   >
                     Book this slot →
@@ -189,7 +212,7 @@ export default function Advertise() {
             </h2>
           </div>
           <div className="grid md:grid-cols-3 gap-5">
-            {AD_PACKAGES.map(pkg => (
+            {packages.map((pkg: any) => (
               <div
                 key={pkg.name}
                 className="p-6 rounded-2xl relative flex flex-col"

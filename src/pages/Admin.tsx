@@ -6,7 +6,7 @@ import { getPaymentConfig } from '../services/paymentService'
 import { fetchLiveMatches, fetchLiveStandings, fetchLiveFixtures, getUserTimezoneInfo, fetchLiveCatalogStats, type LiveMatch, type LiveStanding, type LiveFixture, type LiveCatalogStats } from '../services/liveScoreApi'
 import { getIngestedPosts, fetchLiveIngestedPosts, transformContentContext, filterPostsByDate, downloadImageAsset, IngestedPost } from '../services/contentIngestion'
 import { getAuthUser, loginWithEmail, hasTabAccessRole, setAuthSession, SUPER_ADMIN_EMAIL, type UserRole, type AuthProfile } from '../services/authService'
-import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, type ArticleRow, type CommentRow, type TicketRow } from '../services/supabaseClient'
+import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, type ArticleRow, type CommentRow, type TicketRow, type MixRow } from '../services/supabaseClient'
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
 import {
@@ -21,7 +21,7 @@ import {
 type AdminTab =
   | 'overview' | 'orders' | 'products' | 'articles' | 'tickets'
   | 'users' | 'financials' | 'analytics' | 'comments' | 'ads'
-  | 'comms' | 'platform' | 'system' | 'settings' | 'scores'
+  | 'comms' | 'platform' | 'system' | 'settings' | 'scores' | 'mixes'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const SC: Record<string, { bg: string; text: string }> = {
@@ -405,6 +405,8 @@ export default function Admin() {
   const [sentEmails,setSentEmails]= useState(SENT_EMAILS_INIT)
   const [auditLogs, setAuditLogs] = useState<AuditAction[]>(getAuditLogs)
   const [healthData, setHealthData] = useState<HealthCheck[]>(HEALTH_DATA)
+  const [showAddMix, setShowAddMix] = useState(false)
+  const [newMix, setNewMix] = useState({ title: '', mixcloud_url: '', genre: 'Afrobeats & Amapiano', cover_url: '' })
 
   // Filters
   const [orderSearch,    setOrderSearch]    = useState('')
@@ -635,7 +637,13 @@ export default function Admin() {
   ])
   // Content Ingestion & Context Transformer state
   const [ingestedPosts, setIngestedPosts] = useState<IngestedPost[]>(getIngestedPosts())
-  const [ingestDate, setIngestDate] = useState('2026-08-12')
+  const [ingestDate, setIngestDate] = useState(() => {
+    const d = new Date()
+    const yyyy = d.getFullYear()
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+  })
   const [editingIngestPost, setEditingIngestPost] = useState<IngestedPost | null>(null)
   const [selectedIngestIds, setSelectedIngestIds] = useState<Set<string>>(new Set())
   // Scores verification state
@@ -1234,7 +1242,15 @@ export default function Admin() {
                       </button>
                       <button onClick={() => setProducts(prev => prev.map(x => x.id === p.id ? { ...x, featured: !x.featured } : x))}
                         className="py-1.5 px-2 text-[10px] font-bold rounded-lg border border-[#1e1e32] hover:border-yellow-400 text-gray-400 hover:text-yellow-400 transition-all">{p.featured ? '★' : '☆'}</button>
-                      <button onClick={() => { if (confirm(`Delete "${p.name}"?`)) setProducts(prev => prev.filter(x => x.id !== p.id)) }}
+                      <button onClick={() => {
+                        if (confirm(`Delete "${p.name}"?`)) {
+                          deleteProductFromDb(p.id).then(({ error }) => {
+                            if (error) console.error('Error deleting product from DB:', error)
+                          })
+                          setProducts(prev => prev.filter(x => x.id !== p.id))
+                          toastLib.success(`Deleted product "${p.name}"`)
+                        }
+                      }}
                         className="py-1.5 px-2 text-[10px] font-bold rounded-lg border border-[#1e1e32] hover:border-red-400 text-gray-400 hover:text-red-400 transition-all">🗑</button>
                     </div>
                   </div>
@@ -2338,6 +2354,54 @@ export default function Admin() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </Card>
+
+            {/* Advertise Page Rates & Packages Config Editor */}
+            <Card className="p-5">
+              <SectionHead
+                title="🏷️ Public Advertise Page Rates & Packages"
+                sub="Customize the pricing cards, slot names, and rate cards displayed directly on the /advertise page."
+              />
+              <div className="space-y-4 mt-4">
+                <div className="p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
+                  <p className="text-xs font-black text-[#00b341] uppercase tracking-wider mb-2">Sponsorship Packages &amp; Rates</p>
+                  <div className="grid md:grid-cols-3 gap-3">
+                    {[
+                      { name: 'Starter', defaultVal: 'Custom Quote' },
+                      { name: 'Growth', defaultVal: 'Custom Quote' },
+                      { name: 'Premium', defaultVal: 'Custom Quote' },
+                    ].map(p => (
+                      <div key={p.name} className="p-3 rounded-lg border border-[#1e1e32]" style={{ background: '#131320' }}>
+                        <p className="text-xs font-bold text-white mb-1">{p.name} Package</p>
+                        <label className="text-[10px] text-gray-500 block mb-1">Display Rate / Price</label>
+                        <input
+                          defaultValue={p.defaultVal}
+                          onBlur={e => {
+                            const val = e.target.value
+                            try {
+                              const raw = localStorage.getItem('flowerzfc_advertise_config') || '{}'
+                              const parsed = JSON.parse(raw)
+                              if (!parsed.packages) {
+                                parsed.packages = [
+                                  { name: 'Starter', price: 'Custom Quote', features: ['1 ad placement', 'In-feed banner'] },
+                                  { name: 'Growth', price: 'Custom Quote', features: ['3 ad placements', 'Leaderboard'] },
+                                  { name: 'Premium', price: 'Custom Quote', features: ['All placements', 'Homepage takeover'] },
+                                ]
+                              }
+                              const target = parsed.packages.find((x: any) => x.name === p.name)
+                              if (target) target.price = val
+                              localStorage.setItem('flowerzfc_advertise_config', JSON.stringify(parsed))
+                              toastLib.success(`Updated ${p.name} price to "${val}"`)
+                            } catch {}
+                          }}
+                          className={INPUT} style={INPUT_STYLE}
+                          placeholder="e.g. $199/mo or Custom Quote"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </Card>
           </div>
@@ -3686,6 +3750,48 @@ export default function Admin() {
             </Card>
           </div>
         )}
+
+        {/* ══ MIXES / AUDIO ═════════════════════════════════════════════════ */}
+        {tab === 'mixes' && (
+          <div className="space-y-6">
+            <SectionHead
+              title="🎧 DJ Mixes & Audio Catalog Management"
+              sub="Manage DJ FlowerZ official Mixcloud releases, podcast episodes, and matchday sound tracks."
+              action={
+                <button onClick={() => setShowAddMix(true)} className="px-5 py-2.5 text-xs font-black text-white rounded-xl hover:opacity-90 transition-all" style={{ background: '#00b341' }}>
+                  + Add New DJ Mix
+                </button>
+              }
+            />
+
+            {/* Mixes List */}
+            <div className="grid md:grid-cols-2 gap-4">
+              {mixes.map(m => (
+                <Card key={m.id} className="p-5 flex gap-4 items-start">
+                  <img src={m.cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&h=400&fit=crop'} alt={m.title} className="w-24 h-24 rounded-xl object-cover shrink-0 border border-[#1e1e32]" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[9px] font-black uppercase text-[#00b341] tracking-wider">{m.genre || 'Afrobeats'}</span>
+                    <h3 className="text-base font-bold text-white line-clamp-1 mt-0.5 mb-1">{m.title}</h3>
+                    <p className="text-xs text-gray-500 font-mono mb-2">▶ {m.plays || 0} plays • {m.mixcloud_id || 'Mixcloud Track'}</p>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => {
+                        if (confirm(`Delete mix "${m.title}"?`)) {
+                          deleteMixFromDb(m.id).then(({ error }) => {
+                            if (error) console.error(error)
+                          })
+                          setMixes(prev => prev.filter(x => x.id !== m.id))
+                          toastLib.success(`Deleted mix "${m.title}"`)
+                        }
+                      }} className="px-3 py-1 text-[10px] font-bold text-red-400 rounded-lg border border-red-400/30 hover:border-red-400 transition-all">
+                        Delete Mix
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ══ ALL MODALS ════════════════════════════════════════════════════════ */}
@@ -4920,31 +5026,19 @@ export default function Admin() {
                   className="ml-auto px-2 py-1 text-[10px] font-bold rounded bg-[#0d0d1e] border border-[#1e1e32] text-red-400 hover:border-red-400 transition-all">✕ Clear</button>
               </div>
 
-              {/* ContentEditable editor */}
-              <div
+              {/* Paste-Safe Textarea Editor */}
+              <textarea
                 id="article-body-editor"
-                contentEditable
-                suppressContentEditableWarning
-                onInput={e => setNewArticle(p => ({ ...p, body: (e.currentTarget as HTMLDivElement).innerHTML }))}
-                className="min-h-[220px] p-3 rounded-xl text-sm text-gray-200 outline-none overflow-y-auto"
+                value={newArticle.body}
+                onChange={e => setNewArticle(p => ({ ...p, body: e.target.value }))}
+                rows={10}
+                className="w-full p-4 rounded-xl text-sm text-gray-200 outline-none resize-y"
                 style={{
                   background: '#080810', border: '1px solid #1e1e32',
                   lineHeight: 1.75, caretColor: '#00b341', fontFamily: 'Inter, sans-serif',
                 }}
-                dangerouslySetInnerHTML={{ __html: newArticle.body }}
-                data-placeholder="Write your full article here. Use the toolbar above to add headings, bold text, bullet lists, quotes..."
+                placeholder="Write or paste your full article content here. Safe for large text blocks, HTML, or Markdown pastes..."
               />
-              <style>{`
-                #article-body-editor:empty:before { content: attr(data-placeholder); color: #4b5563; }
-                #article-body-editor:focus { box-shadow: 0 0 0 1px #00b341; }
-                #article-body-editor blockquote { border-left: 3px solid #00b341; padding-left: 12px; color: #9ca3af; margin: 8px 0; }
-                #article-body-editor h1 { font-size: 1.5em; font-weight: 900; color: #fff; margin: 8px 0 4px; }
-                #article-body-editor h2 { font-size: 1.25em; font-weight: 800; color: #e5e7eb; margin: 8px 0 4px; }
-                #article-body-editor h3 { font-size: 1.1em; font-weight: 700; color: #d1d5db; margin: 6px 0 4px; }
-                #article-body-editor ul { list-style: disc; padding-left: 1.5em; }
-                #article-body-editor ol { list-style: decimal; padding-left: 1.5em; }
-                #article-body-editor hr { border-color: #1e1e32; margin: 12px 0; }
-              `}</style>
             </div>
 
             {/* ── SECTION: SEO ── */}
@@ -6428,6 +6522,52 @@ export default function Admin() {
             <button onClick={() => { clearArticleStore(); setArticles(INIT_ARTICLES); setProducts(INIT_PRODUCTS); setOrders(INIT_ORDERS); setUsers(INIT_USERS); setComments(INIT_COMMENTS); setDiscounts(DISCOUNTS_INIT); setShowDanger(false); toast('⚠️ Admin data reset complete.', 'warning') }}
               className="flex-1 py-3 text-sm font-black text-white rounded-xl" style={{ background: '#ef4444' }}>Reset Everything</button>
           </div>
+        </Modal>
+      )}
+
+      {showAddMix && (
+        <Modal title="🎧 Add New DJ Mix" onClose={() => setShowAddMix(false)}>
+          <form onSubmit={async e => {
+            e.preventDefault()
+            if (!newMix.title) { toastLib.error('Title is required'); return }
+            const mixId = `mix_${Date.now()}`
+            const mixObj = {
+              id: mixId,
+              title: newMix.title,
+              mixcloud_url: newMix.mixcloud_url || 'https://www.mixcloud.com/djflowerz',
+              mixcloud_id: newMix.mixcloud_url ? newMix.mixcloud_url.split('mixcloud.com')[1] || '/djflowerz/mix' : '/djflowerz/mix',
+              plays: 1,
+              genre: newMix.genre || 'Afrobeats & Amapiano',
+              cover_url: newMix.cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&h=600&fit=crop',
+            }
+            const { error } = await saveMixToDb(mixObj)
+            if (error) console.error('Save mix DB error:', error)
+            setMixes(prev => [mixObj, ...prev])
+            setShowAddMix(false)
+            setNewMix({ title: '', mixcloud_url: '', genre: 'Afrobeats & Amapiano', cover_url: '' })
+            toastLib.success('✅ New DJ Mix Published!')
+          }} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-1">Mix Title *</label>
+              <input value={newMix.title} onChange={e => setNewMix(p => ({ ...p, title: e.target.value }))} placeholder="e.g. FlowerZFC Matchday Vibe Mix Vol. 3" className={INPUT} style={INPUT_STYLE} required />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-1">Mixcloud URL / Embedded Track ID</label>
+              <input value={newMix.mixcloud_url} onChange={e => setNewMix(p => ({ ...p, mixcloud_url: e.target.value }))} placeholder="https://www.mixcloud.com/djflowerz/..." className={INPUT} style={INPUT_STYLE} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-1">Genre / Vibe</label>
+              <input value={newMix.genre} onChange={e => setNewMix(p => ({ ...p, genre: e.target.value }))} placeholder="e.g. Afrobeats, Amapiano, Gengetone, Reggae" className={INPUT} style={INPUT_STYLE} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-1">Cover Artwork Image URL</label>
+              <input value={newMix.cover_url} onChange={e => setNewMix(p => ({ ...p, cover_url: e.target.value }))} placeholder="https://images.unsplash.com/..." className={INPUT} style={INPUT_STYLE} />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button type="button" onClick={() => setShowAddMix(false)} className="flex-1 py-3 text-xs font-bold text-white rounded-xl border border-[#1e1e32]">Cancel</button>
+              <button type="submit" className="flex-1 py-3 text-xs font-black text-white rounded-xl hover:opacity-90 transition-all" style={{ background: '#00b341' }}>Publish Mix →</button>
+            </div>
+          </form>
         </Modal>
       )}
 
