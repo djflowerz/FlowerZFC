@@ -28,6 +28,7 @@ export default function AdBanner({ size, label, className = '' }: Props) {
   const cfg = SIZES[size]
   const [sponsor] = useState(() => AD_SPONSORS[Math.floor(Math.random() * AD_SPONSORS.length)])
   const [adsenseCode, setAdsenseCode] = useState<string>('')
+  const [customAd, setCustomAd] = useState<{ imageUrl: string; linkUrl?: string } | null>(null)
 
   useEffect(() => {
     try {
