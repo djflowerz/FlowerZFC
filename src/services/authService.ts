@@ -1,158 +1,164 @@
-// Auth & RBAC Management Service
+// Auth & Role Management Service
 // Roles: super_admin | editor | support | user
-// SINGLE SUPER-ADMIN LOCK: strictly locked to ianmuriithiflowerz@gmail.com
+// SINGLE SUPER-ADMIN LOCK: Strictly locked to ianmuriithiflowerz@gmail.com
 
-export type UserRole = 'super_admin' | 'editor' | 'support' | 'user'
+export type UserRole = "super_admin" | "editor" | "support" | "user";
 
 export interface AuthProfile {
-  id: string
-  name: string
-  email: string
-  role: UserRole
-  avatar?: string
-  createdAt: string
-  lastLogin?: string
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  avatar?: string;
+  createdAt: string;
+  lastLogin?: string;
 }
 
-export const SUPER_ADMIN_EMAIL = 'ianmuriithiflowerz@gmail.com'
+export const SUPER_ADMIN_EMAIL = "ianmuriithiflowerz@gmail.com";
 
-const AUTH_USER_KEY = 'flz_auth_user_v1'
-const PROFILES_KEY = 'flz_user_profiles_v1'
+const DEFAULT_PROFILES: AuthProfile[] = [
+  {
+    id: "prof-1",
+    name: "Ian Muriithi (DJ Flowerz)",
+    email: "ianmuriithiflowerz@gmail.com",
+    role: "super_admin",
+    avatar: "https://djflowerz.co.ke",
+    createdAt: "2026-01-01T00:00:00.000Z"
+  },
+  {
+    id: "prof-2",
+    name: "Content Editor Team",
+    email: "editor@flowerz.fc",
+    role: "editor",
+    avatar: "",
+    createdAt: "2026-01-02T00:00:00.000Z"
+  },
+  {
+    id: "prof-3",
+    name: "Customer Support",
+    email: "support@flowerz.fc",
+    role: "support",
+    avatar: "",
+    createdAt: "2026-01-03T00:00:00.000Z"
+  }
+];
 
-// Postgres trigger SQL string reference for Supabase deployment
-export const SUPER_ADMIN_TRIGGER_SQL = `
--- Ensure role column exists on profiles
-alter table profiles add column if not exists role text default 'user';
+const AUTH_USER_KEY = "flowerzfc_auth_user";
+const PROFILES_KEY = "flowerzfc_profiles";
 
--- Seed the single super admin
-update profiles set role = 'super_admin' where email = 'ianmuriithiflowerz@gmail.com';
-
--- Guardrail: prevent any OTHER row from ever being set to super_admin via trigger
-create or replace function enforce_single_super_admin()
-returns trigger as $$
-begin
-  if new.role = 'super_admin' and new.email != 'ianmuriithiflowerz@gmail.com' then
-    raise exception 'Only ianmuriithiflowerz@gmail.com may hold the super_admin role';
-  end if;
-  return new;
-end;
-$$ language plpgsql;
-
-create trigger trg_enforce_single_super_admin
-before insert or update on profiles
-for each row execute function enforce_single_super_admin();
-`
-
-// Enforce single super admin rule on application layer
-export function enforceSingleSuperAdminGuard(email: string, role: UserRole): void {
-  if (role === 'super_admin' && email.trim().toLowerCase() !== SUPER_ADMIN_EMAIL) {
-    throw new Error('Only ianmuriithiflowerz@gmail.com may hold the super_admin role')
+function enforceSingleSuperAdminGuard(email: string, role: string): void {
+  if (role === "super_admin" && email.toLowerCase() !== SUPER_ADMIN_EMAIL.toLowerCase()) {
+    throw new Error("Single Super-Admin guardrail violation: Unauthorized email for administrative privileges.");
   }
 }
-
-// Default seed profiles for testing role-based access
-export const DEFAULT_PROFILES: AuthProfile[] = [
-  { id: 'usr-superadmin', name: 'Ian Muriithi (Super Admin)', email: SUPER_ADMIN_EMAIL, role: 'super_admin', createdAt: '2026-01-01' },
-  { id: 'usr-editor', name: 'Sarah Okonkwo (Editor)', email: 'editor@flowerz.fc', role: 'editor', createdAt: '2026-02-15' },
-  { id: 'usr-support', name: 'James Mwangi (Support)', email: 'support@flowerz.fc', role: 'support', createdAt: '2026-03-10' },
-  { id: 'usr-user', name: 'Regular Fan', email: 'fan@flowerz.fc', role: 'user', createdAt: '2026-04-01' },
-]
 
 export function getAllProfiles(): AuthProfile[] {
   try {
-    const raw = localStorage.getItem(PROFILES_KEY)
-    if (raw) return JSON.parse(raw)
+    const raw = localStorage.getItem(PROFILES_KEY);
+    if (raw) return JSON.parse(raw);
   } catch { /* ignore */ }
-  return DEFAULT_PROFILES
+  return DEFAULT_PROFILES;
 }
 
 export function saveProfiles(profiles: AuthProfile[]): void {
-  // Validate super_admin guard on every profile save
-  for (const p of profiles) {
-    enforceSingleSuperAdminGuard(p.email, p.role)
-  }
   try {
-    localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles))
+    for (const p of profiles) {
+      enforceSingleSuperAdminGuard(p.email, p.role);
+    }
+    localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
   } catch { /* ignore */ }
 }
 
 export function getAuthUser(): AuthProfile | null {
   try {
-    const raw = localStorage.getItem(AUTH_USER_KEY)
-    if (raw) return JSON.parse(raw)
+    const assetRaw = localStorage.getItem(AUTH_USER_KEY);
+    if (assetRaw) return JSON.parse(assetRaw);
   } catch { /* ignore */ }
-  
-  // Fall back to main app user if set
-  const appUserRaw = localStorage.getItem('flowerzfc_user')
+
+  const appUserRaw = localStorage.getItem("flowerzfc_user");
   if (appUserRaw) {
-    const parsed = JSON.parse(appUserRaw)
-    const matched = getAllProfiles().find(p => p.email.toLowerCase() === parsed.email.toLowerCase())
-    if (matched) return matched
-    if (parsed.email.toLowerCase() === SUPER_ADMIN_EMAIL) {
-      return DEFAULT_PROFILES[0]
+    const parsed = JSON.parse(appUserRaw);
+    const matched = getAllProfiles().find(p => p.email.toLowerCase() === parsed.email.toLowerCase());
+    if (matched) {
+      return { 
+        ...matched, 
+        role: parsed.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase() ? "super_admin" : matched.role, 
+        avatar: parsed.avatar || matched.avatar 
+      };
     }
   }
-  return null
+  return null;
 }
 
 export function setAuthSession(profile: AuthProfile | null): void {
   try {
     if (profile) {
-      enforceSingleSuperAdminGuard(profile.email, profile.role)
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(profile))
-      localStorage.setItem('flowerzfc_user', JSON.stringify({ name: profile.name, email: profile.email, role: profile.role }))
+      enforceSingleSuperAdminGuard(profile.email, profile.role);
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(profile));
+      localStorage.setItem("flowerzfc_user", JSON.stringify({
+        name: profile.name,
+        email: profile.email,
+        role: profile.role,
+        avatar: profile.avatar || ""
+      }));
     } else {
-      localStorage.removeItem(AUTH_USER_KEY)
+      localStorage.removeItem(AUTH_USER_KEY);
+      localStorage.removeItem("flowerzfc_user");
     }
   } catch { /* ignore */ }
 }
 
 export async function loginWithEmail(email: string, pass: string): Promise<{ success: boolean; profile?: AuthProfile; error?: string }> {
-  const cleanEmail = email.trim().toLowerCase()
-  const profiles = getAllProfiles()
+  const cleanEmail = email.trim().toLowerCase();
+  const profiles = getAllProfiles();
 
-  let matched = profiles.find(p => p.email.toLowerCase() === cleanEmail)
-  
+  let matched = profiles.find(p => p.email.toLowerCase() === cleanEmail);
+
   if (!matched) {
-    if (cleanEmail === SUPER_ADMIN_EMAIL || cleanEmail === 'admin@flowerz.fc') {
-      matched = { ...DEFAULT_PROFILES[0], email: SUPER_ADMIN_EMAIL }
-    } else if (cleanEmail === 'editor@flowerz.fc') {
-      matched = DEFAULT_PROFILES[1]
-    } else if (cleanEmail === 'support@flowerz.fc') {
-      matched = DEFAULT_PROFILES[2]
+    if (cleanEmail === SUPER_ADMIN_EMAIL || cleanEmail === "admin@flowerz.fc") {
+      matched = {
+        id: "prof-1",
+        name: "Ian Muriithi (DJ Flowerz)",
+        email: SUPER_ADMIN_EMAIL,
+        role: "super_admin",
+        avatar: "https://djflowerz.co.ke",
+        createdAt: new Date().toISOString()
+      };
     }
   }
 
   if (matched) {
     try {
-      enforceSingleSuperAdminGuard(matched.email, matched.role)
+      enforceSingleSuperAdminGuard(matched.email, matched.role);
     } catch (err: any) {
-      return { success: false, error: err.message || 'Single Super-Admin guardrail violation' }
+      return { success: false, error: err.message || "Single Super-Admin guardrail violation" };
     }
-    matched.lastLogin = new Date().toISOString()
-    setAuthSession(matched)
-    return { success: true, profile: matched }
+
+    matched.lastLogin = new Date().toISOString();
+    setAuthSession(matched);
+    return { success: true, profile: matched };
   }
 
-  return { success: false, error: 'Invalid email or credentials for dashboard access.' }
+  return { success: false, error: "Invalid email or credentials for dashboard access." };
 }
 
-export function hasTabAccess(role: UserRole, tabId: string): boolean {
-  if (role === 'super_admin') return true
-  if (role === 'editor') {
-    return ['overview', 'articles', 'comments', 'analytics'].includes(tabId)
+export function hasTabAccessRole(role: UserRole, tabId: string): boolean {
+  if (role === "super_admin") return true;
+  if (role === "editor") {
+    return ["overview", "articles", "comments", "analytics"].includes(tabId);
   }
-  if (role === 'support') {
-    return ['overview', 'orders', 'users', 'tickets'].includes(tabId)
+  if (role === "support") {
+    return ["overview", "orders", "users", "tickets"].includes(tabId);
   }
-  return false
+  return false;
 }
 
 export function getRoleDashboardRoute(role: UserRole): string {
   switch (role) {
-    case 'super_admin': return '/admin'
-    case 'editor': return '/editor-dashboard'
-    case 'support': return '/support-dashboard'
-    default: return '/account'
+    case "super_admin": return "/admin";
+    case "editor": return "/editor-dashboard";
+    case "support": return "/support-dashboard";
+    default: return "/account";
   }
 }
+
