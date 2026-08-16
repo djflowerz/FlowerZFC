@@ -413,6 +413,13 @@ export default function Admin() {
   const [auditLogs, setAuditLogs] = useState<AuditAction[]>(getAuditLogs)
   const [healthData, setHealthData] = useState<HealthCheck[]>(HEALTH_DATA)
   const [showAddMix, setShowAddMix] = useState(false)
+  const [mixes, setMixes] = useState<MixRow[]>([])
+
+  useEffect(() => {
+    fetchAllMixes().then(({ mixes: m, error }) => {
+      if (!error && m) setMixes(m)
+    })
+  }, [])
   const [newMix, setNewMix] = useState({ title: '', mixcloud_url: '', genre: 'Afrobeats & Amapiano', cover_url: '' })
 
   // Filters

@@ -1,7 +1,9 @@
-import { useState, useRef } from 'react'
-import { Link, useParams, Navigate } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { Link, useParams, Navigate, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { uploadAvatar, upsertProfile } from '../services/supabaseClient'
+import {
+  uploadAvatar, upsertProfile, changePassword, supabase
+} from '../services/supabaseClient'
 
 const SECTIONS = [
   { to: '/account/teams', label: 'My Teams', icon: '⚽' },
@@ -28,9 +30,15 @@ function loadNotificationPrefs(): Record<NotificationKey, boolean> {
   return { goalAlerts: true, commentReplies: true, breakingTransferNews: true, newsletter: false }
 }
 
+const POPULAR_TEAMS = [
+  'Arsenal', 'Manchester United', 'Manchester City', 'Liverpool', 'Chelsea',
+  'Real Madrid', 'Barcelona', 'Bayern Munich', 'Harambee Stars', 'AFC Leopards', 'Gor Mahia',
+]
+
 export default function Account() {
   const { section } = useParams()
   const { user, logout, t, refreshProfile } = useApp()
+  const navigate = useNavigate()
 
   const [name, setName] = useState(user?.name || '')
   const [email, setEmail] = useState(user?.email || '')
@@ -40,6 +48,49 @@ export default function Account() {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [notifPrefs, setNotifPrefs] = useState(loadNotificationPrefs)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [pwSaving, setPwSaving] = useState(false)
+  const [pwMsg, setPwMsg] = useState<string | null>(null)
+  const [pwError, setPwError] = useState<string | null>(null)
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+
+  const [myTeams, setMyTeams] = useState<{ id: string; team_name: string }[]>([])
+  const [teamsLoading, setTeamsLoading] = useState(true)
+  const [showAddTeam, setShowAddTeam] = useState(false)
+  const [teamSearch, setTeamSearch] = useState('')
+
+  const [savedArticles, setSavedArticles] = useState<any[]>([])
+  const [savedLoading, setSavedLoading] = useState(true)
+
+  const [predictions, setPredictions] = useState<any[]>([])
+  const [predictionsLoading, setPredictionsLoading] = useState(true)
+
+  useEffect(() => {
+    if (!user) return
+
+    supabase.from('user_teams').select('id, team_name').eq('user_id', user.id)
+      .then(({ data }: any) => {
+        setMyTeams(data || [])
+        setTeamsLoading(false)
+      })
+
+    supabase.from('saved_articles').select('*').eq('user_id', user.id).order('saved_at', { ascending: false })
+      .then(({ data }: any) => {
+        setSavedArticles(data || [])
+        setSavedLoading(false)
+      })
+
+    supabase.from('predictions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+      .then(({ data }: any) => {
+        setPredictions(data || [])
+        setPredictionsLoading(false)
+      })
+  }, [user?.id])
 
   if (!user) return <Navigate to="/login?from=/account" replace />
 
@@ -85,17 +136,82 @@ export default function Account() {
     }
   }
 
+  const handleChangePassword = async () => {
+    setPwError(null)
+    setPwMsg(null)
+
+    if (newPassword.length < 8) {
+      setPwError('Password must be at least 8 characters.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPwError("Passwords don't match.")
+      return
+    }
+
+    setPwSaving(true)
+    const { error } = await changePassword(newPassword)
+    setPwSaving(false)
+
+    if (error) {
+      setPwError(error.message || 'Could not update password.')
+    } else {
+      setPwMsg('Password updated successfully.')
+      setNewPassword('')
+      setConfirmPassword('')
+      setTimeout(() => setPwMsg(null), 3000)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE') return
+    setDeleting(true)
+    await supabase.from('profiles').delete().eq('id', user.id)
+    await logout()
+    navigate('/')
+  }
+
   const toggleNotif = (key: NotificationKey) => {
     const next = { ...notifPrefs, [key]: !notifPrefs[key] }
     setNotifPrefs(next)
     localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(next))
   }
 
+  const addTeam = async (teamName: string) => {
+    const { data, error } = await supabase.from('user_teams').insert({ user_id: user.id, team_name: teamName }).select().single()
+    if (!error && data) {
+      setMyTeams(prev => [...prev, data])
+    }
+    setShowAddTeam(false)
+    setTeamSearch('')
+  }
+
+  const removeTeam = async (id: string) => {
+    await supabase.from('user_teams').delete().eq('id', id)
+    setMyTeams(prev => prev.filter(t => t.id !== id))
+  }
+
+  const removeSavedArticle = async (id: string) => {
+    await supabase.from('saved_articles').delete().eq('id', id)
+    setSavedArticles(prev => prev.filter(a => a.id !== id))
+  }
+
+  const filteredTeamOptions = POPULAR_TEAMS.filter(
+    t => !myTeams.some(mt => mt.team_name === t) && t.toLowerCase().includes(teamSearch.toLowerCase())
+  )
+
+  const totalPredictions = predictions.length
+  const scoredPredictions = predictions.filter(p => p.actual_home_score !== null)
+  const correctPredictions = scoredPredictions.filter(
+    p => p.predicted_home_score === p.actual_home_score && p.predicted_away_score === p.actual_away_score
+  )
+  const accuracy = scoredPredictions.length > 0 ? Math.round((correctPredictions.length / scoredPredictions.length) * 100) : 0
+  const totalPoints = predictions.reduce((sum, p) => sum + (p.points_earned || 0), 0)
+
   return (
     <div className="max-w-screen-lg mx-auto px-4 py-8">
       <h1 className="text-4xl font-black text-white mb-6" style={{ fontFamily: 'Big Shoulders Display' }}>My Account</h1>
       <div className="grid md:grid-cols-4 gap-6">
-        {/* Sidebar */}
         <div className="md:col-span-1">
           <div className="rounded-lg p-4" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
             <div className="text-center mb-4 pb-4 border-b" style={{ borderColor: '#1e1e32' }}>
@@ -134,26 +250,102 @@ export default function Account() {
           </div>
         </div>
 
-        {/* Content */}
         <div className="md:col-span-3 rounded-lg p-6" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
           {(!section || section === 'teams') && (
             <div>
-              <h2 className="text-xl font-black text-white mb-4" style={{ fontFamily: 'Big Shoulders Display' }}>{t('myTeams')}</h2>
-              <p className="text-sm text-gray-500">You haven't followed any teams yet. Visit a team's page and tap "Follow" to see them here.</p>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>{t('myTeams')}</h2>
+                <button onClick={() => setShowAddTeam(v => !v)} className="text-xs font-bold px-3 py-1.5 rounded" style={{ background: '#00b341', color: '#fff' }}>
+                  + Add Team
+                </button>
+              </div>
+
+              {showAddTeam && (
+                <div className="mb-4 p-3 rounded" style={{ background: '#0c0c14', border: '1px solid #1e1e32' }}>
+                  <input
+                    value={teamSearch}
+                    onChange={e => setTeamSearch(e.target.value)}
+                    placeholder="Search teams..."
+                    className="w-full px-3 py-2 text-sm text-white rounded outline-none mb-2"
+                    style={{ background: '#131320', border: '1px solid #1e1e32' }}
+                  />
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {filteredTeamOptions.length === 0 ? (
+                      <p className="text-xs text-gray-500 py-2">No matching teams.</p>
+                    ) : filteredTeamOptions.map(team => (
+                      <button key={team} onClick={() => addTeam(team)} className="w-full text-left px-2 py-1.5 text-sm text-gray-300 hover:bg-white/5 rounded transition-colors">
+                        {team}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {teamsLoading ? (
+                <p className="text-sm text-gray-500">Loading...</p>
+              ) : myTeams.length === 0 ? (
+                <p className="text-sm text-gray-500">You haven't followed any teams yet. Tap "Add Team" to get started.</p>
+              ) : (
+                <div className="space-y-3">
+                  {myTeams.map(team => (
+                    <div key={team.id} className="flex items-center gap-3 p-3 rounded" style={{ background: '#1a1a28' }}>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black" style={{ background: '#0c0c14' }}>{team.team_name.slice(0, 2).toUpperCase()}</div>
+                      <span className="text-sm font-semibold text-white flex-1">{team.team_name}</span>
+                      <button onClick={() => removeTeam(team.id)} className="text-xs text-gray-600 hover:text-red-400 transition-colors">Remove</button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
+
           {section === 'saved' && (
             <div>
               <h2 className="text-xl font-black text-white mb-4" style={{ fontFamily: 'Big Shoulders Display' }}>{t('savedArticles')}</h2>
-              <p className="text-sm text-gray-500">No saved articles yet. Start bookmarking articles to see them here.</p>
+              {savedLoading ? (
+                <p className="text-sm text-gray-500">Loading...</p>
+              ) : savedArticles.length === 0 ? (
+                <p className="text-sm text-gray-500">No saved articles yet. Start bookmarking articles to see them here.</p>
+              ) : (
+                <div className="space-y-3">
+                  {savedArticles.map(a => (
+                    <div key={a.id} className="flex items-center justify-between p-3 rounded" style={{ background: '#1a1a28' }}>
+                      <Link to={`/news/${a.article_id}`} className="text-sm text-white hover:text-[#00b341] transition-colors">{a.article_id}</Link>
+                      <button onClick={() => removeSavedArticle(a.id)} className="text-xs text-gray-600 hover:text-red-400 transition-colors">Remove</button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
+
           {section === 'predictions' && (
             <div>
               <h2 className="text-xl font-black text-white mb-4" style={{ fontFamily: 'Big Shoulders Display' }}>{t('myPredictions')}</h2>
-              <p className="text-sm text-gray-500">You haven't made any predictions yet. Head to the Predictions section to get started.</p>
+              {predictionsLoading ? (
+                <p className="text-sm text-gray-500">Loading...</p>
+              ) : totalPredictions === 0 ? (
+                <p className="text-sm text-gray-500">You haven't made any predictions yet. Head to the Predictions section to get started.</p>
+              ) : (
+                <>
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="text-center"><p className="text-3xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display', color: '#f4a261' }}>{totalPredictions}</p><p className="text-xs text-gray-500">Predictions</p></div>
+                    <div className="text-center"><p className="text-3xl font-black" style={{ fontFamily: 'Big Shoulders Display', color: '#22c55e' }}>{accuracy}%</p><p className="text-xs text-gray-500">Accuracy</p></div>
+                    <div className="text-center"><p className="text-3xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>{totalPoints}</p><p className="text-xs text-gray-500">Points</p></div>
+                  </div>
+                  <div className="space-y-2">
+                    {predictions.map(p => (
+                      <div key={p.id} className="flex items-center justify-between p-2 rounded text-xs text-gray-400" style={{ background: '#1a1a28' }}>
+                        <span>Match {p.match_id}: {p.predicted_home_score}-{p.predicted_away_score}</span>
+                        {p.actual_home_score !== null && <span>Result: {p.actual_home_score}-{p.actual_away_score}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
+
           {section === 'settings' && (
             <div>
               <h2 className="text-xl font-black text-white mb-6" style={{ fontFamily: 'Big Shoulders Display' }}>{t('settings')}</h2>
@@ -171,6 +363,22 @@ export default function Account() {
                     </div>
                   </div>
                 </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-400 mb-3">Change Password</h3>
+                  <div className="space-y-3">
+                    <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="w-full px-4 py-3 text-sm text-white rounded outline-none focus:ring-1 focus:ring-red-500" style={{ background: '#0c0c14', border: '1px solid #1e1e32' }} placeholder="New password" />
+                    <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full px-4 py-3 text-sm text-white rounded outline-none focus:ring-1 focus:ring-red-500" style={{ background: '#0c0c14', border: '1px solid #1e1e32' }} placeholder="Confirm new password" />
+                    {pwError && <p className="text-xs text-red-400">{pwError}</p>}
+                    <div className="flex items-center gap-3">
+                      <button onClick={handleChangePassword} disabled={pwSaving} className="px-4 py-2 text-sm font-bold text-white rounded disabled:opacity-50" style={{ background: '#00b341' }}>
+                        {pwSaving ? 'Updating...' : 'Update Password'}
+                      </button>
+                      {pwMsg && <span className="text-xs text-gray-400">{pwMsg}</span>}
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <h3 className="text-sm font-semibold text-gray-400 mb-3">Notifications</h3>
                   {NOTIFICATION_KEYS.map(key => (
@@ -186,8 +394,32 @@ export default function Account() {
                     </label>
                   ))}
                 </div>
+
                 <div className="pt-4 border-t" style={{ borderColor: '#1e1e32' }}>
-                  <button className="px-4 py-2 text-sm font-bold text-red-400 rounded border border-red-900 hover:bg-red-900/20 transition-colors">Delete Account</button>
+                  {!showDeleteConfirm ? (
+                    <button onClick={() => setShowDeleteConfirm(true)} className="px-4 py-2 text-sm font-bold text-red-400 rounded border border-red-900 hover:bg-red-900/20 transition-colors">Delete Account</button>
+                  ) : (
+                    <div className="p-4 rounded" style={{ background: '#1a0c0c', border: '1px solid #7f1d1d' }}>
+                      <p className="text-sm text-red-300 mb-3">This will permanently delete your account. Type <strong>DELETE</strong> to confirm.</p>
+                      <input
+                        value={deleteConfirmText}
+                        onChange={e => setDeleteConfirmText(e.target.value)}
+                        className="w-full px-3 py-2 text-sm text-white rounded outline-none mb-3"
+                        style={{ background: '#0c0c14', border: '1px solid #7f1d1d' }}
+                      />
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={handleDeleteAccount}
+                          disabled={deleteConfirmText !== 'DELETE' || deleting}
+                          className="px-4 py-2 text-sm font-bold text-white rounded disabled:opacity-50"
+                          style={{ background: '#dc2626' }}
+                        >
+                          {deleting ? 'Deleting...' : 'Permanently Delete'}
+                        </button>
+                        <button onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText('') }} className="text-sm text-gray-400 hover:text-white transition-colors">Cancel</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
