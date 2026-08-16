@@ -253,7 +253,7 @@ export default function Admin() {
   const [articles,  setArticles]  = useState(INIT_ARTICLES)
   const [tickets,   setTickets]   = useState(INIT_TICKETS)
   const [users,     setUsers]     = useState(INIT_USERS)
-  const [comments,  setComments]  = useState(INIT_COMMENTS)
+  const [comments,  setComments]  = useState<any[]>(INIT_COMMENTS)
   const [ads,       setAds]       = useState<AdSlotRow[]>([])
 
   useEffect(() => {
@@ -5970,10 +5970,13 @@ export default function Admin() {
       {/* Edit Comment Modal */}
       {editCommentItem && (
         <Modal title="✏️ Edit Comment" onClose={() => setEditCommentItem(null)}>
-          <form onSubmit={e => {
+          <form onSubmit={async e => {
             e.preventDefault()
-            setComments(prev => prev.map(x => x.id === editCommentItem.id ? { ...x, body: editCommentItem.body } : x))
+            const { comment, error } = await saveCommentToDb({ id: editCommentItem.id, body: editCommentItem.body })
+            if (error || !comment) { toast('❌ Failed to save comment', 'error'); return }
+            setComments(prev => prev.map(x => x.id === editCommentItem.id ? comment : x))
             setEditCommentItem(null)
+            toast('✅ Comment updated!', 'success')
           }} className="space-y-4">
             <div>
               <label className="block text-[10px] font-bold text-gray-500 mb-1">Author: {editCommentItem.user}</label>

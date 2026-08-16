@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
 import { fetchLiveMatches, LiveMatch } from '../services/liveScoreApi'
 import { fetchLiveIngestedPosts, IngestedPost } from '../services/contentIngestion'
-import { fetchAllArticles } from '../services/supabaseClient'
+import { fetchAllArticles, fetchAllComments } from '../services/supabaseClient'
 import { saveArticle } from '../services/articleStore'
 
 const TRANSFER_NEWS: { id: string; player: string; from: string; to: string; status: string; fee: string; image: string }[] = []
@@ -111,6 +111,7 @@ export default function Home() {
   const [dismissed, setDismissed] = useState(false)
   const [ingestedPosts, setIngestedPosts] = useState<IngestedPost[]>([])
   const [dbArticles, setDbArticles] = useState<any[]>([])
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
 
   useEffect(() => {
     fetchAllArticles().then(({ articles: arts }) => {
@@ -121,6 +122,15 @@ export default function Home() {
     fetchLiveIngestedPosts().then(posts => {
       if (posts && posts.length > 0) {
         setIngestedPosts(posts)
+      }
+    })
+    fetchAllComments().then(({ comments }) => {
+      if (comments) {
+        const counts: Record<string, number> = {}
+        comments.forEach(c => {
+          if (c.article_id) counts[c.article_id] = (counts[c.article_id] || 0) + 1
+        })
+        setCommentCounts(counts)
       }
     })
   }, [])
@@ -134,7 +144,7 @@ export default function Home() {
         excerpt: a.body ? a.body.slice(0, 140) + '...' : '',
         image: a.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
         likes: a.likes || 140,
-        comments: 18,
+        comments: commentCounts[a.id] || 0,
         date: a.published_at ? new Date(a.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Today',
       }))
     : ingestedPosts.map(p => ({
@@ -149,7 +159,7 @@ export default function Home() {
       }))
 
   const heroSlides = allFeedItems.slice(0, 4)
-  const breakingPost = null
+  const breakingPost: any = null
   const latestArticles = allFeedItems.slice(4, 10)
 
   useEffect(() => {

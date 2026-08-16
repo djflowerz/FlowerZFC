@@ -94,7 +94,7 @@ export default function Shop() {
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [search, setSearch] = useState('')
   const [quickAdded, setQuickAdded] = useState<string | null>(null)
-  const [productList, setProductList] = useState<ProductType[]>(DEFAULT_SHOP_PRODUCTS)
+  const [productList, setProductList] = useState<ProductType[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
