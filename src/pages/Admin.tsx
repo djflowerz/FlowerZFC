@@ -6,7 +6,7 @@ import { getPaymentConfig } from '../services/paymentService'
 import { fetchLiveMatches, fetchLiveStandings, fetchLiveFixtures, getUserTimezoneInfo, fetchLiveCatalogStats, type LiveMatch, type LiveStanding, type LiveFixture, type LiveCatalogStats } from '../services/liveScoreApi'
 import { getIngestedPosts, fetchLiveIngestedPosts, transformContentContext, filterPostsByDate, downloadImageAsset, IngestedPost } from '../services/contentIngestion'
 import { getAuthUser, loginWithEmail, hasTabAccessRole, setAuthSession, SUPER_ADMIN_EMAIL, type UserRole, type AuthProfile } from '../services/authService'
-import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, updateProduct, type ArticleRow, type CommentRow, type TicketRow, type MixRow } from '../services/supabaseClient'
+import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, updateProduct, fetchAllAdSlots, saveAdSlotToDb, deleteAdSlotFromDb, uploadAdCreative, type ArticleRow, type CommentRow, type TicketRow, type MixRow, type AdSlotRow } from '../services/supabaseClient'
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
 import {
@@ -254,7 +254,13 @@ export default function Admin() {
   const [tickets,   setTickets]   = useState(INIT_TICKETS)
   const [users,     setUsers]     = useState(INIT_USERS)
   const [comments,  setComments]  = useState(INIT_COMMENTS)
-  const [ads,       setAds]       = useState(INIT_ADS)
+  const [ads,       setAds]       = useState<AdSlotRow[]>([])
+
+  useEffect(() => {
+    fetchAllAdSlots().then(({ adSlots, error }) => {
+      if (!error && adSlots) setAds(adSlots)
+    })
+  }, [])
   const [adReqs,    setAdReqs]    = useState(AD_REQUESTS)
   const [discounts, setDiscounts] = useState(DISCOUNTS_INIT)
   const [liveBlogs, setLiveBlogs]   = useState<LiveBlog[]>(INIT_LIVE_BLOGS)
@@ -477,7 +483,7 @@ export default function Admin() {
   const [editProduct,    setEditProduct]    = useState<Product | null>(null)
   const [editArticle,    setEditArticle]    = useState<Article | null>(null)
   const [editEvent,      setEditEvent]      = useState<Ticket | null>(null)
-  const [editAdSlot,     setEditAdSlot]     = useState<AdSlot | null>(null)
+  const [editAdSlot,     setEditAdSlot]     = useState<AdSlotRow | null>(null)
 
   // Drag & drop state for file upload dropzones
   const [isDragOverProduct, setIsDragOverProduct] = useState(false)
@@ -2284,7 +2290,7 @@ export default function Admin() {
           <div className="space-y-8">
             <SectionHead title="📢 Ad Slots & Direct Advertising" sub="Placements, banner inventory, advertiser bookings, and monthly sponsorship revenue."
               action={<div className="flex gap-2">
-                <button onClick={() => downloadCSV('ad_inventory.csv', ads.map(a => [a.id, a.slot, a.page, a.size, a.price.toString(), a.status, a.advertiser, a.start, a.end]), ['ID','Slot','Page','Size','Price','Status','Advertiser','Start','End'])}
+                <button onClick={() => downloadCSV('ad_inventory.csv', ads.map(a => [a.id, a.slot, a.page, a.size, a.price.toString(), a.status, a.advertiser || '—', a.start_date || '—', a.end_date || '—']), ['ID','Slot','Page','Size','Price','Status','Advertiser','Start','End'])}
                   className="px-3 py-2 text-[11px] font-bold text-white rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-all" style={{ background: '#131320' }}>
                   ⬇ Export CSV
                 </button>
@@ -2321,34 +2327,46 @@ export default function Admin() {
                     {['Slot Name','Target Page','Banner Size','Monthly Rate','Status','Current Advertiser','Active Campaign','Actions'].map(h => <Th key={h}>{h}</Th>)}
                   </tr></thead>
                   <tbody className="divide-y divide-[#1e1e32] text-xs">
-                    {ads.filter(a => !adSearch || a.slot.toLowerCase().includes(adSearch.toLowerCase()) || a.page.toLowerCase().includes(adSearch.toLowerCase()) || a.advertiser.toLowerCase().includes(adSearch.toLowerCase())).map(a => (
+                    {ads.filter(a => !adSearch || a.slot.toLowerCase().includes(adSearch.toLowerCase()) || a.page.toLowerCase().includes(adSearch.toLowerCase()) || (a.advertiser || '').toLowerCase().includes(adSearch.toLowerCase())).map(a => (
                       <tr key={a.id} className="hover:bg-white/[.02] transition-colors">
                         <td className="px-5 py-3.5 font-bold text-white">{a.slot}</td>
                         <td className="px-5 py-3.5 font-mono text-gray-400 text-[11px]">{a.page}</td>
                         <td className="px-5 py-3.5 text-gray-400"><span className="px-2 py-0.5 rounded bg-[#1e1e32] font-mono text-[10px] text-gray-300">{a.size}</span></td>
                         <td className="px-5 py-3.5 font-bold text-[#00b341]" style={{ fontFamily: 'Big Shoulders Display', fontSize: '15px' }}>${a.price}/mo</td>
                         <td className="px-5 py-3.5"><Badge s={a.status} /></td>
-                        <td className="px-5 py-3.5 text-gray-200 font-bold">{a.advertiser}</td>
-                        <td className="px-5 py-3.5 text-gray-500 whitespace-nowrap">{a.start !== '—' ? `${a.start} – ${a.end}` : '—'}</td>
+                        <td className="px-5 py-3.5 text-gray-200 font-bold">{a.advertiser || '—'}</td>
+                        <td className="px-5 py-3.5 text-gray-500 whitespace-nowrap">{a.start_date && a.start_date !== '—' ? `${a.start_date} – ${a.end_date}` : '—'}</td>
                         <td className="px-5 py-3.5 space-x-2 whitespace-nowrap">
-                          <button onClick={() => {
-                            const imageUrl = prompt(`Enter Image URL for ad slot "${a.slot}" (${a.size}):`)
-                            if (imageUrl) {
-                              const linkUrl = prompt(`Enter Destination Link URL for ad slot "${a.slot}":`, 'https://') || '/advertise'
-                              try {
-                                const raw = localStorage.getItem('flowerzfc_custom_ads') || '{}'
-                                const parsed = JSON.parse(raw)
-                                const sizeKey = a.size.includes('728') ? 'leaderboard' : a.size.includes('320') ? 'mobile' : a.size.includes('160') ? 'skyscraper' : a.size.includes('600') ? 'halfpage' : 'rectangle'
-                                parsed[sizeKey] = { imageUrl, linkUrl }
-                                localStorage.setItem('flowerzfc_custom_ads', JSON.stringify(parsed))
-                                toastLib.success(`Uploaded ad creative for "${a.slot}"! Live on site.`)
-                              } catch {}
-                            }
-                          }} className="text-[10px] font-bold text-amber-400 hover:underline">🖼️ Creative</button>
+                          <label className="text-[10px] font-bold text-amber-400 hover:underline cursor-pointer">
+                            🖼️ Creative
+                            <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                              const file = e.target.files?.[0]
+                              if (!file) return
+                              const linkUrl = prompt(`Destination link for "${a.slot}" (where clicks go):`, 'https://') || '/advertise'
+                              toastLib.info('Uploading creative...')
+                              const { url, error: upErr } = await uploadAdCreative(file)
+                              if (upErr || !url) { toastLib.error('Upload failed'); return }
+                              const { adSlot, error: saveErr } = await saveAdSlotToDb({ id: a.id, image_url: url, destination_url: linkUrl })
+                              if (saveErr || !adSlot) { toastLib.error('Failed to save creative'); return }
+                              setAds(prev => prev.map(x => x.id === a.id ? adSlot : x))
+                              toastLib.success(`Creative live for "${a.slot}"!`)
+                            }} />
+                          </label>
                           <button onClick={() => setEditAdSlot(a)} className="text-[10px] font-bold text-[#00b341] hover:underline">Edit</button>
-                          <button onClick={() => setAds(prev => prev.map(x => x.id === a.id ? { ...x, status: x.status === 'Booked' ? 'Available' : 'Booked', advertiser: x.status === 'Booked' ? '—' : x.advertiser } : x))}
+                          <button onClick={async () => {
+                            const newStatus = a.status === 'Booked' ? 'Available' : 'Booked'
+                            const newAdvertiser = a.status === 'Booked' ? '—' : a.advertiser
+                            const { adSlot, error } = await saveAdSlotToDb({ id: a.id, status: newStatus, advertiser: newAdvertiser })
+                            if (error || !adSlot) { toastLib.error('Failed to update status'); return }
+                            setAds(prev => prev.map(x => x.id === a.id ? adSlot : x))
+                          }}
                             className="text-[10px] font-bold text-gray-400 hover:underline">{a.status === 'Booked' ? 'Release Slot' : 'Mark Booked'}</button>
-                          <button onClick={() => { if (confirm(`Delete ad slot "${a.slot}"?`)) setAds(prev => prev.filter(x => x.id !== a.id)) }}
+                          <button onClick={async () => {
+                            if (!confirm(`Delete ad slot "${a.slot}"?`)) return
+                            const { error } = await deleteAdSlotFromDb(a.id)
+                            if (error) { toastLib.error('Failed to delete'); return }
+                            setAds(prev => prev.filter(x => x.id !== a.id))
+                          }}
                             className="text-[10px] font-bold text-red-400 hover:underline">Delete</button>
                         </td>
                       </tr>
@@ -4042,7 +4060,15 @@ export default function Admin() {
       {/* Edit Ad Slot */}
       {editAdSlot && (
         <Modal title={`✏️ Edit Ad Slot — ${editAdSlot.slot}`} onClose={() => setEditAdSlot(null)}>
-          <form onSubmit={e => { e.preventDefault(); setAds(prev => prev.map(x => x.id === editAdSlot!.id ? editAdSlot! : x)); setEditAdSlot(null); toast('✅ Ad slot updated!', 'success') }}
+          <form onSubmit={async e => {
+            e.preventDefault()
+            if (!editAdSlot) return
+            const { adSlot, error } = await saveAdSlotToDb(editAdSlot)
+            if (error || !adSlot) { toast('❌ Failed to update ad slot', 'error'); return }
+            setAds(prev => prev.map(x => x.id === editAdSlot.id ? adSlot : x))
+            setEditAdSlot(null)
+            toast('✅ Ad slot updated!', 'success')
+          }}
             className="space-y-4 text-sm">
             {/* Placement */}
             <div className="rounded-xl p-4 space-y-3" style={{ background: '#0d0d1e', border: '1px solid #1e1e32' }}>
@@ -4054,15 +4080,15 @@ export default function Admin() {
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-gray-500 mb-1">Advertiser</label>
-                  <input value={editAdSlot.advertiser} onChange={e => setEditAdSlot(p => p ? { ...p, advertiser: e.target.value } : p)} className={INPUT} style={INPUT_STYLE} />
+                  <input value={editAdSlot.advertiser || ''} onChange={e => setEditAdSlot(p => p ? { ...p, advertiser: e.target.value } : p)} className={INPUT} style={INPUT_STYLE} />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-gray-500 mb-1">Start Date</label>
-                  <input value={editAdSlot.start} onChange={e => setEditAdSlot(p => p ? { ...p, start: e.target.value } : p)} className={INPUT} style={INPUT_STYLE} />
+                  <input value={editAdSlot.start_date || ''} onChange={e => setEditAdSlot(p => p ? { ...p, start_date: e.target.value } : p)} className={INPUT} style={INPUT_STYLE} />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-gray-500 mb-1">End Date</label>
-                  <input value={editAdSlot.end} onChange={e => setEditAdSlot(p => p ? { ...p, end: e.target.value } : p)} className={INPUT} style={INPUT_STYLE} />
+                  <input value={editAdSlot.end_date || ''} onChange={e => setEditAdSlot(p => p ? { ...p, end_date: e.target.value } : p)} className={INPUT} style={INPUT_STYLE} />
                 </div>
               </div>
             </div>
@@ -4101,9 +4127,9 @@ export default function Admin() {
             <div className="rounded-xl p-4 space-y-2" style={{ background: '#0d0d1e', border: '1px solid #1e1e32' }}>
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">⚡ Quick Actions</p>
               <div className="flex gap-2 flex-wrap">
-                <button type="button" onClick={() => { navigator.clipboard.writeText(editAdSlot!.advertiser); toast('📋 Advertiser email copied!', 'info') }}
+                <button type="button" onClick={() => { navigator.clipboard.writeText(editAdSlot!.advertiser || ''); toast('📋 Advertiser email copied!', 'info') }}
                   className="px-3 py-2 text-[10px] font-bold text-blue-400 rounded-lg border border-blue-400/20 hover:border-blue-400 transition-all">📋 Copy Advertiser</button>
-                <a href={`mailto:${editAdSlot.advertiser}?subject=Ad Slot Renewal — ${editAdSlot.slot}`}
+                <a href={`mailto:${editAdSlot.advertiser || ''}?subject=Ad Slot Renewal — ${editAdSlot.slot}`}
                   className="px-3 py-2 text-[10px] font-bold text-purple-400 rounded-lg border border-purple-400/20 hover:border-purple-400 transition-all">✉️ Email Advertiser</a>
               </div>
             </div>
@@ -5965,22 +5991,24 @@ export default function Admin() {
       {/* Create Ad Slot Modal */}
       {showAddAdSlot && (
         <Modal title="📢 Create New Ad Slot Placement" onClose={() => setShowAddAdSlot(false)}>
-          <form onSubmit={e => {
+          <form onSubmit={async e => {
             e.preventDefault()
             if (!newAdSlot.slot) return
             const isBooked = (newAdSlot as any).initialStatus === 'Booked'
-            const slotObj: AdSlot = {
-              id: `ad-${Date.now()}`,
+            const { adSlot, error } = await saveAdSlotToDb({
               slot: newAdSlot.slot,
               page: newAdSlot.page,
               size: newAdSlot.size,
               price: parseInt(newAdSlot.price) || 300,
               status: isBooked ? 'Booked' : 'Available',
               advertiser: isBooked ? ((newAdSlot as any).advertiser || 'Direct Sponsor') : '—',
-              start: isBooked ? ((newAdSlot as any).start || new Date().toLocaleDateString('en-KE', { month:'short', day:'numeric' })) : '—',
-              end: isBooked ? ((newAdSlot as any).end || '30 Days') : '—',
-            }
-            setAds(p => [slotObj, ...p])
+              start_date: isBooked ? ((newAdSlot as any).start || new Date().toLocaleDateString('en-KE', { month:'short', day:'numeric' })) : '—',
+              end_date: isBooked ? ((newAdSlot as any).end || '30 Days') : '—',
+              image_url: (newAdSlot as any).bannerImage || null,
+              destination_url: (newAdSlot as any).destinationUrl || null,
+            })
+            if (error || !adSlot) { toastLib.error('Failed to create ad slot'); return }
+            setAds(p => [adSlot, ...p])
             setShowAddAdSlot(false)
             setNewAdSlot({ slot: '', page: 'Homepage', size: '728x90', price: '300' })
           }} className="space-y-4 max-h-[80vh] overflow-y-auto pr-1">

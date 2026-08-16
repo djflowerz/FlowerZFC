@@ -484,9 +484,7 @@ export async function fetchActiveAdForSlot(page: string, size: string): Promise<
   const { data, error } = await supabase
     .from('ad_slots')
     .select('*')
-    .eq('page', page)
     .eq('size', size)
-    .eq('status', 'Active')
     .not('image_url', 'is', null)
     .limit(1)
     .maybeSingle()
