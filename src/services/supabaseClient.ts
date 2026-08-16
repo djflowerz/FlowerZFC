@@ -431,3 +431,64 @@ export async function updateProduct(id: string, updates: Partial<ProductRow>): P
   const { data, error } = await supabase.from('products').update(updates).eq('id', id).select().single()
   return { product: data as ProductRow | null, error }
 }
+
+
+export interface AdSlotRow {
+  id: string
+  slot: string
+  page: string
+  size: string
+  price: number
+  status: string
+  advertiser: string | null
+  start_date: string | null
+  end_date: string | null
+  image_url: string | null
+  destination_url: string | null
+  created_at: string
+}
+
+export async function fetchAllAdSlots(): Promise<{ adSlots: AdSlotRow[]; error: any }> {
+  const { data, error } = await supabase.from('ad_slots').select('*').order('created_at', { ascending: false })
+  return { adSlots: (data as AdSlotRow[]) || [], error }
+}
+
+export async function saveAdSlotToDb(slot: Partial<AdSlotRow>): Promise<{ adSlot: AdSlotRow | null; error: any }> {
+  if (slot.id) {
+    const { data, error } = await supabase.from('ad_slots').update(slot).eq('id', slot.id).select().single()
+    return { adSlot: data as AdSlotRow | null, error }
+  }
+  const { data, error } = await supabase.from('ad_slots').insert(slot).select().single()
+  return { adSlot: data as AdSlotRow | null, error }
+}
+
+export async function deleteAdSlotFromDb(id: string): Promise<{ error: any }> {
+  const { error } = await supabase.from('ad_slots').delete().eq('id', id)
+  return { error }
+}
+
+export async function uploadAdCreative(file: File): Promise<{ url: string | null; error: any }> {
+  try {
+    const ext = file.name.split('.').pop() || 'jpg'
+    const path = `ad-${Date.now()}.${ext}`
+    const { error: uploadError } = await supabase.storage.from('ad-creatives').upload(path, file, { upsert: true })
+    if (uploadError) return { url: null, error: uploadError }
+    const { data } = supabase.storage.from('ad-creatives').getPublicUrl(path)
+    return { url: data.publicUrl, error: null }
+  } catch (error) {
+    return { url: null, error }
+  }
+}
+
+export async function fetchActiveAdForSlot(page: string, size: string): Promise<{ adSlot: AdSlotRow | null; error: any }> {
+  const { data, error } = await supabase
+    .from('ad_slots')
+    .select('*')
+    .eq('page', page)
+    .eq('size', size)
+    .eq('status', 'Active')
+    .not('image_url', 'is', null)
+    .limit(1)
+    .maybeSingle()
+  return { adSlot: data as AdSlotRow | null, error }
+}

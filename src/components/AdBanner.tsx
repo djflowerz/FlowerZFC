@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { fetchActiveAdForSlot, type AdSlotRow } from '../services/supabaseClient'
 
 interface Props {
   size: 'leaderboard' | 'rectangle' | 'skyscraper' | 'mobile' | 'halfpage' | 'native'
@@ -15,7 +16,6 @@ const SIZES = {
   native:      { w: '100%', maxW: '100%',  h: '120px', label: 'Sponsored Content' },
 }
 
-// Rotate through ad labels for visual variety
 const AD_SPONSORS = [
   'Your Ad Here',
   'Advertise with FlowerZFC',
@@ -24,38 +24,64 @@ const AD_SPONSORS = [
   'Promote Your Brand Here',
 ]
 
+const SIZE_TO_LABEL: Record<string, string> = {
+  leaderboard: '728x90',
+  rectangle: '300x250',
+  skyscraper: '160x600',
+  halfpage: '300x600',
+  mobile: '320x50',
+  native: 'native',
+}
+
 export default function AdBanner({ size, label, className = '' }: Props) {
   const cfg = SIZES[size]
   const [sponsor] = useState(() => AD_SPONSORS[Math.floor(Math.random() * AD_SPONSORS.length)])
   const [adsenseCode, setAdsenseCode] = useState<string>('')
-  const [customAd, setCustomAd] = useState<{ imageUrl: string; linkUrl?: string } | null>(null)
+  const [liveAd, setLiveAd] = useState<AdSlotRow | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('flowerzfc_custom_ads')
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (parsed[size] && parsed[size].imageUrl) {
-          setCustomAd(parsed[size])
-        }
+    let cancelled = false
+    setLoading(true)
+
+    // Check every page value since ads are matched by size only for now
+    fetchActiveAdForSlot('Homepage', SIZE_TO_LABEL[size] || size).then(({ adSlot }) => {
+      if (!cancelled) {
+        setLiveAd(adSlot)
+        setLoading(false)
       }
+    })
+
+    try {
       const code = localStorage.getItem('flowerzfc_adsense_code')
       if (code) setAdsenseCode(code)
     } catch {}
+
+    return () => { cancelled = true }
   }, [size])
 
-  if (customAd?.imageUrl) {
+  if (liveAd?.image_url) {
     return (
+      
       <a
-        href={customAd.linkUrl || '/advertise'}
-        target={customAd.linkUrl?.startsWith('http') ? '_blank' : '_self'}
+        href={liveAd.destination_url || '/advertise'}
+        target={liveAd.destination_url?.startsWith('http') ? '_blank' : '_self'}
         rel="noopener noreferrer"
         className={`block rounded-xl overflow-hidden relative mx-auto transition-transform hover:scale-[1.01] ${className}`}
         style={{ width: cfg.w, maxWidth: cfg.maxW, height: cfg.h, border: '1px solid #1e1e32' }}
       >
-        <img src={customAd.imageUrl} alt="Advertisement" className="w-full h-full object-cover" />
+        <img src={liveAd.image_url} alt="Advertisement" className="w-full h-full object-cover" />
         <span className="absolute top-1 right-1 text-[8px] font-black uppercase text-white bg-black/60 px-1.5 py-0.5 rounded">AD</span>
       </a>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div
+        className={`rounded-xl overflow-hidden relative mx-auto ${className}`}
+        style={{ width: cfg.w, maxWidth: cfg.maxW, height: cfg.h, background: '#0a0a14', border: '1px solid #1e1e32' }}
+      />
     )
   }
 
@@ -70,39 +96,14 @@ export default function AdBanner({ size, label, className = '' }: Props) {
   }
 
   return (
-    <div
-      className={`flex flex-col items-center justify-center rounded-xl text-center mx-auto overflow-hidden relative ${className}`}
-      style={{
-        width: cfg.w,
-        maxWidth: cfg.maxW,
-        height: cfg.h,
-        background: 'linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 50%, #0f1a0f 100%)',
-        border: '1px dashed #2a2a40',
-      }}
+    
+    <a
+      href="/advertise"
+      className={`flex flex-col items-center justify-center rounded-xl overflow-hidden relative mx-auto transition-colors hover:border-[#00b341] ${className}`}
+      style={{ width: cfg.w, maxWidth: cfg.maxW, height: cfg.h, background: '#0a0a14', border: '1px dashed #1e1e32' }}
     >
-      {/* Subtle pattern overlay */}
-      <div className="absolute inset-0 opacity-5"
-        style={{
-          backgroundImage: 'repeating-linear-gradient(45deg, #00b341 0, #00b341 1px, transparent 0, transparent 50%)',
-          backgroundSize: '10px 10px',
-        }}
-      />
-
-      <div className="relative z-10 px-3">
-        <p className="text-[9px] font-black text-gray-600 uppercase tracking-[0.2em] mb-1">Advertisement</p>
-        <p className="text-[10px] text-gray-500 font-semibold">{label || sponsor}</p>
-        {size !== 'mobile' && (
-          <p className="text-[9px] text-gray-700 mt-1 font-mono">{cfg.label}</p>
-        )}
-        {size === 'rectangle' || size === 'halfpage' || size === 'skyscraper' ? (
-          <a
-            href="/advertise"
-            className="inline-block mt-3 px-3 py-1 text-[9px] font-bold text-[#00b341] border border-[#00b341]/40 rounded-full hover:bg-[#00b341]/10 transition-colors"
-          >
-            Book This Space →
-          </a>
-        ) : null}
-      </div>
-    </div>
+      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{label || cfg.label}</span>
+      <span className="text-xs text-gray-600 mt-1">{sponsor}</span>
+    </a>
   )
 }
