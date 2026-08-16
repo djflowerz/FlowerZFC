@@ -6,7 +6,7 @@ import { getPaymentConfig } from '../services/paymentService'
 import { fetchLiveMatches, fetchLiveStandings, fetchLiveFixtures, getUserTimezoneInfo, fetchLiveCatalogStats, type LiveMatch, type LiveStanding, type LiveFixture, type LiveCatalogStats } from '../services/liveScoreApi'
 import { getIngestedPosts, fetchLiveIngestedPosts, transformContentContext, filterPostsByDate, downloadImageAsset, IngestedPost } from '../services/contentIngestion'
 import { getAuthUser, loginWithEmail, hasTabAccessRole, setAuthSession, SUPER_ADMIN_EMAIL, type UserRole, type AuthProfile } from '../services/authService'
-import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, type ArticleRow, type CommentRow, type TicketRow, type MixRow } from '../services/supabaseClient'
+import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, updateProduct, type ArticleRow, type CommentRow, type TicketRow, type MixRow } from '../services/supabaseClient'
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
 import {
@@ -4354,7 +4354,14 @@ export default function Admin() {
             </div>
 
           </div>
-          <button onClick={() => { setProducts(prev => prev.map(x => x.id === editProduct.id ? editProduct : x)); setEditProduct(null) }}
+          <button onClick={async () => {
+            if (!editProduct) return
+            const { error } = await updateProduct(editProduct.id, editProduct as any)
+            if (error) { toast('❌ Failed to save product changes', 'error'); return }
+            setProducts(prev => prev.map(x => x.id === editProduct.id ? editProduct : x))
+            setEditProduct(null)
+            toast('✅ Product saved!', 'success')
+          }}
             className="w-full py-3.5 mt-3 text-sm font-black text-white rounded-xl hover:opacity-90 transition-all" style={{ background: '#00b341' }}>Save Product Changes →</button>
         </Modal>
       )}

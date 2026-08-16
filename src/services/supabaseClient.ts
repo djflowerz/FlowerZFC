@@ -425,3 +425,9 @@ export async function changePassword(newPassword: string): Promise<{ error: any 
   const { error } = await supabase.auth.updateUser({ password: newPassword })
   return { error }
 }
+
+
+export async function updateProduct(id: string, updates: Partial<ProductRow>): Promise<{ product: ProductRow | null; error: any }> {
+  const { data, error } = await supabase.from('products').update(updates).eq('id', id).select().single()
+  return { product: data as ProductRow | null, error }
+}
