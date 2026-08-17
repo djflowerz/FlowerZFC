@@ -369,6 +369,7 @@ export interface MixRow {
   plays?: number
   genre?: string
   cover_url?: string
+  release_date?: string
   created_at?: string
 }
 
@@ -496,4 +497,18 @@ export async function fetchActiveAdForSlot(page: string, size: string): Promise<
 export async function updateUserRoleAndStatus(userId: string, updates: { role?: string; status?: string }): Promise<{ profile: ProfileRow | null; error: any }> {
   const { data, error } = await supabase.from('profiles').update(updates).eq('id', userId).select().single()
   return { profile: data as ProfileRow | null, error }
+}
+
+
+export async function uploadMixCover(file: File): Promise<{ url: string | null; error: any }> {
+  try {
+    const ext = file.name.split('.').pop() || 'jpg'
+    const path = `cover-${Date.now()}.${ext}`
+    const { error: uploadError } = await supabase.storage.from('mix-covers').upload(path, file, { upsert: true })
+    if (uploadError) return { url: null, error: uploadError }
+    const { data } = supabase.storage.from('mix-covers').getPublicUrl(path)
+    return { url: data.publicUrl, error: null }
+  } catch (error) {
+    return { url: null, error }
+  }
 }

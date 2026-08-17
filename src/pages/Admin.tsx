@@ -6,7 +6,7 @@ import { getPaymentConfig } from '../services/paymentService'
 import { fetchLiveMatches, fetchLiveStandings, fetchLiveFixtures, getUserTimezoneInfo, fetchLiveCatalogStats, type LiveMatch, type LiveStanding, type LiveFixture, type LiveCatalogStats } from '../services/liveScoreApi'
 import { getIngestedPosts, fetchLiveIngestedPosts, transformContentContext, filterPostsByDate, downloadImageAsset, IngestedPost } from '../services/contentIngestion'
 import { getAuthUser, loginWithEmail, hasTabAccessRole, setAuthSession, SUPER_ADMIN_EMAIL, type UserRole, type AuthProfile } from '../services/authService'
-import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, updateProduct, fetchAllAdSlots, saveAdSlotToDb, deleteAdSlotFromDb, uploadAdCreative, updateUserRoleAndStatus, type ArticleRow, type CommentRow, type TicketRow, type MixRow, type AdSlotRow } from '../services/supabaseClient'
+import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, updateProduct, fetchAllAdSlots, saveAdSlotToDb, deleteAdSlotFromDb, uploadAdCreative, updateUserRoleAndStatus, uploadMixCover, type ArticleRow, type CommentRow, type TicketRow, type MixRow, type AdSlotRow } from '../services/supabaseClient'
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
 import {
@@ -6652,20 +6652,25 @@ export default function Admin() {
             e.preventDefault()
             if (!newMix.title) { toastLib.error('Title is required'); return }
             const mixId = `mix_${Date.now()}`
-            const mixObj = {
+            const mixObj: MixRow = {
               id: mixId,
               title: newMix.title,
               mixcloud_url: newMix.mixcloud_url || 'https://www.mixcloud.com/djflowerz',
               mixcloud_id: newMix.mixcloud_url ? newMix.mixcloud_url.split('mixcloud.com')[1] || '/djflowerz/mix' : '/djflowerz/mix',
-              plays: 1,
+              plays: 0,
               genre: newMix.genre || 'Afrobeats & Amapiano',
-              cover_url: newMix.cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&h=600&fit=crop',
+              cover_url: (newMix as any).cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&h=600&fit=crop',
+              release_date: (newMix as any).release_date || new Date().toISOString().slice(0, 10),
             }
-            const { error } = await saveMixToDb(mixObj)
-            if (error) console.error('Save mix DB error:', error)
-            setMixes(prev => [mixObj, ...prev])
+            const { mix, error } = await saveMixToDb(mixObj)
+            if (error || !mix) {
+              console.error('Save mix DB error:', error)
+              toastLib.error('❌ Failed to save mix. Please try again.')
+              return
+            }
+            setMixes(prev => [mix, ...prev])
             setShowAddMix(false)
-            setNewMix({ title: '', mixcloud_url: '', genre: 'Afrobeats & Amapiano', cover_url: '' })
+            setNewMix({ title: '', mixcloud_url: '', genre: 'Afrobeats & Amapiano', cover_url: '' } as any)
             toastLib.success('✅ New DJ Mix Published!')
           }} className="space-y-4">
             <div>
@@ -6681,8 +6686,23 @@ export default function Admin() {
               <input value={newMix.genre} onChange={e => setNewMix(p => ({ ...p, genre: e.target.value }))} placeholder="e.g. Afrobeats, Amapiano, Gengetone, Reggae" className={INPUT} style={INPUT_STYLE} />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-400 mb-1">Cover Artwork Image URL</label>
-              <input value={newMix.cover_url} onChange={e => setNewMix(p => ({ ...p, cover_url: e.target.value }))} placeholder="https://images.unsplash.com/..." className={INPUT} style={INPUT_STYLE} />
+              <label className="block text-xs font-bold text-gray-400 mb-1">Release Date</label>
+              <input type="date" value={(newMix as any).release_date || new Date().toISOString().slice(0, 10)} onChange={e => setNewMix(p => ({ ...p, release_date: e.target.value } as any))} className={INPUT} style={INPUT_STYLE} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-1">Cover Artwork</label>
+              <input type="file" accept="image/*" onChange={async e => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                toastLib.info('Uploading cover...')
+                const { url, error } = await uploadMixCover(file)
+                if (error || !url) { toastLib.error('Cover upload failed'); return }
+                setNewMix(p => ({ ...p, cover_url: url } as any))
+                toastLib.success('Cover uploaded!')
+              }} className={INPUT} style={INPUT_STYLE} />
+              {(newMix as any).cover_url && (
+                <img src={(newMix as any).cover_url} className="w-24 h-24 object-cover rounded-lg mt-2 border border-[#1e1e32]" alt="" />
+              )}
             </div>
             <div className="flex gap-2 pt-2">
               <button type="button" onClick={() => setShowAddMix(false)} className="flex-1 py-3 text-xs font-bold text-white rounded-xl border border-[#1e1e32]">Cancel</button>
