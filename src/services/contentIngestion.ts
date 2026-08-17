@@ -258,6 +258,9 @@ export async function fetchLiveIngestedPosts(): Promise<IngestedPost[]> {
         })
       }
 
+      // Sort strictly from latest timestamp to oldest
+      parsed.sort((a, b) => b.timestampMs - a.timestampMs)
+
       if (parsed.length > 0) {
         cachedIngestedPosts = parsed
         return parsed
@@ -275,16 +278,18 @@ export function getIngestedPosts(): IngestedPost[] {
 }
 
 // ─── Date Filter ──────────────────────────────────────────────────────────────
-// If dateStr === 'all' -> returns all posts.
-// Otherwise matches either local date string or UTC date.
+// If dateStr === 'all' -> returns all posts sorted latest first.
+// Otherwise matches either local date string or UTC date, strictly for that day.
 export function filterPostsByDate(posts: IngestedPost[], dateStr: string): IngestedPost[] {
-  if (!dateStr || dateStr === 'all') return posts
+  if (!dateStr || dateStr === 'all') {
+    return [...posts].sort((a, b) => b.timestampMs - a.timestampMs)
+  }
   const filtered = posts.filter(p => {
     if (p.sourceDate === dateStr) return true
     const postUtcDate = new Date(p.timestampMs).toISOString().slice(0, 10)
     return postUtcDate === dateStr
   })
-  return filtered
+  return filtered.sort((a, b) => b.timestampMs - a.timestampMs)
 }
 
 export async function downloadImageAsset(

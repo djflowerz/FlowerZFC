@@ -212,13 +212,15 @@ export default function Article() {
     )
   }
 
-  const toggleLike = () => {
-    if (liked) {
-      setLiked(false)
-      setLikeCount(prev => prev - 1)
-    } else {
-      setLiked(true)
-      setLikeCount(prev => prev + 1)
+  const toggleLike = async () => {
+    const nextCount = liked ? Math.max(0, likeCount - 1) : likeCount + 1
+    setLiked(!liked)
+    setLikeCount(nextCount)
+    if (article?.id) {
+      try {
+        const { supabase } = await import('../services/supabaseClient')
+        await supabase.from('articles').update({ likes: nextCount }).eq('id', article.id)
+      } catch {}
     }
   }
 
@@ -477,6 +479,11 @@ export default function Article() {
 
               {/* Comments Feed */}
               <div className="space-y-4">
+                {commentList.length === 0 && (
+                  <div className="p-8 text-center text-gray-500 text-xs border border-dashed border-[#1e1e32] rounded-xl">
+                    💬 No comments yet. Be the first to share your thoughts on this story!
+                  </div>
+                )}
                 {commentList.map(c => (
                   <div key={c.id} className="p-4 rounded-xl" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
                     <div className="flex items-center gap-2 mb-2">

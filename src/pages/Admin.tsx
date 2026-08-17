@@ -658,6 +658,7 @@ export default function Admin() {
   ])
   // Content Ingestion & Context Transformer state
   const [ingestedPosts, setIngestedPosts] = useState<IngestedPost[]>(getIngestedPosts())
+  const [scannerFilter, setScannerFilter] = useState<'all' | 'unposted' | 'published'>('all')
   const [ingestDate, setIngestDate] = useState(() => {
     const d = new Date()
     const yyyy = d.getFullYear()
@@ -667,6 +668,34 @@ export default function Admin() {
   })
   const [editingIngestPost, setEditingIngestPost] = useState<IngestedPost | null>(null)
   const [selectedIngestIds, setSelectedIngestIds] = useState<Set<string>>(new Set())
+
+  // Check if a scanned post has already been posted to the website
+  const isPostAlreadyOnSite = (p: IngestedPost) => {
+    const pTitle = (p.transformedTitle || p.sourceTitle || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+    const pSlug = (p.transformedTitle || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    return articles.some(a => {
+      const aTitle = (a.title || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+      return a.slug === pSlug || aTitle === pTitle || (a.id && a.id.includes(p.id)) || a.id === `art-ing-${p.id}`
+    })
+  }
+
+  // Detect duplicate articles already in the database
+  const duplicateArticleIds = useMemo(() => {
+    const seen = new Map<string, string>()
+    const dups = new Set<string>()
+    articles.forEach(a => {
+      const key = (a.title || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '')
+      if (key) {
+        if (seen.has(key)) {
+          dups.add(a.id)
+        } else {
+          seen.set(key, a.id)
+        }
+      }
+    })
+    return dups
+  }, [articles])
+
   // Scores verification state
   const [scoresDate, setScoresDate] = useState(new Date().toISOString().slice(0, 10))
   const [scoresLeague, setScoresLeague] = useState('Premier League')
@@ -1326,7 +1355,27 @@ export default function Admin() {
         {tab === 'articles' && (
           <div className="space-y-6">
             <SectionHead title={`📰 Articles (${articles.length})`} sub="Write, schedule, publish, and manage all content."
-              action={<div className="flex gap-2">
+              action={<div className="flex items-center gap-2 flex-wrap">
+                {duplicateArticleIds.size > 0 && (
+                  <button
+                    onClick={async () => {
+                      if (confirm(`Remove ${duplicateArticleIds.size} duplicate article(s) permanently from the database?`)) {
+                        const toDelete = Array.from(duplicateArticleIds)
+                        setArticles(prev => prev.filter(a => !duplicateArticleIds.has(a.id)))
+                        for (const dupId of toDelete) {
+                          try {
+                            const { deleteArticleFromDb } = await import('../services/supabaseClient')
+                            await deleteArticleFromDb(dupId)
+                          } catch {}
+                        }
+                        toast(`🧹 Removed ${duplicateArticleIds.size} duplicate articles!`, 'success')
+                      }
+                    }}
+                    className="px-3 py-2 text-[11px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-xl hover:bg-amber-500/20 transition-all flex items-center gap-1.5"
+                  >
+                    <span>⚠️</span> Clean {duplicateArticleIds.size} Duplicate(s)
+                  </button>
+                )}
                 <button onClick={() => downloadCSV('articles.csv', filteredArticles.map(a => [a.id, a.title, a.category, a.author, a.views, a.likes.toString(), a.status, a.date]), ['ID','Title','Category','Author','Views','Likes','Status','Date'])}
                   className="px-3 py-2 text-[11px] font-bold text-white rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-all" style={{ background: '#131320' }}>⬇ CSV</button>
                 <button onClick={() => setShowAddArticle(true)} className="px-5 py-2.5 text-xs font-black text-white rounded-xl hover:opacity-90" style={{ background: '#00b341' }}>+ New Article</button>
@@ -1340,7 +1389,7 @@ export default function Admin() {
                   <div>
                     <p className="text-xs font-black text-white uppercase tracking-wider">⚡ LiveScore Feed Scanner Alert</p>
                     <p className="text-[11px] text-gray-300">
-                      {ingestedPosts.filter(p => p.status === 'Pending').length} new LiveScore articles detected. Content auto-transformed to FlowerZFC brand context.
+                      {filterPostsByDate(ingestedPosts, ingestDate).filter(p => !isPostAlreadyOnSite(p)).length} unposted LiveScore articles detected for {ingestDate === 'all' ? 'all dates' : ingestDate}.
                     </p>
                   </div>
                 </div>
@@ -1425,18 +1474,41 @@ export default function Admin() {
                 </div>
               </div>
 
+              {/* Ingestion Filter Pills (All / Unposted / Already Published) */}
+              <div className="flex items-center gap-2 border-b border-[#1e1e32] pb-3 flex-wrap">
+                <span className="text-[11px] font-bold text-gray-400">Filter Scanned Posts:</span>
+                {[
+                  { id: 'all', label: `All Scanned (${filterPostsByDate(ingestedPosts, ingestDate).length})` },
+                  { id: 'unposted', label: `✨ New / Unposted (${filterPostsByDate(ingestedPosts, ingestDate).filter(p => !isPostAlreadyOnSite(p)).length})` },
+                  { id: 'published', label: `✓ Already on Site (${filterPostsByDate(ingestedPosts, ingestDate).filter(p => isPostAlreadyOnSite(p)).length})` },
+                ].map(f => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setScannerFilter(f.id as any)}
+                    className={`px-3 py-1 text-xs rounded-lg font-bold transition-all border ${
+                      scannerFilter === f.id
+                        ? 'bg-[#00b341] text-black border-[#00b341] font-black'
+                        : 'bg-[#0d0d1e] text-gray-400 border-[#1e1e32] hover:text-white'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Bulk Actions Controls */}
               <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-[#0d0d1e] border border-[#1e1e32] flex-wrap">
                 <label className="flex items-center gap-2.5 text-xs font-bold text-gray-300 cursor-pointer">
                   <input type="checkbox"
-                    checked={selectedIngestIds.size > 0 && selectedIngestIds.size === filterPostsByDate(ingestedPosts, ingestDate).length}
+                    checked={selectedIngestIds.size > 0 && selectedIngestIds.size === filterPostsByDate(ingestedPosts, ingestDate).filter(p => scannerFilter === 'unposted' ? !isPostAlreadyOnSite(p) : scannerFilter === 'published' ? isPostAlreadyOnSite(p) : true).length}
                     onChange={e => {
-                      const visible = filterPostsByDate(ingestedPosts, ingestDate)
+                      const visible = filterPostsByDate(ingestedPosts, ingestDate).filter(p => scannerFilter === 'unposted' ? !isPostAlreadyOnSite(p) : scannerFilter === 'published' ? isPostAlreadyOnSite(p) : true)
                       if (e.target.checked) setSelectedIngestIds(new Set(visible.map(p => p.id)))
                       else setSelectedIngestIds(new Set())
                     }}
                     className="w-4 h-4 accent-[#00b341]" />
-                  <span>Select All ({filterPostsByDate(ingestedPosts, ingestDate).length} posts)</span>
+                  <span>Select All ({filterPostsByDate(ingestedPosts, ingestDate).filter(p => scannerFilter === 'unposted' ? !isPostAlreadyOnSite(p) : scannerFilter === 'published' ? isPostAlreadyOnSite(p) : true).length} posts)</span>
                 </label>
 
                 {selectedIngestIds.size > 0 && (
@@ -1452,7 +1524,7 @@ export default function Admin() {
                         imageUrl: post.sourceImage,
                         imageAlt: post.transformedTitle,
                         imageCaption: post.transformedTitle,
-                        author: post.author,
+                        author: post.author || 'Admin',
                         date: new Date().toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' }),
                         status: 'Published',
                         tags: `${post.category}, Ingested, News`,
@@ -1460,7 +1532,7 @@ export default function Admin() {
                         slug: post.transformedTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
                         scheduled: '',
                         views: '1.2K',
-                        likes: 85,
+                        likes: 0,
                         excerpt: post.transformedBody.slice(0, 140) + '...',
                         matchId: '',
                         teamTags: '',
@@ -1485,8 +1557,16 @@ export default function Admin() {
 
               {/* Ingested Post Cards */}
               <div className="space-y-4">
-                {filterPostsByDate(ingestedPosts, ingestDate).map(post => (
-                  <div key={post.id} className="p-5 rounded-xl border space-y-4" style={{ background: '#0d0d1e', borderColor: selectedIngestIds.has(post.id) ? '#00b341' : post.status === 'Pending' ? 'rgba(245,158,11,.4)' : post.status === 'Approved' ? 'rgba(0,179,65,.3)' : '#1e1e32' }}>
+                {filterPostsByDate(ingestedPosts, ingestDate)
+                  .filter(post => {
+                    if (scannerFilter === 'unposted') return !isPostAlreadyOnSite(post)
+                    if (scannerFilter === 'published') return isPostAlreadyOnSite(post)
+                    return true
+                  })
+                  .map(post => {
+                    const alreadyOnSite = isPostAlreadyOnSite(post)
+                    return (
+                  <div key={post.id} className="p-5 rounded-xl border space-y-4" style={{ background: '#0d0d1e', borderColor: selectedIngestIds.has(post.id) ? '#00b341' : alreadyOnSite ? 'rgba(0,179,65,.35)' : 'rgba(245,158,11,.4)' }}>
                     <div className="flex items-start justify-between gap-4 flex-wrap">
                       <div className="flex items-center gap-3">
                         <input type="checkbox" checked={selectedIngestIds.has(post.id)}
@@ -1529,11 +1609,17 @@ export default function Admin() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-1 text-[10px] font-black uppercase rounded-full"
-                          style={{ background: post.status === 'Approved' ? 'rgba(0,179,65,.2)' : post.status === 'Pending' ? 'rgba(245,158,11,.2)' : 'rgba(239,68,68,.2)',
-                                   color: post.status === 'Approved' ? '#00b341' : post.status === 'Pending' ? '#f59e0b' : '#ef4444' }}>
-                          {post.status}
-                        </span>
+                        {alreadyOnSite ? (
+                          <span className="px-2.5 py-1 text-[10px] font-black uppercase rounded-full bg-emerald-500/20 text-[#00b341] border border-emerald-500/30 flex items-center gap-1">
+                            <span>✓</span> Published on Site
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 text-[10px] font-black uppercase rounded-full"
+                            style={{ background: post.status === 'Approved' ? 'rgba(0,179,65,.2)' : post.status === 'Pending' ? 'rgba(245,158,11,.2)' : 'rgba(239,68,68,.2)',
+                                     color: post.status === 'Approved' ? '#00b341' : post.status === 'Pending' ? '#f59e0b' : '#ef4444' }}>
+                            {post.status}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -1581,47 +1667,53 @@ export default function Admin() {
                         }} className="px-3 py-1.5 text-[10px] font-bold text-red-400 rounded-lg border border-red-400/20 hover:border-red-400 transition-all">
                           ❌ Reject
                         </button>
-                        <button onClick={() => {
-                          // Approve & Publish to articleStore
-                          const newArticle = {
-                            id: `art-ing-${Date.now()}`,
-                            title: post.transformedTitle,
-                            category: post.category,
-                            body: post.transformedBody,
-                            imageUrl: post.sourceImage,
-                            imageAlt: post.transformedTitle,
-                            imageCaption: post.transformedTitle,
-                            author: post.author,
-                            date: new Date().toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' }),
-                            status: 'Published',
-                            tags: `${post.category}, Ingested, News`,
-                            metaDescription: post.transformedBody.slice(0, 150),
-                            slug: post.transformedTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-                            scheduled: '',
-                            views: '1.2K',
-                            likes: 85,
-                            excerpt: post.transformedBody.slice(0, 140) + '...',
-                            matchId: '',
-                            teamTags: '',
-                            playerTags: '',
-                            mediaEmbeds: '',
-                            isLiveBlog: false,
-                            metaTitle: post.transformedTitle,
-                            focusKeywords: post.category,
-                          }
-                          setArticles(prev => [newArticle, ...prev])
-                          saveArticle(newArticle)
-                          setIngestedPosts(prev => prev.map(p => p.id === post.id ? { ...p, status: 'Approved' } : p))
-                          toast('✅ Approved & Published to FlowerZFC platform live!', 'success')
-                        }} className="px-4 py-1.5 text-[11px] font-black text-white rounded-lg hover:opacity-90 transition-all" style={{ background: '#00b341' }}>
-                          ✅ Approve & Publish Now →
-                        </button>
+                        {alreadyOnSite ? (
+                          <span className="px-3 py-1.5 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+                            ✓ Already on Site
+                          </span>
+                        ) : (
+                          <button onClick={() => {
+                            const newArticle = {
+                              id: `art-ing-${Date.now()}`,
+                              title: post.transformedTitle,
+                              category: post.category,
+                              body: post.transformedBody,
+                              imageUrl: post.sourceImage,
+                              imageAlt: post.transformedTitle,
+                              imageCaption: post.transformedTitle,
+                              author: post.author || 'Admin',
+                              date: new Date().toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' }),
+                              status: 'Published',
+                              tags: `${post.category}, Ingested, News`,
+                              metaDescription: post.transformedBody.slice(0, 150),
+                              slug: post.transformedTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                              scheduled: '',
+                              views: '1.2K',
+                              likes: 0,
+                              excerpt: post.transformedBody.slice(0, 140) + '...',
+                              matchId: '',
+                              teamTags: '',
+                              playerTags: '',
+                              mediaEmbeds: '',
+                              isLiveBlog: false,
+                              metaTitle: post.transformedTitle,
+                              focusKeywords: post.category,
+                            }
+                            setArticles(prev => [newArticle, ...prev])
+                            saveArticle(newArticle)
+                            setIngestedPosts(prev => prev.map(p => p.id === post.id ? { ...p, status: 'Approved' } : p))
+                            toast('✅ Approved & Published to FlowerZFC platform live!', 'success')
+                          }} className="px-4 py-1.5 text-[11px] font-black text-white rounded-lg hover:opacity-90 transition-all" style={{ background: '#00b341' }}>
+                            ✅ Approve & Publish Now →
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
-                ))}
+                    )
+                  })}
 
-                {filterPostsByDate(ingestedPosts, ingestDate).length === 0 && (
+                {filterPostsByDate(ingestedPosts, ingestDate).filter(p => scannerFilter === 'unposted' ? !isPostAlreadyOnSite(p) : scannerFilter === 'published' ? isPostAlreadyOnSite(p) : true).length === 0 && (
                   <div className="p-8 text-center text-gray-500 text-xs border border-dashed border-[#1e1e32] rounded-xl space-y-3">
                     <p className="text-2xl">📅</p>
                     {ingestedPosts.length === 0 ? (
@@ -1631,8 +1723,8 @@ export default function Admin() {
                       </>
                     ) : (
                       <>
-                        <p className="text-white font-bold">No articles found for <span className="font-mono text-[#00b341]">{ingestDate}</span></p>
-                        <p className="text-gray-400">LiveScore publishes articles on specific dates. Try one of these available dates:</p>
+                        <p className="text-white font-bold">No articles match filter <span className="font-mono text-[#00b341]">{scannerFilter}</span> for date <span className="font-mono text-[#00b341]">{ingestDate}</span></p>
+                        <p className="text-gray-400">Try switching filter to "All Scanned" or picking an available date:</p>
                         <div className="flex flex-wrap justify-center gap-2 mt-2">
                           {[...new Set(ingestedPosts.map(p => p.sourceDate))].sort().reverse().slice(0, 10).map(d => (
                             <button key={d} onClick={() => setIngestDate(d)}
@@ -1688,6 +1780,11 @@ export default function Admin() {
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="text-[9px] font-black uppercase text-[#00b341] tracking-wider">{a.category}</span>
                           <Badge s={a.status} />
+                          {duplicateArticleIds.has(a.id) && (
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              ⚠️ Duplicate
+                            </span>
+                          )}
                           {a.scheduled && <span className="text-[9px] text-purple-400 font-bold">🕐 {a.scheduled}</span>}
                           {(a as any).liveBlog && <span className="text-[9px] font-black px-1.5 py-0.5 rounded text-white" style={{ background: '#dc2626' }}>🔴 LIVE</span>}
                         </div>
