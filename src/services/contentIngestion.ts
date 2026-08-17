@@ -120,24 +120,28 @@ function isPromotionalPost(title: string, slug: string): boolean {
 
 // ─── Context Transformer ────────────────────────────────────────────────────
 // Rules:
-//  1. Title: Keep 100% identical to source. ONLY remove/replace the word "LiveScore" 
-//     and similar references. Do NOT restructure, rename, or reword anything else.
-//  2. Body: Same rule — keep original wording, only strip LiveScore brand references.
+//  1. Title: Keep original core headline while stripping syndication suffixes
+//     (e.g. "- GOAL", "- VAVEL", "- Celtic Shorts", "- BVB Buzz", "- SI", "(Report)")
+//     and any "LiveScore" brand name.
+//  2. Body: Keep full detailed story while stripping external platform and syndication references.
 //  3. Author: Always "Admin"
 export function transformContentContext(
   title: string,
   body: string,
 ): { title: string; body: string } {
-  // Strip LiveScore brand references from title — keep everything else identical
+  // Clean up title: remove LiveScore and syndication suffixes like " - GOAL", " - SI", etc.
   const t = (title || '')
-    .replace(/\blivescore\b/gi, '')       // remove bare "livescore" word
-    .replace(/\s{2,}/g, ' ')              // collapse double spaces
+    .replace(/\blivescore\b/gi, '')
+    .replace(/\s*[-–—]\s*(GOAL|VAVEL|Celtic Shorts|BVB Buzz|Sports Witness|ParisFans|MilanReports|FootballLeagueWorld|SI|Daily Mail|The Sun|Sky Sports|ESPN)\s*$/i, '')
+    .replace(/\s*\(Report\)\s*$/i, '')
+    .replace(/\s{2,}/g, ' ')
     .trim()
 
-  // Strip LiveScore brand references from body — keep everything else intact
+  // Clean up body: remove LiveScore references and syndication tags
   const b = (body || '')
     .replace(/\blivescore\.com\b/gi, 'our platform')
     .replace(/\blivescore\b/gi, '')
+    .replace(/\b(per|according to)\s+(LiveScore|GOAL|VAVEL|Celtic Shorts|BVB Buzz|Sports Witness|ParisFans|MilanReports|FootballLeagueWorld)\b/gi, 'reports indicate')
     .replace(/\s{2,}/g, ' ')
     .trim()
 

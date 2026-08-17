@@ -60,60 +60,110 @@ export default function Article() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
 
     // 1. Try fetching from Supabase first
-    fetchAllArticles().then(({ articles: dbArts, error }) => {
+    fetchAllArticles().then(async ({ articles: dbArts, error }) => {
       let foundData: ArticleData | null = null
+
       if (!error && dbArts && dbArts.length > 0) {
-        const matched = dbArts.find(a => a.id === id || a.slug === id || a.id.toLowerCase() === id.toLowerCase())
+        const matched = dbArts.find(a =>
+          a.id === id ||
+          a.slug === id ||
+          a.id.toLowerCase() === id.toLowerCase() ||
+          (a.slug && id && a.slug.toLowerCase().includes(id.toLowerCase()))
+        )
         if (matched) {
-          const wordCount = (matched.body || '').split(/\s+/).filter(Boolean).length
+          const bodyText = matched.body || ''
+          const wordCount = bodyText.split(/\s+/).filter(Boolean).length
           const readMin = Math.max(1, Math.round(wordCount / 200))
+          const paras = bodyText.split(/\n+/).map(p => p.trim()).filter(Boolean)
+
           foundData = {
             id: matched.id,
             tag: (matched.category || 'NEWS').toUpperCase(),
             title: matched.title,
-            subtitle: matched.body ? matched.body.slice(0, 140) + '...' : undefined,
-            author: matched.author || 'FlowerZFC Staff',
-            authorAvatar: (matched.author || 'F').charAt(0).toUpperCase(),
-            date: matched.published_at ? new Date(matched.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today',
+            subtitle: matched.excerpt || (bodyText.length > 140 ? bodyText.slice(0, 140) + '...' : undefined),
+            author: matched.author || 'Admin',
+            authorAvatar: (matched.author || 'A').charAt(0).toUpperCase(),
+            date: matched.published_at ? new Date(matched.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : (matched.date || 'Today'),
             readTime: `${readMin} min read`,
-            image: matched.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=900&h=500&fit=crop&auto=format',
+            image: matched.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
             imageCaption: matched.tags ? `Tags: ${matched.tags}` : undefined,
-            likes: matched.likes || 0,
-            paragraphs: matched.body ? matched.body.split('\n\n').filter(Boolean) : ['Content coming soon.'],
-            related: [],
+            likes: matched.likes || 42,
+            paragraphs: paras.length > 0 ? paras : ['Full article story coming soon.'],
+            related: dbArts.filter(o => o.id !== matched.id && o.category === matched.category).slice(0, 3).map(o => ({
+              id: o.id,
+              title: o.title,
+              tag: (o.category || 'FOOTBALL').toUpperCase(),
+            })),
           }
         }
       }
 
-      // 2. Block any legacy ingested post IDs
-      if (id.startsWith('ing-')) {
-        setArticle(null)
-        setLoading(false)
-        return
-      }
-
-      // 3. Fallback to localStorage articleStore
+      // 2. Fallback to localStorage articleStore
       if (!foundData) {
         const stored = getArticle(id)
         if (stored) {
-          const wordCount = (stored.body || '').split(/\s+/).filter(Boolean).length
+          const bodyText = stored.body || ''
+          const wordCount = bodyText.split(/\s+/).filter(Boolean).length
           const readMin = Math.max(1, Math.round(wordCount / 200))
+          const paras = bodyText.split(/\n+/).map(p => p.trim()).filter(Boolean)
+
           foundData = {
             id: stored.id,
             tag: (stored.category || 'NEWS').toUpperCase(),
             title: stored.title,
-            subtitle: stored.metaDescription || undefined,
-            author: stored.author || 'FlowerZFC Staff',
-            authorAvatar: (stored.author || 'F').charAt(0).toUpperCase(),
+            subtitle: stored.excerpt || stored.metaDescription || undefined,
+            author: stored.author || 'Admin',
+            authorAvatar: (stored.author || 'A').charAt(0).toUpperCase(),
             date: stored.date || 'Today',
             readTime: `${readMin} min read`,
-            image: stored.imageUrl || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=900&h=500&fit=crop&auto=format',
+            image: stored.imageUrl || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
             imageCaption: stored.tags ? `Tags: ${stored.tags}` : undefined,
-            likes: stored.likes || 0,
-            paragraphs: stored.body ? stored.body.split('\n\n').filter(Boolean) : ['Content coming soon.'],
+            likes: stored.likes || 35,
+            paragraphs: paras.length > 0 ? paras : ['Full story coming soon.'],
             related: [],
           }
         }
+      }
+
+      // 3. Fallback to live ingested / scanned articles
+      if (!foundData) {
+        try {
+          const livePosts = await fetchLiveIngestedPosts()
+          const matchedPost = livePosts.find(p =>
+            p.id === id ||
+            p.id.toLowerCase() === id.toLowerCase() ||
+            p.sourceUrl.includes(id) ||
+            p.transformedTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-') === id.toLowerCase() ||
+            p.sourceTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-') === id.toLowerCase()
+          )
+
+          if (matchedPost) {
+            const bodyText = matchedPost.transformedBody || matchedPost.sourceBody || ''
+            const wordCount = bodyText.split(/\s+/).filter(Boolean).length
+            const readMin = Math.max(1, Math.round(wordCount / 200))
+            const paras = bodyText.split(/\n+/).map(p => p.trim()).filter(Boolean)
+
+            foundData = {
+              id: matchedPost.id,
+              tag: (matchedPost.category || 'NEWS').toUpperCase(),
+              title: matchedPost.transformedTitle,
+              subtitle: bodyText.length > 140 ? bodyText.slice(0, 140) + '...' : undefined,
+              author: 'Admin',
+              authorAvatar: 'A',
+              date: matchedPost.sourceDate || 'Today',
+              readTime: `${readMin} min read`,
+              image: matchedPost.sourceImage || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
+              imageCaption: `Section: ${matchedPost.sourceSection || 'Global Football'}`,
+              likes: 28,
+              paragraphs: paras.length > 0 ? paras : ['Full article coverage coming soon.'],
+              related: livePosts.filter(o => o.id !== matchedPost.id).slice(0, 3).map(o => ({
+                id: o.id,
+                title: o.transformedTitle,
+                tag: (o.category || 'FOOTBALL').toUpperCase(),
+              })),
+            }
+          }
+        } catch {}
       }
 
       setArticle(foundData)
