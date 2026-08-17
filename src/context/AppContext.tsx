@@ -16,6 +16,9 @@ export interface CartItem {
 
 interface AppContextType {
   refreshProfile: () => Promise<void>
+  currency: string
+  setCurrency: (code: string) => void
+  formatPrice: (amountUsd: number) => string
   lang: Lang
   setLang: (l: Lang) => void
   t: (key: string) => string
@@ -348,6 +351,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   })
 
+  const [currency, setCurrencyState] = useState<string>(() => {
+    try { return localStorage.getItem('flowerzfc_currency') || 'USD' } catch { return 'USD' }
+  })
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({ USD: 1 })
+
+  const setCurrency = (code: string) => {
+    setCurrencyState(code)
+    try { localStorage.setItem('flowerzfc_currency', code) } catch {}
+  }
+
+  useEffect(() => {
+    const CACHE_KEY = 'flowerzfc_exchange_rates'
+    const CACHE_HOURS = 6
+    try {
+      const cached = localStorage.getItem(CACHE_KEY)
+      if (cached) {
+        const { rates, timestamp } = JSON.parse(cached)
+        if (Date.now() - timestamp < CACHE_HOURS * 60 * 60 * 1000) {
+          setExchangeRates(rates)
+          return
+        }
+      }
+    } catch {}
+
+    fetch('https://open.er-api.com/v6/latest/USD')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.rates) {
+          setExchangeRates(data.rates)
+          try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify({ rates: data.rates, timestamp: Date.now() }))
+          } catch {}
+        }
+      })
+      .catch(() => { /* fall back to cached/default rates silently */ })
+  }, [])
+
+  // Stored prices in the database are in KES (Kenyan Shillings) — the site's base currency.
+  const formatPrice = (amountKes: number): string => {
+    const kesRate = exchangeRates['KES'] || 130 // fallback approx if rates haven't loaded
+    const amountUsd = amountKes / kesRate
+    const targetRate = exchangeRates[currency] || 1
+    const converted = currency === 'KES' ? amountKes : amountUsd * targetRate
+    const symbols: Record<string, string> = { USD: '$', KES: 'KES ', GBP: '£', EUR: '€' }
+    const symbol = symbols[currency] || currency + ' '
+    const decimals = currency === 'KES' ? 0 : 2
+    return `${symbol}${converted.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`
+  }
+
   // ── Supabase auth state listener ─────────────────────────────────────────
   const [user, setUser] = useState<{ id: string; name: string; email: string; role: string; avatar_url: string | null } | null>(() => {
     try {
@@ -488,7 +540,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value={{
         lang, setLang, t, darkMode, toggleDark,
         cart, addToCart, removeFromCart, updateQty, clearCart,
-        cartTotal, cartCount, user, authLoading, login, logout, refreshProfile,
+        cartTotal, cartCount, user, authLoading, login, logout, refreshProfile, currency, setCurrency, formatPrice,
       }}
     >
       {children}

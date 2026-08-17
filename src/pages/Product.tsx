@@ -23,7 +23,7 @@ function StarRating({ rating, reviews }: { rating: number; reviews: number }) {
 
 export default function Product() {
   const { id } = useParams()
-  const { t, addToCart } = useApp()
+  const { t, addToCart, formatPrice } = useApp()
   const navigate = useNavigate()
 
   const [product, setProduct] = useState<ProductType | null>(null)
@@ -105,7 +105,7 @@ export default function Product() {
   const allRelated = related.length > 0 ? related : allProducts.filter(p => p.id !== product.id).slice(0, 4)
 
   const savings = product.originalPrice ? product.originalPrice - product.price : 0
-  const formatPrice = (amt: number) => amt >= 500 ? `KES ${amt.toLocaleString()}` : `$${amt.toFixed(2)}`
+  // formatPrice now comes from global AppContext
 
   return (
     <div style={{ background: '#0a0a14', minHeight: '100vh' }}>
@@ -355,7 +355,7 @@ export default function Product() {
                 </div>
                 <div className="p-3">
                   <p className="text-xs font-bold text-white line-clamp-1 group-hover:text-[#00b341] transition-colors">{p.name}</p>
-                  <p className="text-sm font-black mt-1 text-[#00b341]" style={{ fontFamily: 'Big Shoulders Display' }}>${p.price.toFixed(2)}</p>
+                  <p className="text-sm font-black mt-1 text-[#00b341]" style={{ fontFamily: 'Big Shoulders Display' }}>{formatPrice(Number(p.price) || 0)}</p>
                 </div>
               </Link>
             ))}

@@ -14,10 +14,17 @@ const LANGS: { code: Lang; flag: string; label: string }[] = [
 ]
 
 export default function Header() {
-  const { t, lang, setLang, darkMode, toggleDark, cartCount, user, authLoading, logout } = useApp()
+  const { t, lang, setLang, darkMode, toggleDark, cartCount, user, authLoading, logout, currency, setCurrency } = useApp()
+  const [langOpen, setLangOpen] = useState(false)
+  const [currencyOpen, setCurrencyOpen] = useState(false)
+  const CURRENCIES = [
+    { code: 'USD', label: 'USD $' },
+    { code: 'KES', label: 'KES' },
+    { code: 'GBP', label: 'GBP £' },
+    { code: 'EUR', label: 'EUR €' },
+  ]
   const [menuOpen, setMenuOpen] = useState(false)
   const [cartOpen, setCartOpen] = useState(false)
-  const [langOpen, setLangOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQ, setSearchQ] = useState('')
@@ -106,6 +113,30 @@ export default function Header() {
                       className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-white/10 ${lang === l.code ? 'text-[#00b341] font-semibold' : 'text-gray-400'}`}
                     >
                       {l.flag} {l.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Currency Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setCurrencyOpen(o => !o)}
+                className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-gray-400 hover:text-white transition-colors"
+              >
+                {currency}
+                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              {currencyOpen && (
+                <div className="absolute right-0 top-full mt-1 rounded shadow-xl z-50 py-1 min-w-[120px]" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
+                  {CURRENCIES.map(c => (
+                    <button
+                      key={c.code}
+                      onClick={() => { setCurrency(c.code); setCurrencyOpen(false) }}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-white/10 ${currency === c.code ? 'text-[#00b341] font-semibold' : 'text-gray-400'}`}
+                    >
+                      {c.label}
                     </button>
                   ))}
                 </div>

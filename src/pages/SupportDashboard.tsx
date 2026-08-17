@@ -187,7 +187,7 @@ export default function SupportDashboard() {
                         <p className="font-bold text-white text-[11px]">{o.shippingCourier || 'Fargo Courier'}</p>
                         <p className="text-[10px] text-emerald-400 font-mono">KES {o.shippingCostKes || 400}</p>
                       </td>
-                      <td className="p-4 font-black text-white" style={{ fontFamily: 'Big Shoulders Display', fontSize: '15px' }}>${o.total.toFixed(2)}</td>
+                      <td className="p-4 font-black text-white" style={{ fontFamily: 'Big Shoulders Display', fontSize: '15px' }}>KES {o.total.toLocaleString()}</td>
                       <td className="p-4">
                         <select
                           value={o.status}
