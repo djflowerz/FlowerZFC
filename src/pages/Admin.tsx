@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { toast as toastLib } from 'react-toastify'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
@@ -1430,7 +1430,7 @@ export default function Admin() {
                   <button
                     onClick={async () => {
                       if (confirm(`Remove ${duplicateArticleIds.size} duplicate article(s) permanently from the database?`)) {
-                        const toDelete = Array.from(duplicateArticleIds)
+                        const toDelete: string[] = Array.from(duplicateArticleIds)
                         setArticles(prev => prev.filter(a => !duplicateArticleIds.has(a.id)))
                         for (const dupId of toDelete) {
                           try {
