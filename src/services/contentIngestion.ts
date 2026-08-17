@@ -159,9 +159,24 @@ function todayLocal(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// Helper to recursively parse Contentful rich-text document into plain text paragraphs
+function extractContentfulRichText(node: any): string {
+  if (!node) return ''
+  if (typeof node === 'string') return node
+  if (node.nodeType === 'text') {
+    const val = node.value || ''
+    if (val.startsWith('%WIDGET:')) return ''
+    return val
+  }
+  if (Array.isArray(node.content)) {
+    const texts = node.content.map(extractContentfulRichText).filter(Boolean)
+    return node.nodeType === 'document' ? texts.join('\n\n') : texts.join(' ')
+  }
+  return ''
+}
+
 // ─── Main Fetcher ─────────────────────────────────────────────────────────────
-// Fetches ALL 100 articles from Contentful (no date filter here — date filtering
-// is done in filterPostsByDate so the scanner can show any date the admin picks).
+// Fetches ALL latest 100 articles directly from LiveScore's Contentful API backend.
 export async function fetchLiveIngestedPosts(): Promise<IngestedPost[]> {
   try {
     const res = await fetch(CONTENTFUL_URL)
@@ -190,26 +205,42 @@ export async function fetchLiveIngestedPosts(): Promise<IngestedPost[]> {
 
         if (!title || isPromotionalPost(title, slug)) continue
 
-        const body: string = f.body || f.content || f.summary || f.teaser || title
+        // Extract full article body from Contentful rich text or string
+        let rawBody = ''
+        if (f.content) {
+          rawBody = extractContentfulRichText(f.content)
+        }
+        if (!rawBody) {
+          rawBody = f.body || f.summary || f.teaser || title
+        }
 
-        // Image: try Contentful asset first, then rotate football fallbacks
+        // Image Resolution: Check metaData.imageUrl first (used in 95% of LiveScore articles), then Asset map, then fallback
+        const meta = f.metaData || {}
+        const metaImage = typeof meta === 'object' && meta ? meta.imageUrl : null
         const imgId = f.mainImage?.sys?.id || f.image?.sys?.id || f.heroImage?.sys?.id
                     || f.thumbnail?.sys?.id || f.photo?.sys?.id  || f.media?.sys?.id
-        const imageUrl = (imgId ? assets.get(imgId) : null) || FOOTBALL_IMAGES[idx % FOOTBALL_IMAGES.length]
+        const assetImage = imgId ? assets.get(imgId) : null
+        const fallbackImg = FOOTBALL_IMAGES[idx % FOOTBALL_IMAGES.length]
+        const imageUrl = metaImage || assetImage || fallbackImg
 
-        // Date from Contentful sys.createdAt  (ISO string → "YYYY-MM-DD")
-        const rawDate: string  = item.sys?.createdAt || new Date().toISOString()
-        const sourceDate: string = rawDate.slice(0, 10)           // "YYYY-MM-DD"
-        const timestampMs: number = new Date(rawDate).getTime()
+        // Date from Contentful sys.createdAt / sys.updatedAt
+        const rawDate: string  = item.sys?.createdAt || item.sys?.updatedAt || new Date().toISOString()
+        const d = new Date(rawDate)
+        const yyyy = d.getFullYear()
+        const mm = String(d.getMonth() + 1).padStart(2, '0')
+        const dd = String(d.getDate()).padStart(2, '0')
+        const sourceDate = `${yyyy}-${mm}-${dd}` // Local YYYY-MM-DD
+        const utcDate = rawDate.slice(0, 10)      // UTC YYYY-MM-DD
+        const timestampMs: number = d.getTime()
 
         const { category, section } = resolveCategoryFromSlug(slug)
-        const transformed = transformContentContext(title, body)
+        const transformed = transformContentContext(title, rawBody)
 
         parsed.push({
           id: item.sys?.id || `ls_${timestampMs}_${idx}`,
-          sourceUrl: `https://www.livescore.com/en/news/${slug}/`,
+          sourceUrl: `https://www.livescore.com/en/news${slug.startsWith('/') ? slug : `/${slug}`}`,
           sourceTitle: title,
-          sourceBody:  body,
+          sourceBody:  rawBody,
           sourceImage: imageUrl,
           sourceDate,
           sourceSection: section,
@@ -232,9 +263,7 @@ export async function fetchLiveIngestedPosts(): Promise<IngestedPost[]> {
     console.error('[FlowerZFC] Contentful fetch error:', err)
   }
 
-  // Network fallback — return empty so scanner shows "no posts for date" message
-  cachedIngestedPosts = []
-  return []
+  return cachedIngestedPosts
 }
 
 export function getIngestedPosts(): IngestedPost[] {
@@ -242,13 +271,16 @@ export function getIngestedPosts(): IngestedPost[] {
 }
 
 // ─── Date Filter ──────────────────────────────────────────────────────────────
-// If dateStr is blank → filter to today.
-// Returns all posts whose sourceDate matches the selected date.
-// Does NOT fall back to showing everything when no match — shows empty state instead
-// so the admin sees the correct "no posts on this date" message.
+// If dateStr === 'all' -> returns all posts.
+// Otherwise matches either local date string or UTC date.
 export function filterPostsByDate(posts: IngestedPost[], dateStr: string): IngestedPost[] {
-  const target = dateStr || todayLocal()
-  return posts.filter(p => p.sourceDate === target)
+  if (!dateStr || dateStr === 'all') return posts
+  const filtered = posts.filter(p => {
+    if (p.sourceDate === dateStr) return true
+    const postUtcDate = new Date(p.timestampMs).toISOString().slice(0, 10)
+    return postUtcDate === dateStr
+  })
+  return filtered
 }
 
 export async function downloadImageAsset(

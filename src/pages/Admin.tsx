@@ -676,11 +676,20 @@ export default function Admin() {
   const [scoresLoading, setScoresLoading] = useState(false)
   const [scoresDataSource, setScoresDataSource] = useState<'api' | 'fallback'>('fallback')
   const [scoresView, setScoresView] = useState<'matches' | 'standings' | 'fixtures' | 'catalog'>('matches')
-  const [catalogStats, setCatalogStats] = useState<LiveCatalogStats | null>(null)
   const tzInfo = getUserTimezoneInfo()
   const [showIngestNotification, setShowIngestNotification] = useState(false)
   const [clock, setClock] = useState(new Date())
   useEffect(() => { const t = setInterval(() => setClock(new Date()), 1000); return () => clearInterval(t) }, [])
+
+  // Auto-scan live LiveScore news feed on mount
+  useEffect(() => {
+    fetchLiveIngestedPosts().then(posts => {
+      if (posts && posts.length > 0) {
+        setIngestedPosts(posts)
+        setShowIngestNotification(true)
+      }
+    })
+  }, [])
 
   // Toast notification system — powered by react-toastify
   // Thin wrapper preserving the old (msg, type) call signature used throughout this file
@@ -1358,30 +1367,59 @@ export default function Admin() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-2 bg-[#0d0d1e] border border-[#1e1e32] px-3 py-1.5 rounded-xl">
-                    <span className="text-[10px] font-black uppercase text-gray-500">📅 Day Picker:</span>
-                    <input
-                      type="date"
-                      value={ingestDate}
-                      onChange={e => setIngestDate(e.target.value)}
-                      className="bg-transparent text-xs text-white outline-none font-mono"
-                    />
+                  {/* View Mode Toggle: All Latest vs Day Picker */}
+                  <div className="flex items-center gap-1 bg-[#0d0d1e] border border-[#1e1e32] p-1 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setIngestDate('all')}
+                      className={`px-3 py-1.5 text-xs rounded-lg transition-all ${
+                        ingestDate === 'all'
+                          ? 'bg-[#00b341] text-black font-black'
+                          : 'text-gray-400 hover:text-white font-bold'
+                      }`}
+                    >
+                      All Latest ({ingestedPosts.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (ingestDate === 'all') {
+                          const d = new Date()
+                          setIngestDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
+                        }
+                      }}
+                      className={`px-3 py-1.5 text-xs rounded-lg transition-all ${
+                        ingestDate !== 'all'
+                          ? 'bg-[#00b341] text-black font-black'
+                          : 'text-gray-400 hover:text-white font-bold'
+                      }`}
+                    >
+                      Filter by Date
+                    </button>
                   </div>
+
+                  {ingestDate !== 'all' && (
+                    <div className="flex items-center gap-2 bg-[#0d0d1e] border border-[#1e1e32] px-3 py-1.5 rounded-xl">
+                      <span className="text-[10px] font-black uppercase text-gray-500">📅 Date:</span>
+                      <input
+                        type="date"
+                        value={ingestDate}
+                        onChange={e => setIngestDate(e.target.value)}
+                        className="bg-transparent text-xs text-white outline-none font-mono"
+                      />
+                    </div>
+                  )}
+
                   <button onClick={() => {
-                    toast('📡 Querying LiveScore Contentful API for all articles...', 'info')
+                    toast('📡 Querying LiveScore Contentful API for latest articles...', 'info')
                     fetchLiveIngestedPosts().then(posts => {
                       setIngestedPosts(posts)
-                      const todayPosts = filterPostsByDate(posts, ingestDate)
-                      if (todayPosts.length > 0) {
-                        setShowIngestNotification(true)
-                        toast(`✅ Scan complete — ${todayPosts.length} articles found for ${ingestDate}. ${posts.length} total loaded.`, 'success')
-                      } else {
-                        const allDates = [...new Set(posts.map(p => p.sourceDate))].sort().reverse()
-                        toast(`📋 No articles on ${ingestDate}. ${posts.length} total loaded. Available dates: ${allDates.slice(0, 3).join(', ')}`, 'info')
-                      }
+                      const visible = filterPostsByDate(posts, ingestDate)
+                      setShowIngestNotification(true)
+                      toast(`✅ LiveScore feed refreshed! ${visible.length} articles displayed (${posts.length} total in feed).`, 'success')
                     })
-                  }} className="px-4 py-2 text-xs font-black text-white rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-all" style={{ background: '#0d0d1e' }}>
-                    🔄 Scan Feed Now
+                  }} className="px-4 py-2 text-xs font-black text-white rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-all flex items-center gap-1.5" style={{ background: '#0d0d1e' }}>
+                    <span>🔄</span> Scan Feed Now
                   </button>
                 </div>
               </div>
