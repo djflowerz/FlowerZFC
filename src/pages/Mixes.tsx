@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
-import { fetchAllTickets } from '../services/supabaseClient'
+import { fetchAllTickets, fetchAllMixes } from '../services/supabaseClient'
 
 export interface MixItem {
   id: string
@@ -49,6 +49,24 @@ export default function Mixes() {
   const [eventsList, setEventsList] = useState<EventItem[]>(EVENTS)
 
   useEffect(() => {
+    // 0. Fetch real mixes from Supabase mixes table
+    fetchAllMixes().then(({ mixes: dbMixes, error: mixError }) => {
+      if (!mixError && dbMixes && dbMixes.length > 0) {
+        const mappedMixes: MixItem[] = dbMixes.map(m => ({
+          id: m.id,
+          title: m.title,
+          genre: m.genre || 'Afrobeats & Amapiano',
+          plays: m.plays || 0,
+          duration: '60 min',
+          cover: m.cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&h=600&fit=crop',
+          streamUrl: m.mixcloud_url,
+          description: `Released ${m.release_date || 'recently'}`,
+          tracklist: [],
+        }))
+        setMixList(mappedMixes)
+      }
+    })
+
     // 1. Fetch real events from Supabase tickets table
     fetchAllTickets().then(({ tickets: dbTickets, error }) => {
       if (!error && dbTickets && dbTickets.length > 0) {
