@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
-import { fetchLiveMatches, LiveMatch } from '../services/liveScoreApi'
+import { fetchLiveMatches, LiveMatch, fetchLiveStandings } from '../services/liveScoreApi'
 import { fetchLiveIngestedPosts, IngestedPost } from '../services/contentIngestion'
-import { fetchAllArticles, fetchAllComments } from '../services/supabaseClient'
+import { fetchAllArticles, fetchAllComments, fetchAllMixes } from '../services/supabaseClient'
 import { saveArticle } from '../services/articleStore'
 
 const TRANSFER_NEWS: { id: string; player: string; from: string; to: string; status: string; fee: string; image: string }[] = []
@@ -112,12 +112,20 @@ export default function Home() {
   const [ingestedPosts, setIngestedPosts] = useState<IngestedPost[]>([])
   const [dbArticles, setDbArticles] = useState<any[]>([])
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
+  const [homeMixes, setHomeMixes] = useState<any[]>([])
+  const [homeStandings, setHomeStandings] = useState<any[]>([])
 
   useEffect(() => {
     fetchAllArticles().then(({ articles: arts }) => {
       if (arts && arts.length > 0) {
         setDbArticles(arts)
       }
+    })
+    fetchAllMixes().then(({ mixes }) => {
+      if (mixes && mixes.length > 0) setHomeMixes(mixes.slice(0, 3))
+    })
+    fetchLiveStandings('Premier League').then(standings => {
+      if (standings && standings.length > 0) setHomeStandings(standings.slice(0, 5))
     })
     fetchLiveIngestedPosts().then(posts => {
       if (posts && posts.length > 0) {
@@ -251,18 +259,39 @@ export default function Home() {
             </h2>
             <Link to="/mixes" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">{t('viewAll')} →</Link>
           </div>
-          <div className="rounded-lg p-6 flex flex-col sm:flex-row items-center justify-between gap-6" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-[#00b341]">OFFICIAL MEDIA & MIXES</span>
-              <h3 className="text-2xl font-black text-white mt-1" style={{ fontFamily: 'Big Shoulders Display' }}>Listen to DJ Flowerz Mixtapes</h3>
-              <p className="text-xs text-gray-400 mt-1 max-w-lg">Explore exclusive Afrobeats, Amapiano, and Genge mixes or book DJ Flowerz for your next live event.</p>
+          {homeMixes.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {homeMixes.map(m => (
+                <Link key={m.id} to="/mixes" className="rounded-lg overflow-hidden border border-[#1e1e32] hover:border-[#00b341] transition-colors group" style={{ background: '#131320' }}>
+                  <div className="relative" style={{ height: '140px' }}>
+                    <img src={m.cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&h=400&fit=crop'} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#00b341' }}>
+                        <svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-3">
+                    <span className="text-[9px] font-bold text-[#00b341] uppercase">{m.genre || 'Afrobeats'}</span>
+                    <h4 className="text-xs font-bold text-white line-clamp-1 mt-0.5">{m.title}</h4>
+                  </div>
+                </Link>
+              ))}
             </div>
-            <div className="flex gap-3 shrink-0">
-              <Link to="/mixes" className="px-5 py-2.5 text-xs font-bold text-black rounded transition-all hover:bg-emerald-400" style={{ background: '#10b981' }}>
-                🎵 Browse All Mixes
-              </Link>
+          ) : (
+            <div className="rounded-lg p-6 flex flex-col sm:flex-row items-center justify-between gap-6" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#00b341]">OFFICIAL MEDIA & MIXES</span>
+                <h3 className="text-2xl font-black text-white mt-1" style={{ fontFamily: 'Big Shoulders Display' }}>Listen to DJ Flowerz Mixtapes</h3>
+                <p className="text-xs text-gray-400 mt-1 max-w-lg">Explore exclusive Afrobeats, Amapiano, and Genge mixes or book DJ Flowerz for your next live event.</p>
+              </div>
+              <div className="flex gap-3 shrink-0">
+                <Link to="/mixes" className="px-5 py-2.5 text-xs font-bold text-black rounded transition-all hover:bg-emerald-400" style={{ background: '#10b981' }}>
+                  🎵 Browse All Mixes
+                </Link>
+              </div>
             </div>
-          </div>
+          )}
         </section>
 
         {/* In-feed ad */}
@@ -310,19 +339,14 @@ export default function Home() {
                 <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>{t('transfers')}</h2>
                 <Link to="/transfers" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">{t('viewAll')} →</Link>
               </div>
-              {TRANSFER_NEWS.length > 0 ? (
+              {dbArticles.filter(a => (a.category || '').toLowerCase() === 'transfers').length > 0 ? (
                 <div className="space-y-3">
-                  {TRANSFER_NEWS.map(tr => (
-                    <Link key={tr.id} to={`/transfers`} className="flex items-center gap-4 p-3 rounded-lg transition-colors hover:bg-white/5" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-                      <img src={tr.image} alt={tr.player} className="w-12 h-12 rounded-full object-cover" />
+                  {dbArticles.filter(a => (a.category || '').toLowerCase() === 'transfers').slice(0, 5).map(tr => (
+                    <Link key={tr.id} to={`/news/${tr.id}`} className="flex items-center gap-4 p-3 rounded-lg transition-colors hover:bg-white/5" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
+                      <img src={tr.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=200&h=200&fit=crop'} alt={tr.title} className="w-12 h-12 rounded-full object-cover" />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-sm font-bold text-white">{tr.player}</span>
-                          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-sm text-white" style={{ background: statusColor(tr.status) }}>
-                            {tr.status.toUpperCase()}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500">{tr.from} → {tr.to} • {tr.fee}</p>
+                        <span className="text-sm font-bold text-white line-clamp-1">{tr.title}</span>
+                        <p className="text-xs text-gray-500 mt-0.5">{tr.published_at ? new Date(tr.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Recent'}</p>
                       </div>
                     </Link>
                   ))}
@@ -343,12 +367,12 @@ export default function Home() {
                 <h2 className="text-lg font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>{t('standings')}</h2>
                 <Link to="/standings" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">{t('viewFull')}</Link>
               </div>
-              {STANDINGS_MINI.length > 0 ? (
+              {homeStandings.length > 0 ? (
                 <div className="space-y-2 font-mono text-xs">
-                  {STANDINGS_MINI.map(st => (
-                    <div key={st.pos} className="flex items-center justify-between py-1 border-b border-white/5">
+                  {homeStandings.map(st => (
+                    <div key={st.rank} className="flex items-center justify-between py-1 border-b border-white/5">
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-500 w-4">{st.pos}</span>
+                        <span className="text-gray-500 w-4">{st.rank}</span>
                         <span className="text-white font-bold">{st.team}</span>
                       </div>
                       <div className="flex items-center gap-3">
