@@ -105,13 +105,36 @@ function LiveTicker() {
   )
 }
 
+function formatRelativeTime(dateInput?: string | number): string {
+  if (!dateInput) return 'Just now'
+  let d: Date
+  if (typeof dateInput === 'number') {
+    d = new Date(dateInput)
+  } else {
+    d = new Date(dateInput)
+    if (isNaN(d.getTime())) return dateInput
+  }
+  const diffMs = Date.now() - d.getTime()
+  if (diffMs < 0) return 'Just now'
+  const diffSec = Math.floor(diffMs / 1000)
+  if (diffSec < 60) return 'Just now'
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHour = Math.floor(diffMin / 60)
+  if (diffHour < 24) return `${diffHour}h ago`
+  const diffDays = Math.floor(diffHour / 24)
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return `${diffDays}d ago`
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
 export default function Home() {
   const { t } = useApp()
   const [slide, setSlide] = useState(0)
   const [dismissed, setDismissed] = useState(false)
-  const [ingestedPosts, setIngestedPosts] = useState<IngestedPost[]>([])
   const [dbArticles, setDbArticles] = useState<any[]>([])
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
+  const [ingestedPosts, setIngestedPosts] = useState<IngestedPost[]>([])
   const [homeMixes, setHomeMixes] = useState<any[]>([])
   const [homeStandings, setHomeStandings] = useState<any[]>([])
 
@@ -144,27 +167,34 @@ export default function Home() {
   }, [])
 
   // Priority 1: DB Articles | Priority 2: Real Ingested LiveScore Articles | Priority 3: []
-  const allFeedItems = dbArticles.length > 0
-    ? dbArticles.map(a => ({
-        id: a.id,
-        tag: (a.category || 'NEWS').toUpperCase(),
-        title: a.title,
-        excerpt: a.body ? a.body.slice(0, 140) + '...' : '',
-        image: a.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
-        likes: a.likes || 140,
-        comments: commentCounts[a.id] || 0,
-        date: a.published_at ? new Date(a.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Today',
-      }))
+  const allFeedItems = (dbArticles.length > 0
+    ? dbArticles.map(a => {
+        const rawDate = a.published_at || a.date
+        const ts = rawDate ? new Date(rawDate).getTime() : 0
+        return {
+          id: a.id,
+          tag: (a.category || 'NEWS').toUpperCase(),
+          title: a.title,
+          excerpt: a.body ? a.body.slice(0, 140) + '...' : '',
+          image: a.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
+          likes: a.likes || 0,
+          comments: commentCounts[a.id] || 0,
+          date: formatRelativeTime(rawDate),
+          timestamp: ts || Date.now(),
+        }
+      })
     : ingestedPosts.map(p => ({
         id: p.id,
         tag: (p.category || 'FOOTBALL').toUpperCase(),
         title: p.transformedTitle || p.sourceTitle,
         excerpt: p.transformedBody ? p.transformedBody.slice(0, 140) + '...' : '',
         image: p.sourceImage || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
-        likes: 120,
-        comments: 12,
-        date: p.detectedAt || 'Today',
+        likes: 0,
+        comments: commentCounts[p.id] || 0,
+        date: formatRelativeTime(p.timestampMs),
+        timestamp: p.timestampMs,
       }))
+  ).sort((a, b) => b.timestamp - a.timestamp)
 
   const heroSlides = allFeedItems.slice(0, 4)
   const breakingPost: any = null

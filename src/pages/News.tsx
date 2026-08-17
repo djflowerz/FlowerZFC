@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
 import { getAllArticles, getDeletedArticleIds, StoredArticle } from '../services/articleStore'
 import { getIngestedPosts } from '../services/contentIngestion'
-import { fetchAllArticles } from '../services/supabaseClient'
+import { fetchAllArticles, fetchAllComments } from '../services/supabaseClient'
 
 interface ArticleItem {
   id: string
@@ -15,6 +15,7 @@ interface ArticleItem {
   likes: number
   comments: number
   date: string
+  timestamp: number
   readTime: string
   author: string
   authorAvatar: string
@@ -25,6 +26,29 @@ interface ArticleItem {
 export const ARTICLES: ArticleItem[] = []
 
 const CATEGORIES = ['All', 'Match Report', 'Transfers', 'Analysis', 'AFCON', 'Opinion', 'Champions League', 'East Africa']
+
+function formatRelativeTime(dateInput?: string | number): string {
+  if (!dateInput) return 'Just now'
+  let d: Date
+  if (typeof dateInput === 'number') {
+    d = new Date(dateInput)
+  } else {
+    d = new Date(dateInput)
+    if (isNaN(d.getTime())) return dateInput
+  }
+  const diffMs = Date.now() - d.getTime()
+  if (diffMs < 0) return 'Just now'
+  const diffSec = Math.floor(diffMs / 1000)
+  if (diffSec < 60) return 'Just now'
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${diffMin}m ago`
+  const diffHour = Math.floor(diffMin / 60)
+  if (diffHour < 24) return `${diffHour}h ago`
+  const diffDays = Math.floor(diffHour / 24)
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return `${diffDays}d ago`
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
 const TICKER_ITEMS = [
   '🔥 BREAKING: Harambee Stars unveil new home kit ahead of AFCON qualifiers',
@@ -73,20 +97,24 @@ export default function News() {
 
   useEffect(() => {
     const buildFromLocalStorage = () => {
-      const stored = getAllArticles().map(a => ({
-        id: a.id,
-        tag: (a.category || 'NEWS').toUpperCase(),
-        title: a.title,
-        summary: a.metaDescription || a.excerpt || a.body.slice(0, 140) + '...',
-        image: a.imageUrl || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&h=500&fit=crop',
-        likes: a.likes || 120,
-        comments: 18,
-        date: a.date || 'Today',
-        readTime: '4 min read',
-        author: a.author || 'FlowerZFC Editorial',
-        authorAvatar: a.author ? a.author.charAt(0) : 'F',
-        featured: true,
-      }))
+      const stored = getAllArticles().map(a => {
+        const ts = a.date ? new Date(a.date).getTime() : 0
+        return {
+          id: a.id,
+          tag: (a.category || 'NEWS').toUpperCase(),
+          title: a.title,
+          summary: a.metaDescription || a.excerpt || a.body.slice(0, 140) + '...',
+          image: a.imageUrl || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&h=500&fit=crop',
+          likes: a.likes || 0,
+          comments: 0,
+          date: formatRelativeTime(a.date || Date.now()),
+          timestamp: ts || Date.now(),
+          readTime: `${Math.max(1, Math.round((a.body || '').split(/\s+/).length / 200))} min read`,
+          author: a.author || 'Admin',
+          authorAvatar: (a.author || 'A').charAt(0),
+          featured: true,
+        }
+      })
       const ingested = getIngestedPosts()
         .filter(p => p.status === 'Approved')
         .map(p => ({
@@ -95,52 +123,81 @@ export default function News() {
           title: p.transformedTitle,
           summary: p.transformedBody.slice(0, 140) + '...',
           image: p.sourceImage,
-          likes: 184,
-          comments: 29,
-          date: p.detectedAt,
+          likes: 0,
+          comments: 0,
+          date: formatRelativeTime(p.timestampMs),
+          timestamp: p.timestampMs,
           readTime: '3 min read',
-          author: p.author,
-          authorAvatar: p.author.charAt(0),
+          author: p.author || 'Admin',
+          authorAvatar: (p.author || 'A').charAt(0),
           featured: false,
         }))
       const deletedIds = getDeletedArticleIds()
       const merged = [...stored, ...ingested, ...ARTICLES].filter(a => !deletedIds.includes(a.id))
       const unique = merged.filter((item, index, self) => index === self.findIndex(t => t.id === item.id))
+      unique.sort((a, b) => b.timestamp - a.timestamp)
       setDynamicArticles(unique)
     }
 
-    // 1. Try Supabase first (primary source)
-    fetchAllArticles().then(({ articles: dbArts, error }) => {
+    // 1. Fetch real comments and Supabase articles in parallel
+    Promise.all([
+      fetchAllArticles(),
+      fetchAllComments(),
+    ]).then(([{ articles: dbArts, error }, { comments: dbComments }]) => {
+      const commentCounts: Record<string, number> = {}
+      if (dbComments) {
+        dbComments.forEach(c => {
+          if (c.article_id) commentCounts[c.article_id] = (commentCounts[c.article_id] || 0) + 1
+        })
+      }
+
       if (!error && dbArts && dbArts.length > 0) {
         const deletedIds = getDeletedArticleIds()
-        const dbMapped = dbArts.map(a => ({
-          id: a.id,
-          tag: (a.category || 'NEWS').toUpperCase(),
-          title: a.title,
-          summary: a.body ? a.body.slice(0, 140) + '...' : '',
-          image: a.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&h=500&fit=crop',
-          likes: a.likes || 120,
-          comments: 18,
-          date: a.published_at ? new Date(a.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Today',
-          readTime: `${Math.max(1, Math.round((a.body || '').split(/\s+/).length / 200))} min read`,
-          author: a.author || 'FlowerZFC Editorial',
-          authorAvatar: (a.author || 'F').charAt(0),
-          featured: true,
-        })).filter(a => !deletedIds.includes(a.id))
+        const dbMapped = dbArts.map(a => {
+          const rawDate = a.published_at || a.date
+          const ts = rawDate ? new Date(rawDate).getTime() : 0
+          return {
+            id: a.id,
+            tag: (a.category || 'NEWS').toUpperCase(),
+            title: a.title,
+            summary: a.body ? a.body.slice(0, 140) + '...' : '',
+            image: a.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&h=500&fit=crop',
+            likes: a.likes || 0,
+            comments: commentCounts[a.id] || 0,
+            date: formatRelativeTime(rawDate),
+            timestamp: ts || Date.now(),
+            readTime: `${Math.max(1, Math.round((a.body || '').split(/\s+/).length / 200))} min read`,
+            author: a.author || 'Admin',
+            authorAvatar: (a.author || 'A').charAt(0),
+            featured: true,
+          }
+        }).filter(a => !deletedIds.includes(a.id))
+
         // Also include approved ingested posts alongside Supabase articles
         const ingested = getIngestedPosts()
           .filter(p => p.status === 'Approved')
           .map(p => ({
-            id: p.id, tag: p.category.toUpperCase(), title: p.transformedTitle,
-            summary: p.transformedBody.slice(0, 140) + '...', image: p.sourceImage,
-            likes: 184, comments: 29, date: p.detectedAt, readTime: '3 min read',
-            author: p.author, authorAvatar: p.author.charAt(0), featured: false,
+            id: p.id,
+            tag: p.category.toUpperCase(),
+            title: p.transformedTitle,
+            summary: p.transformedBody.slice(0, 140) + '...',
+            image: p.sourceImage,
+            likes: 0,
+            comments: commentCounts[p.id] || 0,
+            date: formatRelativeTime(p.timestampMs),
+            timestamp: p.timestampMs,
+            readTime: '3 min read',
+            author: p.author || 'Admin',
+            authorAvatar: (p.author || 'A').charAt(0),
+            featured: false,
           }))
+
         const merged = [...dbMapped, ...ingested]
         const unique = merged.filter((item, idx, self) => idx === self.findIndex(t => t.id === item.id))
+        // Sort strictly from latest timestamp to oldest
+        unique.sort((a, b) => b.timestamp - a.timestamp)
         setDynamicArticles(unique)
       } else {
-        // 2. Fallback: localStorage articleStore + ARTICLES const
         buildFromLocalStorage()
       }
     }).catch(() => buildFromLocalStorage())
