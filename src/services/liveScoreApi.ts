@@ -401,32 +401,40 @@ export function formatLeagueName(stage: any): string {
 }
 
 export async function fetchLiveScoreEndpoint(pathAndQuery: string): Promise<any> {
-  const primaryUrl = `/api/livescore${pathAndQuery}`
   const directUrl = `https://prod-cdn-public-api.livescore.com${pathAndQuery}`
-  const corsProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`
+  const primaryUrl = `/api/livescore${pathAndQuery}`
 
-  // 1. Try Netlify / Vite proxy
+  // 1. Try Direct CDN fetch first (fastest, no proxy overhead)
   try {
-    const res = await fetch(primaryUrl, { headers: { 'Accept': 'application/json' } })
-    if (res.ok) {
-      const data = await res.json()
-      if (data && (data.Stages || data.Stage)) return data
+    const ctrl1 = new AbortController()
+    const t1 = setTimeout(() => ctrl1.abort(), 6000)
+    const res1 = await fetch(directUrl, {
+      signal: ctrl1.signal,
+      headers: { 'Accept': 'application/json' },
+    })
+    clearTimeout(t1)
+    if (res1.ok) {
+      const data1 = await res1.json()
+      if (data1 && (data1.Stages || data1.Stage || data1.LeagueTable)) return data1
     }
   } catch (e) { /* ignore */ }
 
-  // 2. Try direct CDN fetch
+  // 2. Try Netlify / Vite proxy
   try {
-    const res2 = await fetch(directUrl, { headers: { 'Accept': 'application/json' } })
+    const ctrl2 = new AbortController()
+    const t2 = setTimeout(() => ctrl2.abort(), 6000)
+    const res2 = await fetch(primaryUrl, {
+      signal: ctrl2.signal,
+      headers: { 'Accept': 'application/json' },
+    })
+    clearTimeout(t2)
     if (res2.ok) {
       const data2 = await res2.json()
-      if (data2 && (data2.Stages || data2.Stage)) return data2
+      if (data2 && (data2.Stages || data2.Stage || data2.LeagueTable)) return data2
     }
   } catch (e) { /* ignore */ }
 
-  // 3. Fallback to AllOrigins CORS Proxy
-  const res3 = await fetch(corsProxyUrl, { headers: { 'Accept': 'application/json' } })
-  if (!res3.ok) throw new Error(`HTTP ${res3.status}`)
-  return await res3.json()
+  throw new Error('All LiveScore endpoints failed')
 }
 
 // ─── Live Scores — uses /en/football/live/ feed ───────────────────────────────

@@ -33,6 +33,7 @@ export default function Scores() {
   const [leagueQuery, setLeagueQuery] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedDate, setSelectedDate] = useState(getTodayLocalDate())
+  const [loading, setLoading] = useState(true)
   
   // Determine date parameter for API fetch
   const activeDateArg = 
@@ -42,7 +43,12 @@ export default function Scores() {
     selectedDate
 
   useEffect(() => {
-    fetchLiveMatches(activeDateArg).then(setMatches)
+    setLoading(true)
+    fetchLiveMatches(activeDateArg).then(data => {
+      setMatches(data)
+      setLoading(false)
+    }).catch(() => setLoading(false))
+
     const interval = setInterval(() => {
       fetchLiveMatches(activeDateArg).then(setMatches)
     }, 15000)
@@ -277,8 +283,23 @@ export default function Scores() {
       )}
 
       {/* Main Match List By League */}
-      <div className="space-y-6">
-        {Object.entries(byLeague).map(([lName, mList], idx) => (
+      {loading ? (
+        <div className="py-20 text-center text-gray-400 flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-xs font-bold font-mono tracking-wider text-emerald-400">Loading Live Match Telemetry...</span>
+        </div>
+      ) : Object.keys(byLeague).length === 0 ? (
+        <div className="p-12 text-center bg-[#131320] border border-dashed border-white/10 rounded-2xl space-y-3">
+          <p className="text-3xl">⚽</p>
+          <p className="text-white font-bold text-sm">No matches found for this filter/date.</p>
+          <p className="text-xs text-gray-400">Try choosing a different date or clearing the competition filter.</p>
+          <button onClick={() => { setLeague('All'); setSearchQuery(''); setHideFinished(false) }} className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl text-xs font-bold hover:bg-emerald-500/20 transition-colors">
+            Reset Filters
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {Object.entries(byLeague).map(([lName, mList], idx) => (
           <div key={lName}>
             {/* In-feed native ad inserted every 2 league sections */}
             {idx > 0 && idx % 2 === 0 && (
@@ -343,7 +364,8 @@ export default function Scores() {
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      )}
 
       {/* Bottom High Impact Ad Slot */}
       <div className="mt-8 pt-6 border-t border-white/10 flex justify-center">
