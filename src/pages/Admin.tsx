@@ -419,6 +419,7 @@ export default function Admin() {
   const [auditLogs, setAuditLogs] = useState<AuditAction[]>(getAuditLogs)
   const [healthData, setHealthData] = useState<HealthCheck[]>(HEALTH_DATA)
   const [showAddMix, setShowAddMix] = useState(false)
+  const [editMix, setEditMix] = useState<MixRow | null>(null)
   const [mixes, setMixes] = useState<MixRow[]>([])
 
   useEffect(() => {
@@ -3868,6 +3869,9 @@ export default function Admin() {
                     <h3 className="text-base font-bold text-white line-clamp-1 mt-0.5 mb-1">{m.title}</h3>
                     <p className="text-xs text-gray-500 font-mono mb-2">▶ {m.plays || 0} plays • {m.mixcloud_id || 'Mixcloud Track'}</p>
                     <div className="flex items-center gap-2">
+                      <button onClick={() => setEditMix(m)} className="px-3 py-1 text-[10px] font-bold text-[#00b341] rounded-lg border border-[#00b341]/30 hover:border-[#00b341] transition-all">
+                        Edit
+                      </button>
                       <button onClick={() => {
                         if (confirm(`Delete mix "${m.title}"?`)) {
                           deleteMixFromDb(m.id).then(({ error }) => {

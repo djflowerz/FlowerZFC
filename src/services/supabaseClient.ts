@@ -370,6 +370,7 @@ export interface MixRow {
   genre?: string
   cover_url?: string
   release_date?: string
+  download_url?: string
   created_at?: string
 }
 
