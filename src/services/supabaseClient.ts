@@ -12,6 +12,7 @@ export interface ProfileRow {
   email: string
   name: string | null
   role: string
+  status: string
   avatar_url: string | null
   created_at: string
   last_login: string | null
@@ -489,4 +490,10 @@ export async function fetchActiveAdForSlot(page: string, size: string): Promise<
     .limit(1)
     .maybeSingle()
   return { adSlot: data as AdSlotRow | null, error }
+}
+
+
+export async function updateUserRoleAndStatus(userId: string, updates: { role?: string; status?: string }): Promise<{ profile: ProfileRow | null; error: any }> {
+  const { data, error } = await supabase.from('profiles').update(updates).eq('id', userId).select().single()
+  return { profile: data as ProfileRow | null, error }
 }

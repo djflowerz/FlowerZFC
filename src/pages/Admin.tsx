@@ -6,7 +6,7 @@ import { getPaymentConfig } from '../services/paymentService'
 import { fetchLiveMatches, fetchLiveStandings, fetchLiveFixtures, getUserTimezoneInfo, fetchLiveCatalogStats, type LiveMatch, type LiveStanding, type LiveFixture, type LiveCatalogStats } from '../services/liveScoreApi'
 import { getIngestedPosts, fetchLiveIngestedPosts, transformContentContext, filterPostsByDate, downloadImageAsset, IngestedPost } from '../services/contentIngestion'
 import { getAuthUser, loginWithEmail, hasTabAccessRole, setAuthSession, SUPER_ADMIN_EMAIL, type UserRole, type AuthProfile } from '../services/authService'
-import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, updateProduct, fetchAllAdSlots, saveAdSlotToDb, deleteAdSlotFromDb, uploadAdCreative, type ArticleRow, type CommentRow, type TicketRow, type MixRow, type AdSlotRow } from '../services/supabaseClient'
+import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, updateProduct, fetchAllAdSlots, saveAdSlotToDb, deleteAdSlotFromDb, uploadAdCreative, updateUserRoleAndStatus, type ArticleRow, type CommentRow, type TicketRow, type MixRow, type AdSlotRow } from '../services/supabaseClient'
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
 import {
@@ -1826,7 +1826,13 @@ export default function Admin() {
                           <td className="px-5 py-4"><Badge s={u.status} /></td>
                           <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
                             {u.role !== 'admin' ? (
-                              <select value={u.role} onChange={e => setUsers(prev => prev.map(x => x.id === u.id ? { ...x, role: e.target.value } : x))}
+                              <select value={u.role} onChange={async e => {
+                                const newRole = e.target.value
+                                const { profile, error } = await updateUserRoleAndStatus(u.id, { role: newRole })
+                                if (error || !profile) { toast('❌ Failed to update role', 'error'); return }
+                                setUsers(prev => prev.map(x => x.id === u.id ? { ...x, role: newRole } : x))
+                                toast('✅ Role updated!', 'success')
+                              }}
                                 className="px-2 py-1 text-[10px] font-bold rounded-lg outline-none cursor-pointer text-white" style={{ background: '#0d0d1e', border: '1px solid #1e1e32' }}>
                                 {['user','writer','editor'].map(r => <option key={r}>{r}</option>)}
                               </select>
@@ -1838,7 +1844,13 @@ export default function Admin() {
                             <button onClick={() => setDetailUser(u)} className="text-[10px] font-bold text-[#00b341] hover:underline">Details</button>
                             <a href={`mailto:${u.email}`} className="text-[10px] font-bold text-blue-400 hover:underline">Email</a>
                             {u.role !== 'admin' && (
-                              <button onClick={() => setUsers(prev => prev.map(x => x.id === u.id ? { ...x, status: x.status === 'Banned' ? 'Active' : 'Banned' } : x))}
+                              <button onClick={async () => {
+                                const newStatus = u.status === 'Banned' ? 'Active' : 'Banned'
+                                const { profile, error } = await updateUserRoleAndStatus(u.id, { status: newStatus })
+                                if (error || !profile) { toast('❌ Failed to update status', 'error'); return }
+                                setUsers(prev => prev.map(x => x.id === u.id ? { ...x, status: newStatus } : x))
+                                toast(newStatus === 'Banned' ? '🚫 User banned' : '✅ User unbanned', 'success')
+                              }}
                                 className={`text-[10px] font-bold ${u.status === 'Banned' ? 'text-green-400' : 'text-red-400'} hover:underline`}>
                                 {u.status === 'Banned' ? 'Unban' : 'Ban'}
                               </button>
@@ -4010,7 +4022,14 @@ export default function Admin() {
             <div className="flex gap-2 pt-2">
               <a href={`mailto:${detailUser.email}`} className="flex-1 py-2.5 text-center text-xs font-bold text-white rounded-xl" style={{ background: '#3b82f6' }}>✉️ Email User</a>
               {detailUser.role !== 'admin' && (
-                <button onClick={() => { setUsers(prev => prev.map(x => x.id === detailUser.id ? { ...x, status: x.status === 'Banned' ? 'Active' : 'Banned' } : x)); setDetailUser(null) }}
+                <button onClick={async () => {
+                  const newStatus = detailUser.status === 'Banned' ? 'Active' : 'Banned'
+                  const { profile, error } = await updateUserRoleAndStatus(detailUser.id, { status: newStatus })
+                  if (error || !profile) { toast('❌ Failed to update status', 'error'); return }
+                  setUsers(prev => prev.map(x => x.id === detailUser.id ? { ...x, status: newStatus } : x))
+                  setDetailUser(null)
+                  toast(newStatus === 'Banned' ? '🚫 User banned' : '✅ User unbanned', 'success')
+                }}
                   className="flex-1 py-2.5 text-xs font-bold text-red-400 rounded-xl border border-red-400/30">{detailUser.status === 'Banned' ? '✓ Unban' : '🚫 Ban'} User</button>
               )}
             </div>
