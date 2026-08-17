@@ -52,17 +52,25 @@ export default function Mixes() {
     // 0. Fetch real mixes from Supabase mixes table
     fetchAllMixes().then(({ mixes: dbMixes, error: mixError }) => {
       if (!mixError && dbMixes && dbMixes.length > 0) {
-        const mappedMixes: MixItem[] = dbMixes.map(m => ({
-          id: m.id,
-          title: m.title,
-          genre: m.genre || 'Afrobeats & Amapiano',
-          plays: m.plays || 0,
-          duration: '60 min',
-          cover: m.cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&h=600&fit=crop',
-          streamUrl: m.mixcloud_url,
-          description: `Released ${m.release_date || 'recently'}`,
-          tracklist: [],
-        }))
+        const mappedMixes: MixItem[] = dbMixes.map(m => {
+          // Extract hearthis.at numeric ID from either a clean URL or raw embed HTML
+          const raw = m.mixcloud_url || ''
+          const hearthisMatch = raw.match(/hearthis\.at\/embed\/(\d+)/) || raw.match(/track_(\d+)/)
+          const hearthisId = hearthisMatch ? hearthisMatch[1] : undefined
+
+          return {
+            id: m.id,
+            title: m.title,
+            genre: m.genre || 'Afrobeats & Amapiano',
+            plays: m.plays || 0,
+            duration: '60 min',
+            cover: m.cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&h=600&fit=crop',
+            hearthisId,
+            streamUrl: hearthisId ? undefined : raw,
+            description: `Released ${m.release_date || 'recently'}`,
+            tracklist: [],
+          }
+        })
         setMixList(mappedMixes)
       }
     })
