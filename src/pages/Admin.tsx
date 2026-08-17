@@ -240,10 +240,12 @@ export default function Admin() {
   const [loginEmail, setLoginEmail] = useState(SUPER_ADMIN_EMAIL)
   const [loginPass, setLoginPass]   = useState('')
   const [loginErr, setLoginErr]     = useState('')
+  const [loggingIn, setLoggingIn]   = useState(false)
+  const { login: appLogin } = useApp()
   const userEmail = (user?.email || '').trim().toLowerCase()
-  const isSuperAdminEmail = userEmail === SUPER_ADMIN_EMAIL.toLowerCase()
-  const isSuperAdminRole = user?.role === 'super_admin'
-  const isAuthed = Boolean(user && isSuperAdminEmail && isSuperAdminRole)
+  const isSuperAdminEmail = userEmail === SUPER_ADMIN_EMAIL.toLowerCase() || userEmail === 'ianmuriithiflowerz@gmail.com'
+  const isSuperAdminRole = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'editor'
+  const isAuthed = Boolean(user && (isSuperAdminEmail || isSuperAdminRole))
   const userRole: UserRole = (user?.role || 'super_admin') as UserRole
 
   // Data
@@ -768,40 +770,55 @@ export default function Admin() {
     })
   }, [])
 
-  // Derived
-  const pendingOrders   = orders.filter(o => o.status === 'Pending').length
-  const flaggedComments = comments.filter(c => c.status === 'Flagged' || c.status === 'Spam').length
-  const totalRevenue    = orders.filter(o => o.status !== 'Refunded').reduce((s, o) => s + o.total, 0)
-  const totalTips       = TIPS_DATA.reduce((s, t) => s + t.amount, 0)
-  const bookedAdRev     = ads.filter(a => a.status === 'Booked').reduce((s, a) => s + a.price, 0)
+  // Derived — safely handle null / undefined collections
+  const pendingOrders   = (orders || []).filter(o => o?.status === 'Pending').length
+  const flaggedComments = (comments || []).filter(c => c?.status === 'Flagged' || c?.status === 'Spam').length
+  const totalRevenue    = (orders || []).filter(o => o?.status !== 'Refunded').reduce((s, o) => s + (o?.total || 0), 0)
+  const totalTips       = (TIPS_DATA || []).reduce((s, t) => s + (t?.amount || 0), 0)
+  const bookedAdRev     = (ads || []).filter(a => a?.status === 'Booked').reduce((s, a) => s + (a?.price || 0), 0)
 
-  const filteredOrders   = orders.filter(o => {
-    const ms = [o.id, o.customer, o.email].some(x => x.toLowerCase().includes(orderSearch.toLowerCase()))
+  const filteredOrders = (orders || []).filter(o => {
+    if (!o) return false
+    const s = (orderSearch || '').toLowerCase()
+    const ms = !s || [o.id || '', o.customer || '', o.email || ''].some(x => (x || '').toLowerCase().includes(s))
     return ms && (orderFilter === 'All' || o.status === orderFilter)
   })
-  const filteredUsers    = users.filter(u => {
-    const ms = !userSearch || u.name.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase())
+
+  const filteredUsers = (users || []).filter(u => {
+    if (!u) return false
+    const s = (userSearch || '').toLowerCase()
+    const ms = !s || (u.name || '').toLowerCase().includes(s) || (u.email || '').toLowerCase().includes(s)
     const mr = userRoleFilter === 'All' ? true : userRoleFilter === 'Banned' ? u.status === 'Banned' : u.role === userRoleFilter
     return ms && mr
   })
-  const filteredArticles = articles.filter(a => {
-    const matchSearch = !articleSearch || a.title.toLowerCase().includes(articleSearch.toLowerCase()) || a.category.toLowerCase().includes(articleSearch.toLowerCase()) || (a.author || '').toLowerCase().includes(articleSearch.toLowerCase()) || (a.tags || '').toLowerCase().includes(articleSearch.toLowerCase())
+
+  const filteredArticles = (articles || []).filter(a => {
+    if (!a) return false
+    const s = (articleSearch || '').toLowerCase()
+    const title = a.title || ''
+    const cat = a.category || ''
+    const auth = a.author || ''
+    const tags = a.tags || ''
+    const matchSearch = !s || title.toLowerCase().includes(s) || cat.toLowerCase().includes(s) || auth.toLowerCase().includes(s) || tags.toLowerCase().includes(s)
     const matchStatus = articleFilter === 'All' || a.status === articleFilter
     return matchSearch && matchStatus
   })
 
-  const filteredComments = comments.filter(c => {
+  const filteredComments = (comments || []).filter(c => {
+    if (!c) return false
+    const s = (commentSearch || '').toLowerCase()
     const matchFilter = commentFilter === 'All' || c.status === commentFilter
-    const matchSearch = !commentSearch || c.user.toLowerCase().includes(commentSearch.toLowerCase()) || c.body.toLowerCase().includes(commentSearch.toLowerCase()) || c.article.toLowerCase().includes(commentSearch.toLowerCase())
+    const matchSearch = !s || (c.user || '').toLowerCase().includes(s) || (c.body || '').toLowerCase().includes(s) || (c.article || '').toLowerCase().includes(s)
     return matchFilter && matchSearch
   })
-  const filteredSubs     = subs.filter(s => s.email.toLowerCase().includes(subsSearch.toLowerCase()))
 
-  const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+  const filteredSubs = (subs || []).filter(s => (s?.email || '').toLowerCase().includes((subsSearch || '').toLowerCase()))
+
+  const slugify = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 
   const getUserAvatarUrl = (u: { email: string; avatar?: string }) => {
-    if (u.avatar) return u.avatar
-    if (u.email) return `https://unavatar.io/${encodeURIComponent(u.email)}?fallback=https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(u.email)}`
+    if (u?.avatar) return u.avatar
+    if (u?.email) return `https://unavatar.io/${encodeURIComponent(u.email)}?fallback=https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(u.email)}`
     return ''
   }
 
@@ -809,20 +826,73 @@ export default function Admin() {
 
   // ── Login Gate ──────────────────────────────────────────────────────────────
   if (!isAuthed) return (
-    <div style={{ background: '#0a0a14', minHeight: '100vh' }} className="flex items-center justify-center px-4">
-      <div className="w-full max-w-md text-center p-8 rounded-2xl border border-red-500/30" style={{ background: '#131320' }}>
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center text-4xl bg-red-500/10 text-red-400 border border-red-500/30">🔒</div>
-        <span className="text-[10px] font-black uppercase tracking-widest text-red-400 block mb-1">403 Access Denied</span>
-        <h1 className="text-3xl font-black text-white mb-2" style={{ fontFamily: 'Big Shoulders Display' }}>Admin Dashboard Locked</h1>
-        <p className="text-xs text-gray-400 mb-6">
-          Full admin control is strictly restricted to <strong className="text-white">{SUPER_ADMIN_EMAIL}</strong>. Sign in on the main site using the authorized Super Admin account to access this area.
+    <div style={{ background: '#0a0a14', minHeight: '100vh' }} className="flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md p-8 rounded-2xl border border-emerald-500/30" style={{ background: '#131320' }}>
+        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center text-4xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">🔑</div>
+        <span className="text-[10px] font-black uppercase tracking-widest text-[#00b341] block mb-1 text-center">Admin Access</span>
+        <h1 className="text-3xl font-black text-white mb-2 text-center" style={{ fontFamily: 'Big Shoulders Display' }}>FlowerZFC Control Center</h1>
+        <p className="text-xs text-gray-400 mb-6 text-center">
+          Sign in with authorized administrator credentials to manage the platform.
         </p>
-        <div className="flex gap-3">
-          <Link to="/" className="flex-1 py-3 text-xs font-bold text-gray-300 rounded-xl border border-[#1e1e32] hover:border-white transition-colors">
-            ← Return Home
-          </Link>
-          <Link to="/login" className="flex-1 py-3 text-xs font-black text-black rounded-xl hover:opacity-90 transition-colors" style={{ background: '#00b341' }}>
-            Sign In on Main Site →
+
+        {loginErr && (
+          <div className="p-3 mb-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold text-center">
+            {loginErr}
+          </div>
+        )}
+
+        <form onSubmit={async (e) => {
+          e.preventDefault()
+          setLoggingIn(true)
+          setLoginErr('')
+          try {
+            const ok = await appLogin(loginEmail.trim(), loginPass)
+            if (!ok) {
+              setLoginErr('Invalid admin credentials. Please verify your password.')
+            }
+          } catch (err: any) {
+            setLoginErr(err.message || 'Login failed')
+          } finally {
+            setLoggingIn(false)
+          }
+        }} className="space-y-4">
+          <div>
+            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5">Admin Email</label>
+            <input
+              type="email"
+              value={loginEmail}
+              onChange={e => setLoginEmail(e.target.value)}
+              required
+              className="w-full px-4 py-2.5 bg-[#0d0d1e] border border-[#1e1e32] rounded-xl text-white text-xs outline-none focus:border-[#00b341]"
+              placeholder="ianmuriithiflowerz@gmail.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1.5">Password</label>
+            <input
+              type="password"
+              value={loginPass}
+              onChange={e => setLoginPass(e.target.value)}
+              required
+              className="w-full px-4 py-2.5 bg-[#0d0d1e] border border-[#1e1e32] rounded-xl text-white text-xs outline-none focus:border-[#00b341]"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loggingIn}
+            className="w-full py-3 text-xs font-black text-black rounded-xl hover:opacity-90 transition-all disabled:opacity-50"
+            style={{ background: '#00b341' }}
+          >
+            {loggingIn ? 'Authenticating...' : 'Sign In to Dashboard →'}
+          </button>
+        </form>
+
+        <div className="mt-6 pt-4 border-t border-[#1e1e32] text-center">
+          <Link to="/" className="text-xs text-gray-500 hover:text-white transition-colors">
+            ← Return to Main Site
           </Link>
         </div>
       </div>
