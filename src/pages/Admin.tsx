@@ -277,7 +277,7 @@ export default function Admin() {
           joined: p.created_at ? new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '2026',
           orders: 0,
           tips: '$0.00',
-          status: 'Active',
+          status: p.status || 'Active',
           avatar: p.avatar_url || undefined,
         }))
         setUsers(mappedUsers)
@@ -678,7 +678,7 @@ export default function Admin() {
   const [scoresView, setScoresView] = useState<'matches' | 'standings' | 'fixtures' | 'catalog'>('matches')
   const [catalogStats, setCatalogStats] = useState<LiveCatalogStats | null>(null)
   const tzInfo = getUserTimezoneInfo()
-  const [showIngestNotification, setShowIngestNotification] = useState(true)
+  const [showIngestNotification, setShowIngestNotification] = useState(false)
   const [clock, setClock] = useState(new Date())
   useEffect(() => { const t = setInterval(() => setClock(new Date()), 1000); return () => clearInterval(t) }, [])
 
@@ -1358,16 +1358,27 @@ export default function Admin() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                  {/* Day Picker Filter */}
                   <div className="flex items-center gap-2 bg-[#0d0d1e] border border-[#1e1e32] px-3 py-1.5 rounded-xl">
                     <span className="text-[10px] font-black uppercase text-gray-500">📅 Day Picker:</span>
-                    <input type="date" value={ingestDate} onChange={e => setIngestDate(e.target.value)} className="bg-transparent text-xs text-white outline-none font-mono" />
+                    <input
+                      type="date"
+                      value={ingestDate}
+                      onChange={e => setIngestDate(e.target.value)}
+                      className="bg-transparent text-xs text-white outline-none font-mono"
+                    />
                   </div>
                   <button onClick={() => {
-                    toast('📡 Querying LiveScore Contentful API...', 'info')
+                    toast('📡 Querying LiveScore Contentful API for all articles...', 'info')
                     fetchLiveIngestedPosts().then(posts => {
                       setIngestedPosts(posts)
-                      toast(`✅ LiveScore Feed Scanned! ${posts.length} real posts loaded.`, 'success')
+                      const todayPosts = filterPostsByDate(posts, ingestDate)
+                      if (todayPosts.length > 0) {
+                        setShowIngestNotification(true)
+                        toast(`✅ Scan complete — ${todayPosts.length} articles found for ${ingestDate}. ${posts.length} total loaded.`, 'success')
+                      } else {
+                        const allDates = [...new Set(posts.map(p => p.sourceDate))].sort().reverse()
+                        toast(`📋 No articles on ${ingestDate}. ${posts.length} total loaded. Available dates: ${allDates.slice(0, 3).join(', ')}`, 'info')
+                      }
                     })
                   }} className="px-4 py-2 text-xs font-black text-white rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-all" style={{ background: '#0d0d1e' }}>
                     🔄 Scan Feed Now
@@ -1572,8 +1583,27 @@ export default function Admin() {
                 ))}
 
                 {filterPostsByDate(ingestedPosts, ingestDate).length === 0 && (
-                  <div className="p-8 text-center text-gray-500 text-xs border border-dashed border-[#1e1e32] rounded-xl">
-                    No ingested posts found for date <span className="text-white font-mono">{ingestDate}</span>. Select a different date or click "Scan Feed Now".
+                  <div className="p-8 text-center text-gray-500 text-xs border border-dashed border-[#1e1e32] rounded-xl space-y-3">
+                    <p className="text-2xl">📅</p>
+                    {ingestedPosts.length === 0 ? (
+                      <>
+                        <p className="text-white font-bold">No articles loaded yet.</p>
+                        <p>Click <span className="text-[#00b341] font-black">🔄 Scan Feed Now</span> to fetch the latest articles from LiveScore.</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-white font-bold">No articles found for <span className="font-mono text-[#00b341]">{ingestDate}</span></p>
+                        <p className="text-gray-400">LiveScore publishes articles on specific dates. Try one of these available dates:</p>
+                        <div className="flex flex-wrap justify-center gap-2 mt-2">
+                          {[...new Set(ingestedPosts.map(p => p.sourceDate))].sort().reverse().slice(0, 10).map(d => (
+                            <button key={d} onClick={() => setIngestDate(d)}
+                              className="px-3 py-1 text-[10px] font-black rounded-lg border border-[#00b341]/40 text-[#00b341] hover:bg-[#00b341]/10 transition-all font-mono">
+                              {d} ({ingestedPosts.filter(p => p.sourceDate === d).length} articles)
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
