@@ -676,6 +676,7 @@ export default function Admin() {
   const [scoresLoading, setScoresLoading] = useState(false)
   const [scoresDataSource, setScoresDataSource] = useState<'api' | 'fallback'>('fallback')
   const [scoresView, setScoresView] = useState<'matches' | 'standings' | 'fixtures' | 'catalog'>('matches')
+  const [catalogStats, setCatalogStats] = useState<LiveCatalogStats | null>(null)
   const tzInfo = getUserTimezoneInfo()
   const [showIngestNotification, setShowIngestNotification] = useState(false)
   const [clock, setClock] = useState(new Date())
