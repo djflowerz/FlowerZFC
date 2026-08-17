@@ -67,6 +67,7 @@ export default function Mixes() {
             cover: m.cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&h=600&fit=crop',
             hearthisId,
             streamUrl: hearthisId ? undefined : raw,
+            downloadUrl: m.download_url || undefined,
             description: `Released ${m.release_date || 'recently'}`,
             tracklist: [],
           }

@@ -6665,6 +6665,7 @@ export default function Admin() {
               genre: newMix.genre || 'Afrobeats & Amapiano',
               cover_url: (newMix as any).cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&h=600&fit=crop',
               release_date: (newMix as any).release_date || new Date().toISOString().slice(0, 10),
+              download_url: (newMix as any).download_url || null,
             }
             const { mix, error } = await saveMixToDb(mixObj)
             if (error || !mix) {
@@ -6694,6 +6695,10 @@ export default function Admin() {
               <input type="date" value={(newMix as any).release_date || new Date().toISOString().slice(0, 10)} onChange={e => setNewMix(p => ({ ...p, release_date: e.target.value } as any))} className={INPUT} style={INPUT_STYLE} />
             </div>
             <div>
+              <label className="block text-xs font-bold text-gray-400 mb-1">Download Link (optional)</label>
+              <input value={(newMix as any).download_url || ''} onChange={e => setNewMix(p => ({ ...p, download_url: e.target.value } as any))} placeholder="Direct MP3 link or hearthis.at download URL" className={INPUT} style={INPUT_STYLE} />
+            </div>
+            <div>
               <label className="block text-xs font-bold text-gray-400 mb-1">Cover Artwork</label>
               <input type="file" accept="image/*" onChange={async e => {
                 const file = e.target.files?.[0]
@@ -6711,6 +6716,64 @@ export default function Admin() {
             <div className="flex gap-2 pt-2">
               <button type="button" onClick={() => setShowAddMix(false)} className="flex-1 py-3 text-xs font-bold text-white rounded-xl border border-[#1e1e32]">Cancel</button>
               <button type="submit" className="flex-1 py-3 text-xs font-black text-white rounded-xl hover:opacity-90 transition-all" style={{ background: '#00b341' }}>Publish Mix →</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Edit Mix Modal */}
+      {editMix && (
+        <Modal title={`✏️ Edit Mix — ${editMix.title}`} onClose={() => setEditMix(null)}>
+          <form onSubmit={async e => {
+            e.preventDefault()
+            if (!editMix) return
+            const { mix, error } = await saveMixToDb(editMix)
+            if (error || !mix) {
+              toastLib.error('❌ Failed to save mix changes')
+              return
+            }
+            setMixes(prev => prev.map(x => x.id === editMix.id ? mix : x))
+            setEditMix(null)
+            toastLib.success('✅ Mix updated!')
+          }} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-1">Mix Title *</label>
+              <input value={editMix.title} onChange={e => setEditMix(p => p ? { ...p, title: e.target.value } : p)} className={INPUT} style={INPUT_STYLE} required />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-1">Mixcloud / hearthis.at URL or Embed</label>
+              <input value={editMix.mixcloud_url || ''} onChange={e => setEditMix(p => p ? { ...p, mixcloud_url: e.target.value } : p)} className={INPUT} style={INPUT_STYLE} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-1">Genre / Vibe</label>
+              <input value={editMix.genre || ''} onChange={e => setEditMix(p => p ? { ...p, genre: e.target.value } : p)} className={INPUT} style={INPUT_STYLE} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-1">Release Date</label>
+              <input type="date" value={editMix.release_date || ''} onChange={e => setEditMix(p => p ? { ...p, release_date: e.target.value } : p)} className={INPUT} style={INPUT_STYLE} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-1">Download Link (optional)</label>
+              <input value={editMix.download_url || ''} onChange={e => setEditMix(p => p ? { ...p, download_url: e.target.value } : p)} placeholder="Direct MP3 link or hearthis.at download URL" className={INPUT} style={INPUT_STYLE} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-400 mb-1">Cover Artwork</label>
+              <input type="file" accept="image/*" onChange={async e => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                toastLib.info('Uploading cover...')
+                const { url, error } = await uploadMixCover(file)
+                if (error || !url) { toastLib.error('Cover upload failed'); return }
+                setEditMix(p => p ? { ...p, cover_url: url } : p)
+                toastLib.success('Cover uploaded!')
+              }} className={INPUT} style={INPUT_STYLE} />
+              {editMix.cover_url && (
+                <img src={editMix.cover_url} className="w-24 h-24 object-cover rounded-lg mt-2 border border-[#1e1e32]" alt="" />
+              )}
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button type="button" onClick={() => setEditMix(null)} className="flex-1 py-3 text-xs font-bold text-white rounded-xl border border-[#1e1e32]">Cancel</button>
+              <button type="submit" className="flex-1 py-3 text-xs font-black text-white rounded-xl hover:opacity-90 transition-all" style={{ background: '#00b341' }}>Save Changes →</button>
             </div>
           </form>
         </Modal>
