@@ -197,10 +197,17 @@ function extractContentfulRichText(node: any): string {
 }
 
 // ─── Main Fetcher ─────────────────────────────────────────────────────────────
-// Fetches ALL latest 100 articles directly from LiveScore's Contentful API backend.
-export async function fetchLiveIngestedPosts(): Promise<IngestedPost[]> {
+// Fetches articles directly from LiveScore's Contentful API backend.
+// Supports querying by specific date or all latest.
+export async function fetchLiveIngestedPosts(dateStr?: string): Promise<IngestedPost[]> {
   try {
-    const res = await fetch(CONTENTFUL_URL)
+    let url = CONTENTFUL_URL
+    if (dateStr && dateStr !== 'all') {
+      const gte = encodeURIComponent(`${dateStr}T00:00:00.000Z`)
+      const lte = encodeURIComponent(`${dateStr}T23:59:59.999Z`)
+      url = `https://cdn.contentful.com/spaces/u47hn5mzoiuo/environments/master/entries?access_token=BajQyLYH7tgna4_YpZXm_9TEpTTy7E7GJbm8w5JeWhM&content_type=article&sys.createdAt%5Bgte%5D=${gte}&sys.createdAt%5Blte%5D=${lte}&limit=100&order=-sys.createdAt`
+    }
+    const res = await fetch(url)
     if (res.ok) {
       const data = await res.json()
       const entries: any[] = data.items || []

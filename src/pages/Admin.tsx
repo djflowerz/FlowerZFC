@@ -356,6 +356,7 @@ export default function Admin() {
 
     // 4. Fetch real articles from Supabase articles table
     fetchAllArticles().then(({ articles: dbArts, error }) => {
+      const local = getAllArticles()
       if (!error && dbArts && dbArts.length > 0) {
         const mapped: Article[] = dbArts.map((a: ArticleRow) => ({
           id: a.id, title: a.title, slug: a.slug || '',
@@ -368,7 +369,15 @@ export default function Admin() {
           matchId: '', teamTags: '', playerTags: '', mediaEmbeds: '', isLiveBlog: false,
           metaTitle: a.title, metaDescription: a.body ? a.body.slice(0, 150) : '', focusKeywords: a.category,
         }))
-        setArticles(mapped)
+        const dbIds = new Set(mapped.map(m => m.id))
+        const unSyncedLocal = local.filter(l => !dbIds.has(l.id)).map(l => ({
+          ...l,
+          imageAlt: l.imageAlt || l.title,
+          imageCaption: l.imageCaption || '',
+        } as Article))
+        setArticles([...mapped, ...unSyncedLocal])
+      } else if (local.length > 0) {
+        setArticles(local.map(l => ({ ...l, imageAlt: l.imageAlt || l.title, imageCaption: l.imageCaption || '' } as Article)))
       }
     })
 
@@ -680,8 +689,11 @@ export default function Admin() {
       const aTitle = (a.title || '').toLowerCase().replace(/[^a-z0-9]/g, '')
       const slugMatch = a.slug && (a.slug === `ing-${contentfulId}` || a.slug.includes(contentfulId))
       const idMatch = a.id && (a.id === `art-ing-${contentfulId}` || a.id.includes(contentfulId))
-      const titleMatch = pTitle.length > 10 && aTitle === pTitle
-      return slugMatch || idMatch || titleMatch
+      const titleMatch = pTitle.length > 10 && (
+        aTitle === pTitle ||
+        (pTitle.length > 25 && (aTitle.includes(pTitle.slice(0, 30)) || pTitle.includes(aTitle.slice(0, 30))))
+      )
+      return Boolean(slugMatch || idMatch || titleMatch)
     })
   }
 
@@ -717,15 +729,15 @@ export default function Admin() {
   const [clock, setClock] = useState(new Date())
   useEffect(() => { const t = setInterval(() => setClock(new Date()), 1000); return () => clearInterval(t) }, [])
 
-  // Auto-scan live LiveScore news feed on mount
+  // Automatically fetch live articles from LiveScore Contentful API on mount or when ingestDate changes
   useEffect(() => {
-    fetchLiveIngestedPosts().then(posts => {
+    fetchLiveIngestedPosts(ingestDate).then(posts => {
       if (posts && posts.length > 0) {
         setIngestedPosts(posts)
         setShowIngestNotification(true)
       }
     })
-  }, [])
+  }, [ingestDate])
 
   // Toast notification system — powered by react-toastify
   // Thin wrapper preserving the old (msg, type) call signature used throughout this file
@@ -760,30 +772,6 @@ export default function Admin() {
           views: Number(a.views) || 0, likes: a.likes || 0,
           published_at: a.status === 'Published' ? new Date().toISOString() : undefined,
         })
-      }
-    })
-  }, [articles])
-
-  // Automatically fetch live articles from LiveScore Contentful API on mount
-  useEffect(() => {
-    fetchLiveIngestedPosts().then(posts => {
-      if (posts && posts.length > 0) {
-        setIngestedPosts(posts)
-        // Count only posts not yet on the site (compare by slug/id/title)
-        const alreadyPostedSlugs = new Set(articles.map(a => a.slug))
-        const alreadyPostedIds = new Set(articles.map(a => a.id))
-        const alreadyPostedTitles = new Set(articles.map(a => (a.title || '').toLowerCase().replace(/[^a-z0-9]/g, '')))
-        const unpostedCount = posts.filter(p => {
-          const pSlug = `ing-${p.id}`
-          const pId = `art-ing-${p.id}`
-          const pTitle = (p.transformedTitle || p.sourceTitle || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-          return !alreadyPostedSlugs.has(pSlug) && !alreadyPostedIds.has(pId) && !alreadyPostedTitles.has(pTitle)
-        }).length
-        if (unpostedCount > 0) {
-          toast(`📡 Scanned ${posts.length} LiveScore articles — ${unpostedCount} new / unposted`, 'info')
-        } else {
-          toast(`📡 Scanned ${posts.length} LiveScore articles — all already published ✓`, 'success')
-        }
       }
     })
   }, [articles])
@@ -1549,12 +1537,13 @@ export default function Admin() {
                   )}
 
                   <button onClick={() => {
-                    toast('📡 Querying LiveScore Contentful API for latest articles...', 'info')
-                    fetchLiveIngestedPosts().then(posts => {
+                    toast(`📡 Querying LiveScore Contentful API for ${ingestDate === 'all' ? 'latest articles' : ingestDate}...`, 'info')
+                    fetchLiveIngestedPosts(ingestDate).then(posts => {
                       setIngestedPosts(posts)
                       const visible = filterPostsByDate(posts, ingestDate)
                       setShowIngestNotification(true)
-                      toast(`✅ LiveScore feed refreshed! ${visible.length} articles displayed (${posts.length} total in feed).`, 'success')
+                      const unposted = visible.filter(p => !isPostAlreadyOnSite(p)).length
+                      toast(`✅ LiveScore feed refreshed! ${visible.length} article(s) found for ${ingestDate === 'all' ? 'all dates' : ingestDate} (${unposted} unposted).`, 'success')
                     })
                   }} className="px-4 py-2 text-xs font-black text-white rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-all flex items-center gap-1.5" style={{ background: '#0d0d1e' }}>
                     <span>🔄</span> Scan Feed Now
