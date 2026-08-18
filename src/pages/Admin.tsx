@@ -672,12 +672,16 @@ export default function Admin() {
   const [selectedIngestIds, setSelectedIngestIds] = useState<Set<string>>(new Set())
 
   // Check if a scanned post has already been posted to the website
+  // Priority: check slug contains the Contentful entry ID, then title match, then ID match
   const isPostAlreadyOnSite = (p: IngestedPost) => {
+    const contentfulId = p.id
     const pTitle = (p.transformedTitle || p.sourceTitle || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-    const pSlug = (p.transformedTitle || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
     return articles.some(a => {
       const aTitle = (a.title || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-      return a.slug === pSlug || aTitle === pTitle || (a.id && a.id.includes(p.id)) || a.id === `art-ing-${p.id}`
+      const slugMatch = a.slug && (a.slug === `ing-${contentfulId}` || a.slug.includes(contentfulId))
+      const idMatch = a.id && (a.id === `art-ing-${contentfulId}` || a.id.includes(contentfulId))
+      const titleMatch = pTitle.length > 10 && aTitle === pTitle
+      return slugMatch || idMatch || titleMatch
     })
   }
 
@@ -1585,9 +1589,9 @@ export default function Admin() {
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-emerald-400">{selectedIngestIds.size} selected</span>
                     <button onClick={() => {
-                      const selectedPosts = ingestedPosts.filter(p => selectedIngestIds.has(p.id))
-                      const newArticles = selectedPosts.map((post, idx) => ({
-                        id: `art-ing-${Date.now()}-${idx}`,
+                      const selectedPosts = ingestedPosts.filter(p => selectedIngestIds.has(p.id) && !isPostAlreadyOnSite(p))
+                      const newArticles = selectedPosts.map((post) => ({
+                        id: `art-ing-${post.id}`,
                         title: post.transformedTitle,
                         category: post.category,
                         body: post.transformedBody,
@@ -1599,9 +1603,10 @@ export default function Admin() {
                         status: 'Published',
                         tags: `${post.category}, Ingested, News`,
                         metaDescription: post.transformedBody.slice(0, 150),
-                        slug: post.transformedTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                        // Encode Contentful ID into slug for reliable deduplication
+                        slug: `ing-${post.id}`,
                         scheduled: '',
-                        views: '1.2K',
+                        views: '0',
                         likes: 0,
                         excerpt: post.transformedBody.slice(0, 140) + '...',
                         matchId: '',
@@ -1744,7 +1749,7 @@ export default function Admin() {
                         ) : (
                           <button onClick={() => {
                             const newArticle = {
-                              id: `art-ing-${Date.now()}`,
+                              id: `art-ing-${post.id}`,
                               title: post.transformedTitle,
                               category: post.category,
                               body: post.transformedBody,
@@ -1756,9 +1761,10 @@ export default function Admin() {
                               status: 'Published',
                               tags: `${post.category}, Ingested, News`,
                               metaDescription: post.transformedBody.slice(0, 150),
-                              slug: post.transformedTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+                              // Encode Contentful ID into slug for reliable deduplication
+                              slug: `ing-${post.id}`,
                               scheduled: '',
-                              views: '1.2K',
+                              views: '0',
                               likes: 0,
                               excerpt: post.transformedBody.slice(0, 140) + '...',
                               matchId: '',

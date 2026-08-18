@@ -123,26 +123,43 @@ function isPromotionalPost(title: string, slug: string): boolean {
 //  1. Title: Keep original core headline while stripping syndication suffixes
 //     (e.g. "- GOAL", "- VAVEL", "- Celtic Shorts", "- BVB Buzz", "- SI", "(Report)")
 //     and any "LiveScore" brand name.
-//  2. Body: Keep full detailed story while stripping external platform and syndication references.
+//  2. Body: Clean HTML anchor tags, strip external syndication links/sources,
+//     remove promo trailers, and transform into FlowerZFC editorial voice with ZERO external references.
 //  3. Author: Always "Admin"
 export function transformContentContext(
   title: string,
   body: string,
 ): { title: string; body: string } {
-  // Clean up title: remove LiveScore and syndication suffixes like " - GOAL", " - SI", etc.
-  const t = (title || '')
+  // Clean up title
+  let t = (title || '')
+    .replace(/<[^>]+>/g, '')
     .replace(/\blivescore\b/gi, '')
-    .replace(/\s*[-–—]\s*(GOAL|VAVEL|Celtic Shorts|BVB Buzz|Sports Witness|ParisFans|MilanReports|FootballLeagueWorld|SI|Daily Mail|The Sun|Sky Sports|ESPN)\s*$/i, '')
+    .replace(/\s*[-–—]\s*(GOAL|VAVEL|Celtic Shorts|BVB Buzz|Sports Witness|ParisFans|MilanReports|FootballLeagueWorld|SI|Daily Mail|The Sun|Sky Sports|ESPN|The Independent|Just Arsenal News|The Football Faithful|Saints Marching|West Ham News)\s*$/i, '')
     .replace(/\s*\(Report\)\s*$/i, '')
     .replace(/\s{2,}/g, ' ')
     .trim()
 
-  // Clean up body: remove LiveScore references and syndication tags
-  const b = (body || '')
-    .replace(/\blivescore\.com\b/gi, 'our platform')
-    .replace(/\blivescore\b/gi, '')
+  // Clean up body
+  let b = (body || '')
+    // 1. Strip HTML tags (keep inner text of anchors)
+    .replace(/<a[^>]*>(.*?)<\/a>/gi, '$1')
+    .replace(/<[^>]+>/g, '')
+    // 2. Strip external source markers
+    .replace(/\(Source:\s*[^)]+\)/gi, '')
+    .replace(/Source:\s*https?:\/\/[^\s]+/gi, '')
+    .replace(/READ THE LATEST TRANSFER RUMORS[^\n.]*/gi, '')
+    .replace(/The post .*? appeared first on .*?\./gi, '')
+    .replace(/::\s*A Beautiful Obsession launches exclusively[^\n.]*/gi, '')
+    .replace(/Today's best reads[^\n.]*/gi, '')
+    .replace(/Read also:?[^\n.]*/gi, '')
+    // 3. Strip syndication / brand names
+    .replace(/\b(LiveScore|Sports Illustrated|Sky Sports|The Independent|The Athletic|Daily Mail|The Sun|AS|MARCA|El Chiringuito|El Nacional|Fichajes|TEAMtalk|CaughtOffside|Fabrizio Romano|BBC Sport|But! Football Club|SpaceViola|RoversTV)\b/gi, 'our reports')
     .replace(/\b(per|according to)\s+(LiveScore|GOAL|VAVEL|Celtic Shorts|BVB Buzz|Sports Witness|ParisFans|MilanReports|FootballLeagueWorld)\b/gi, 'reports indicate')
-    .replace(/\s{2,}/g, ' ')
+    .replace(/\blivescore\.com\b/gi, 'our platform')
+    .replace(/\blivescore\b/gi, 'FlowerZFC')
+    // 4. Normalize spaces and empty lines
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
     .trim()
 
   return { title: t, body: b }
