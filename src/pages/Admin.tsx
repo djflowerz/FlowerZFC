@@ -10,7 +10,7 @@ import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllA
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
 import {
-  saveArticle, deleteArticle as storeDeleteArticle, clearArticleStore,
+  saveArticle, saveArticles, getAllArticles, deleteArticle as storeDeleteArticle, clearArticleStore,
   type StoredArticle
 } from '../services/articleStore'
 
@@ -251,8 +251,39 @@ export default function Admin() {
   // Data
   const [orders,    setOrders]    = useState(INIT_ORDERS)
   const [shippingCfg, setShippingCfg] = useState<ShippingConfig>(getShippingConfig)
+  const [articles,  setArticles]  = useState<Article[]>(() => {
+    const local = getAllArticles()
+    if (local && local.length > 0) {
+      return local.map(l => ({
+        id: l.id,
+        title: l.title,
+        slug: l.slug || '',
+        category: l.category,
+        author: l.author || 'Admin',
+        body: l.body,
+        imageUrl: l.imageUrl || '',
+        imageAlt: l.imageAlt || l.title,
+        imageCaption: l.imageCaption || '',
+        status: (l.status === 'Published' || l.status === 'Draft' || l.status === 'Scheduled') ? l.status : 'Published',
+        date: l.date || 'Today',
+        scheduled: l.scheduled || '',
+        views: String(l.views || 0),
+        likes: l.likes || 0,
+        tags: l.tags || '',
+        excerpt: l.excerpt || (l.body ? l.body.slice(0, 140) : ''),
+        matchId: l.matchId || '',
+        teamTags: l.teamTags || '',
+        playerTags: l.playerTags || '',
+        mediaEmbeds: l.mediaEmbeds || '',
+        isLiveBlog: Boolean(l.isLiveBlog),
+        metaTitle: l.metaTitle || l.title,
+        metaDescription: l.metaDescription || '',
+        focusKeywords: l.focusKeywords || l.category,
+      }))
+    }
+    return INIT_ARTICLES
+  })
   const [products,  setProducts]  = useState(INIT_PRODUCTS)
-  const [articles,  setArticles]  = useState(INIT_ARTICLES)
   const [tickets,   setTickets]   = useState(INIT_TICKETS)
   const [users,     setUsers]     = useState(INIT_USERS)
   const [comments,  setComments]  = useState<any[]>(INIT_COMMENTS)
@@ -1593,6 +1624,10 @@ export default function Admin() {
                     <span className="text-xs font-bold text-emerald-400">{selectedIngestIds.size} selected</span>
                     <button onClick={() => {
                       const selectedPosts = ingestedPosts.filter(p => selectedIngestIds.has(p.id) && !isPostAlreadyOnSite(p))
+                      if (selectedPosts.length === 0) {
+                        toast('All selected posts are already published or none selected.', 'info')
+                        return
+                      }
                       const newArticles = selectedPosts.map((post) => ({
                         id: `art-ing-${post.id}`,
                         title: post.transformedTitle,
@@ -1602,7 +1637,7 @@ export default function Admin() {
                         imageAlt: post.transformedTitle,
                         imageCaption: post.transformedTitle,
                         author: post.author || 'Admin',
-                        date: new Date().toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' }),
+                        date: new Date().toISOString(),
                         status: 'Published',
                         tags: `${post.category}, Ingested, News`,
                         metaDescription: post.transformedBody.slice(0, 150),
@@ -1621,11 +1656,11 @@ export default function Admin() {
                         focusKeywords: post.category,
                       }))
 
+                      saveArticles(newArticles as any)
                       setArticles(prev => [...newArticles, ...prev])
-                      newArticles.forEach(a => saveArticle(a))
                       setIngestedPosts(prev => prev.map(p => selectedIngestIds.has(p.id) ? { ...p, status: 'Approved' } : p))
                       setSelectedIngestIds(new Set())
-                      toast(`✅ Bulk Approved & Published ${selectedPosts.length} posts live!`, 'success')
+                      toast(`✅ Bulk Approved & Published ${selectedPosts.length} posts live to News!`, 'success')
                     }} className="px-4 py-2 text-xs font-black text-black rounded-xl hover:opacity-90 transition-all" style={{ background: '#00b341' }}>
                       ✅ Bulk Approve Selected ({selectedIngestIds.size}) →
                     </button>
@@ -1760,7 +1795,7 @@ export default function Admin() {
                               imageAlt: post.transformedTitle,
                               imageCaption: post.transformedTitle,
                               author: post.author || 'Admin',
-                              date: new Date().toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' }),
+                              date: new Date().toISOString(),
                               status: 'Published',
                               tags: `${post.category}, Ingested, News`,
                               metaDescription: post.transformedBody.slice(0, 150),
@@ -1778,10 +1813,10 @@ export default function Admin() {
                               metaTitle: post.transformedTitle,
                               focusKeywords: post.category,
                             }
+                            saveArticle(newArticle as any)
                             setArticles(prev => [newArticle, ...prev])
-                            saveArticle(newArticle)
                             setIngestedPosts(prev => prev.map(p => p.id === post.id ? { ...p, status: 'Approved' } : p))
-                            toast('✅ Approved & Published to FlowerZFC platform live!', 'success')
+                            toast('✅ Approved & Published to FlowerZFC News live!', 'success')
                           }} className="px-4 py-1.5 text-[11px] font-black text-white rounded-lg hover:opacity-90 transition-all" style={{ background: '#00b341' }}>
                             ✅ Approve & Publish Now →
                           </button>

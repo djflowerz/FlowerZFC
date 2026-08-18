@@ -62,7 +62,32 @@ export default function News() {
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
   const [tickerIndex, setTickerIndex] = useState(0)
-  const [dynamicArticles, setDynamicArticles] = useState<ArticleItem[]>([])
+  const [dynamicArticles, setDynamicArticles] = useState<ArticleItem[]>(() => {
+    const stored = getAllArticles().map(a => {
+      const rawDate = a.date
+      let ts = rawDate ? new Date(rawDate).getTime() : 0
+      if (!ts || isNaN(ts)) ts = Date.now()
+      return {
+        id: a.id,
+        tag: (a.category || 'NEWS').toUpperCase(),
+        title: a.title,
+        summary: a.metaDescription || a.excerpt || a.body.slice(0, 140) + '...',
+        image: a.imageUrl || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&h=500&fit=crop',
+        likes: a.likes || 0,
+        comments: 0,
+        date: formatRelativeTime(ts),
+        timestamp: ts,
+        readTime: `${Math.max(1, Math.round((a.body || '').split(/\s+/).length / 200))} min read`,
+        author: a.author || 'Admin',
+        authorAvatar: (a.author || 'A').charAt(0),
+        featured: true,
+      }
+    })
+    const deletedIds = getDeletedArticleIds()
+    const merged = [...stored, ...ARTICLES].filter(a => !deletedIds.includes(a.id))
+    const unique = merged.filter((item, index, self) => index === self.findIndex(t => t.id === item.id))
+    return unique.sort((a, b) => b.timestamp - a.timestamp)
+  })
 
   // Transfer news state
   interface TransferNewsItem { id: string; title: string; link: string; date: string; img: string; source: string }

@@ -66,8 +66,16 @@ export function getAllArticles(): StoredArticle[] {
 
 export function getArticle(id: string): StoredArticle | null {
   try {
-    if (getDeletedArticleIds().includes(id)) return null
-    return getAllArticles().find(a => a.id === id) ?? null
+    if (!id || getDeletedArticleIds().includes(id)) return null
+    const articles = getAllArticles()
+    return articles.find(a =>
+      a.id === id ||
+      a.slug === id ||
+      a.id.toLowerCase() === id.toLowerCase() ||
+      (a.slug && a.slug.toLowerCase() === id.toLowerCase()) ||
+      a.id.includes(id) ||
+      id.includes(a.id)
+    ) ?? null
   } catch {
     return null
   }
@@ -75,13 +83,27 @@ export function getArticle(id: string): StoredArticle | null {
 
 export function saveArticle(article: StoredArticle): void {
   try {
-    const articles = getAllArticles()
-    const idx = articles.findIndex(a => a.id === article.id)
-    if (idx >= 0) articles[idx] = article
-    else articles.push(article)
-    localStorage.setItem(STORE_KEY, JSON.stringify(articles))
+    saveArticles([article])
   } catch {
     // Silent — never expose storage errors
+  }
+}
+
+export function saveArticles(newArticles: StoredArticle[]): void {
+  try {
+    const raw = localStorage.getItem(STORE_KEY)
+    const current: StoredArticle[] = raw ? JSON.parse(raw) : []
+    newArticles.forEach(na => {
+      const idx = current.findIndex(a => a.id === na.id || (na.slug && a.slug === na.slug))
+      if (idx >= 0) {
+        current[idx] = na
+      } else {
+        current.unshift(na)
+      }
+    })
+    localStorage.setItem(STORE_KEY, JSON.stringify(current))
+  } catch {
+    // Silent
   }
 }
 
