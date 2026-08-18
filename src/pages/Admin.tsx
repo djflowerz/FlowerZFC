@@ -769,10 +769,24 @@ export default function Admin() {
     fetchLiveIngestedPosts().then(posts => {
       if (posts && posts.length > 0) {
         setIngestedPosts(posts)
-        toast(`📡 Auto-scanned LiveScore API: ${posts.length} live articles fetched!`, 'info')
+        // Count only posts not yet on the site (compare by slug/id/title)
+        const alreadyPostedSlugs = new Set(articles.map(a => a.slug))
+        const alreadyPostedIds = new Set(articles.map(a => a.id))
+        const alreadyPostedTitles = new Set(articles.map(a => (a.title || '').toLowerCase().replace(/[^a-z0-9]/g, '')))
+        const unpostedCount = posts.filter(p => {
+          const pSlug = `ing-${p.id}`
+          const pId = `art-ing-${p.id}`
+          const pTitle = (p.transformedTitle || p.sourceTitle || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+          return !alreadyPostedSlugs.has(pSlug) && !alreadyPostedIds.has(pId) && !alreadyPostedTitles.has(pTitle)
+        }).length
+        if (unpostedCount > 0) {
+          toast(`📡 Scanned ${posts.length} LiveScore articles — ${unpostedCount} new / unposted`, 'info')
+        } else {
+          toast(`📡 Scanned ${posts.length} LiveScore articles — all already published ✓`, 'success')
+        }
       }
     })
-  }, [])
+  }, [articles])
 
   // Derived — safely handle null / undefined collections
   const pendingOrders   = (orders || []).filter(o => o?.status === 'Pending').length

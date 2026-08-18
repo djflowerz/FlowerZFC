@@ -98,7 +98,10 @@ export default function News() {
   useEffect(() => {
     const buildFromLocalStorage = () => {
       const stored = getAllArticles().map(a => {
-        const ts = a.date ? new Date(a.date).getTime() : 0
+        // Use current time if no valid date — puts newly published articles at top
+        const rawDate = a.date
+        let ts = rawDate ? new Date(rawDate).getTime() : 0
+        if (!ts || isNaN(ts)) ts = Date.now()
         return {
           id: a.id,
           tag: (a.category || 'NEWS').toUpperCase(),
@@ -107,8 +110,8 @@ export default function News() {
           image: a.imageUrl || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&h=500&fit=crop',
           likes: a.likes || 0,
           comments: 0,
-          date: formatRelativeTime(a.date || Date.now()),
-          timestamp: ts || Date.now(),
+          date: formatRelativeTime(ts),
+          timestamp: ts,
           readTime: `${Math.max(1, Math.round((a.body || '').split(/\s+/).length / 200))} min read`,
           author: a.author || 'Admin',
           authorAvatar: (a.author || 'A').charAt(0),
@@ -139,68 +142,79 @@ export default function News() {
       setDynamicArticles(unique)
     }
 
-    // 1. Fetch real comments and Supabase articles in parallel
-    Promise.all([
-      fetchAllArticles(),
-      fetchAllComments(),
-    ]).then(([{ articles: dbArts, error }, { comments: dbComments }]) => {
-      const commentCounts: Record<string, number> = {}
-      if (dbComments) {
-        dbComments.forEach(c => {
-          if (c.article_id) commentCounts[c.article_id] = (commentCounts[c.article_id] || 0) + 1
-        })
-      }
+    const loadFromSupabase = () => {
+      // Fetch real comments and Supabase articles in parallel
+      Promise.all([
+        fetchAllArticles(),
+        fetchAllComments(),
+      ]).then(([{ articles: dbArts, error }, { comments: dbComments }]) => {
+        const commentCounts: Record<string, number> = {}
+        if (dbComments) {
+          dbComments.forEach(c => {
+            if (c.article_id) commentCounts[c.article_id] = (commentCounts[c.article_id] || 0) + 1
+          })
+        }
 
-      if (!error && dbArts && dbArts.length > 0) {
-        const deletedIds = getDeletedArticleIds()
-        const dbMapped = dbArts.map(a => {
-          const rawDate = a.published_at || a.date
-          const ts = rawDate ? new Date(rawDate).getTime() : 0
-          return {
-            id: a.id,
-            tag: (a.category || 'NEWS').toUpperCase(),
-            title: a.title,
-            summary: a.body ? a.body.slice(0, 140) + '...' : '',
-            image: a.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&h=500&fit=crop',
-            likes: a.likes || 0,
-            comments: commentCounts[a.id] || 0,
-            date: formatRelativeTime(rawDate),
-            timestamp: ts || Date.now(),
-            readTime: `${Math.max(1, Math.round((a.body || '').split(/\s+/).length / 200))} min read`,
-            author: a.author || 'Admin',
-            authorAvatar: (a.author || 'A').charAt(0),
-            featured: true,
-          }
-        }).filter(a => !deletedIds.includes(a.id))
+        if (!error && dbArts && dbArts.length > 0) {
+          const deletedIds = getDeletedArticleIds()
+          const dbMapped = dbArts.map(a => {
+            const rawDate = a.published_at || a.date
+            // Fallback to Date.now() so articles without a date sort to top
+            let ts = rawDate ? new Date(rawDate).getTime() : 0
+            if (!ts || isNaN(ts)) ts = Date.now()
+            return {
+              id: a.id,
+              tag: (a.category || 'NEWS').toUpperCase(),
+              title: a.title,
+              summary: a.body ? a.body.slice(0, 140) + '...' : '',
+              image: a.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&h=500&fit=crop',
+              likes: a.likes || 0,
+              comments: commentCounts[a.id] || 0,
+              date: formatRelativeTime(ts),
+              timestamp: ts,
+              readTime: `${Math.max(1, Math.round((a.body || '').split(/\s+/).length / 200))} min read`,
+              author: a.author || 'Admin',
+              authorAvatar: (a.author || 'A').charAt(0),
+              featured: true,
+            }
+          }).filter(a => !deletedIds.includes(a.id))
 
-        // Also include approved ingested posts alongside Supabase articles
-        const ingested = getIngestedPosts()
-          .filter(p => p.status === 'Approved')
-          .map(p => ({
-            id: p.id,
-            tag: p.category.toUpperCase(),
-            title: p.transformedTitle,
-            summary: p.transformedBody.slice(0, 140) + '...',
-            image: p.sourceImage,
-            likes: 0,
-            comments: commentCounts[p.id] || 0,
-            date: formatRelativeTime(p.timestampMs),
-            timestamp: p.timestampMs,
-            readTime: '3 min read',
-            author: p.author || 'Admin',
-            authorAvatar: (p.author || 'A').charAt(0),
-            featured: false,
-          }))
+          // Also include approved ingested posts alongside Supabase articles
+          const ingested = getIngestedPosts()
+            .filter(p => p.status === 'Approved')
+            .map(p => ({
+              id: p.id,
+              tag: p.category.toUpperCase(),
+              title: p.transformedTitle,
+              summary: p.transformedBody.slice(0, 140) + '...',
+              image: p.sourceImage,
+              likes: 0,
+              comments: commentCounts[p.id] || 0,
+              date: formatRelativeTime(p.timestampMs),
+              timestamp: p.timestampMs,
+              readTime: '3 min read',
+              author: p.author || 'Admin',
+              authorAvatar: (p.author || 'A').charAt(0),
+              featured: false,
+            }))
 
-        const merged = [...dbMapped, ...ingested]
-        const unique = merged.filter((item, idx, self) => idx === self.findIndex(t => t.id === item.id))
-        // Sort strictly from latest timestamp to oldest
-        unique.sort((a, b) => b.timestamp - a.timestamp)
-        setDynamicArticles(unique)
-      } else {
-        buildFromLocalStorage()
-      }
-    }).catch(() => buildFromLocalStorage())
+          const merged = [...dbMapped, ...ingested]
+          const unique = merged.filter((item, idx, self) => idx === self.findIndex(t => t.id === item.id))
+          // Sort strictly from latest timestamp to oldest
+          unique.sort((a, b) => b.timestamp - a.timestamp)
+          setDynamicArticles(unique)
+        } else {
+          buildFromLocalStorage()
+        }
+      }).catch(() => buildFromLocalStorage())
+    }
+
+    // Load immediately
+    loadFromSupabase()
+
+    // Poll every 30 seconds so newly published articles appear without a page refresh
+    const interval = setInterval(loadFromSupabase, 30000)
+    return () => clearInterval(interval)
   }, [])
 
   // Filtered list
