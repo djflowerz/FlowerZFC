@@ -29,15 +29,23 @@ const CATEGORIES = ['All', 'Match Report', 'Transfers', 'Analysis', 'AFCON', 'Op
 
 function formatRelativeTime(dateInput?: string | number): string {
   if (!dateInput) return 'Just now'
+  if (typeof dateInput === 'string' && !dateInput.includes('T') && !dateInput.includes(':')) {
+    try {
+      const todayStr = new Date().toISOString().slice(0, 10)
+      const dStr = new Date(dateInput).toISOString().slice(0, 10)
+      if (dStr === todayStr) return 'Today'
+    } catch {}
+    return dateInput
+  }
   let d: Date
   if (typeof dateInput === 'number') {
     d = new Date(dateInput)
   } else {
     d = new Date(dateInput)
-    if (isNaN(d.getTime())) return dateInput
+    if (isNaN(d.getTime())) return String(dateInput)
   }
   const diffMs = Date.now() - d.getTime()
-  if (diffMs < 0) return 'Just now'
+  if (diffMs < 0 || diffMs < 60000) return 'Just now'
   const diffSec = Math.floor(diffMs / 1000)
   if (diffSec < 60) return 'Just now'
   const diffMin = Math.floor(diffSec / 60)
@@ -63,10 +71,23 @@ export default function News() {
   const [searchQuery, setSearchQuery] = useState('')
   const [tickerIndex, setTickerIndex] = useState(0)
   const [dynamicArticles, setDynamicArticles] = useState<ArticleItem[]>(() => {
-    const stored = getAllArticles().map(a => {
+    const stored = getAllArticles().map((a, idx) => {
       const rawDate = a.date
-      let ts = rawDate ? new Date(rawDate).getTime() : 0
-      if (!ts || isNaN(ts)) ts = Date.now()
+      let ts = 0
+      if (rawDate) {
+        if (rawDate.includes('T') || rawDate.includes(':')) {
+          ts = new Date(rawDate).getTime()
+        } else {
+          const idMatch = a.id.match(/\d{12,14}/)
+          if (idMatch) {
+            ts = Number(idMatch[0])
+          } else {
+            const baseTs = new Date(rawDate).getTime()
+            ts = !isNaN(baseTs) ? baseTs - (idx * 1000) : Date.now() - (idx * 1000)
+          }
+        }
+      }
+      if (!ts || isNaN(ts)) ts = Date.now() - (idx * 1000)
       return {
         id: a.id,
         tag: (a.category || 'NEWS').toUpperCase(),
@@ -75,7 +96,7 @@ export default function News() {
         image: a.imageUrl || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&h=500&fit=crop',
         likes: a.likes || 0,
         comments: 0,
-        date: formatRelativeTime(ts),
+        date: formatRelativeTime(rawDate?.includes('T') || rawDate?.includes(':') ? ts : rawDate || ts),
         timestamp: ts,
         readTime: `${Math.max(1, Math.round((a.body || '').split(/\s+/).length / 200))} min read`,
         author: a.author || 'Admin',
@@ -122,11 +143,23 @@ export default function News() {
 
   useEffect(() => {
     const buildFromLocalStorage = () => {
-      const stored = getAllArticles().map(a => {
-        // Use current time if no valid date — puts newly published articles at top
+      const stored = getAllArticles().map((a, idx) => {
         const rawDate = a.date
-        let ts = rawDate ? new Date(rawDate).getTime() : 0
-        if (!ts || isNaN(ts)) ts = Date.now()
+        let ts = 0
+        if (rawDate) {
+          if (rawDate.includes('T') || rawDate.includes(':')) {
+            ts = new Date(rawDate).getTime()
+          } else {
+            const idMatch = a.id.match(/\d{12,14}/)
+            if (idMatch) {
+              ts = Number(idMatch[0])
+            } else {
+              const baseTs = new Date(rawDate).getTime()
+              ts = !isNaN(baseTs) ? baseTs - (idx * 1000) : Date.now() - (idx * 1000)
+            }
+          }
+        }
+        if (!ts || isNaN(ts)) ts = Date.now() - (idx * 1000)
         return {
           id: a.id,
           tag: (a.category || 'NEWS').toUpperCase(),
@@ -135,7 +168,7 @@ export default function News() {
           image: a.imageUrl || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=800&h=500&fit=crop',
           likes: a.likes || 0,
           comments: 0,
-          date: formatRelativeTime(ts),
+          date: formatRelativeTime(rawDate?.includes('T') || rawDate?.includes(':') ? ts : rawDate || ts),
           timestamp: ts,
           readTime: `${Math.max(1, Math.round((a.body || '').split(/\s+/).length / 200))} min read`,
           author: a.author || 'Admin',
@@ -254,7 +287,7 @@ export default function News() {
     })
   }, [dynamicArticles, selectedCategory, searchQuery])
 
-  const featured = dynamicArticles.find(a => a.featured) || dynamicArticles[0] || ARTICLES[0]
+  const featured = filteredArticles[0] || dynamicArticles[0] || ARTICLES[0]
   const editorPicks = dynamicArticles.filter(a => a.editorPick && a.id !== featured?.id)
 
   return (

@@ -10,7 +10,7 @@ import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllA
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
 import {
-  saveArticle, saveArticles, getAllArticles, deleteArticle as storeDeleteArticle, clearArticleStore,
+  saveArticle, saveArticles, getAllArticles, deleteArticle as storeDeleteArticle, deleteArticles as storeDeleteArticles, clearArticleStore,
   type StoredArticle
 } from '../services/articleStore'
 
@@ -1466,19 +1466,18 @@ export default function Admin() {
                 {duplicateArticleIds.size > 0 && (
                   <button
                     onClick={async () => {
-                      if (confirm(`Remove ${duplicateArticleIds.size} duplicate article(s) permanently from the database?`)) {
-                        const toDelete: string[] = Array.from(duplicateArticleIds)
-                        setArticles(prev => prev.filter(a => !duplicateArticleIds.has(a.id)))
-                        for (const dupId of toDelete) {
-                          try {
-                            const { deleteArticleFromDb } = await import('../services/supabaseClient')
-                            await deleteArticleFromDb(dupId)
-                          } catch {}
-                        }
-                        toast(`🧹 Removed ${duplicateArticleIds.size} duplicate articles!`, 'success')
+                      const toDelete: string[] = Array.from(duplicateArticleIds)
+                      storeDeleteArticles(toDelete)
+                      setArticles(prev => prev.filter(a => !duplicateArticleIds.has(a.id)))
+                      for (const dupId of toDelete) {
+                        try {
+                          const { deleteArticleFromDb } = await import('../services/supabaseClient')
+                          await deleteArticleFromDb(dupId)
+                        } catch {}
                       }
+                      toast(`🧹 Removed ${toDelete.length} duplicate article(s) instantly!`, 'success')
                     }}
-                    className="px-3 py-2 text-[11px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-xl hover:bg-amber-500/20 transition-all flex items-center gap-1.5"
+                    className="px-3 py-2 text-[11px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-xl hover:bg-amber-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
                   >
                     <span>⚠️</span> Clean {duplicateArticleIds.size} Duplicate(s)
                   </button>
@@ -1895,16 +1894,26 @@ export default function Admin() {
                           <span className="text-[9px] font-black uppercase text-[#00b341] tracking-wider">{a.category}</span>
                           <Badge s={a.status} />
                           {duplicateArticleIds.has(a.id) && (
-                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                              ⚠️ Duplicate
-                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                storeDeleteArticle(a.id)
+                                deleteArticleFromDb(a.id)
+                                setArticles(prev => prev.filter(x => x.id !== a.id))
+                                toast(`Removed duplicate: "${a.title.slice(0, 30)}..."`, 'info')
+                              }}
+                              className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-red-500/30 hover:text-red-300 hover:border-red-500/50 transition-all cursor-pointer flex items-center gap-1"
+                              title="Click to remove this duplicate"
+                            >
+                              <span>⚠️ Duplicate</span> <span className="text-red-400 font-bold">✕</span>
+                            </button>
                           )}
                           {a.scheduled && <span className="text-[9px] text-purple-400 font-bold">🕐 {a.scheduled}</span>}
                           {(a as any).liveBlog && <span className="text-[9px] font-black px-1.5 py-0.5 rounded text-white" style={{ background: '#dc2626' }}>🔴 LIVE</span>}
                         </div>
                         <h3 className="font-bold text-white text-sm line-clamp-1">{a.title}</h3>
                         {(a.excerpt || a.metaDescription) && <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">{(a as any).excerpt || a.metaDescription}</p>}
-                        <p className="text-[10px] text-gray-600 mt-1">✍️ {a.author} · 📅 {a.date} · 👁️ {Number(a.views).toLocaleString()} · ♥ {a.likes}</p>
+                        <p className="text-[10px] text-gray-600 mt-1">✍️ {a.author} · 📅 {a.date} · 👁️ {typeof a.views === 'number' ? (a.views as number).toLocaleString() : (!isNaN(Number(a.views)) ? Number(a.views).toLocaleString() : (a.views || '0'))} · ♥ {a.likes}</p>
                         {a.tags && <p className="text-[10px] text-gray-700 mt-0.5">🏷️ {a.tags}</p>}
                       </div>
                       <div className="flex items-center gap-2 shrink-0 flex-wrap">
@@ -1916,8 +1925,13 @@ export default function Admin() {
                         <button onClick={() => setArticles(prev => [{ ...a, id: `A${Date.now()}`, title: `Copy of ${a.title}`, status: 'Draft', date: new Date().toISOString().split('T')[0], views: '0', likes: 0 }, ...prev])}
                           className="px-2 py-1.5 text-[10px] font-bold rounded-lg border border-[#1e1e32] text-gray-400 hover:border-blue-400 hover:text-blue-400 transition-all" title="Duplicate article">⧉</button>
                         <Link to={`/news/${(a as any).slug || a.id}`} className="px-3 py-1.5 text-[10px] font-bold text-[#00b341] rounded-lg border border-[#00b341]/40 hover:border-[#00b341] transition-all">Preview →</Link>
-                        <button onClick={() => { if (confirm(`Delete "${a.title}"?`)) { storeDeleteArticle(a.id); deleteArticleFromDb(a.id); setArticles(prev => prev.filter(x => x.id !== a.id)) } }}
-                          className="text-[10px] font-bold px-2 py-1.5 rounded-lg border border-[#1e1e32] text-gray-500 hover:text-red-400 hover:border-red-400 transition-all">🗑</button>
+                        <button onClick={() => {
+                          storeDeleteArticle(a.id)
+                          deleteArticleFromDb(a.id)
+                          setArticles(prev => prev.filter(x => x.id !== a.id))
+                          toast('Article deleted.', 'info')
+                        }}
+                          className="text-[10px] font-bold px-2 py-1.5 rounded-lg border border-[#1e1e32] text-gray-500 hover:text-red-400 hover:border-red-400 transition-all cursor-pointer">🗑</button>
                       </div>
                     </div>
                   </div>

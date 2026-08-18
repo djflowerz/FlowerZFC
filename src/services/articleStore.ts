@@ -108,13 +108,20 @@ export function saveArticles(newArticles: StoredArticle[]): void {
 }
 
 export function deleteArticle(id: string): void {
+  deleteArticles([id])
+}
+
+export function deleteArticles(ids: string[]): void {
   try {
-    const articles = getAllArticles().filter(a => a.id !== id)
-    localStorage.setItem(STORE_KEY, JSON.stringify(articles))
+    const idSet = new Set(ids)
+    const raw = localStorage.getItem(STORE_KEY)
+    const current: StoredArticle[] = raw ? JSON.parse(raw) : []
+    const remaining = current.filter(a => !idSet.has(a.id))
+    localStorage.setItem(STORE_KEY, JSON.stringify(remaining))
+
     const deleted = getDeletedArticleIds()
-    if (!deleted.includes(id)) {
-      localStorage.setItem(DELETED_KEY, JSON.stringify([...deleted, id]))
-    }
+    const updatedDeleted = Array.from(new Set([...deleted, ...ids]))
+    localStorage.setItem(DELETED_KEY, JSON.stringify(updatedDeleted))
   } catch {
     // Silent
   }
