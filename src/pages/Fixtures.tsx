@@ -86,13 +86,16 @@ export default function Fixtures() {
     // 2. Fetch full matches schedule for the selected date
     setLoadingFixtures(true)
     fetchLiveMatches(activeDateArg).then(data => {
-      setFixturesMatches(data)
+      setFixturesMatches(data || [])
       setLoadingFixtures(false)
       setSelectedTeam('All Teams')
+    }).catch(err => {
+      console.warn('[Fixtures] fetch error:', err)
+      setLoadingFixtures(false)
     })
     
     const interval = setInterval(() => {
-      fetchOnlyLiveMatches().then(setLiveRibbonMatches)
+      fetchOnlyLiveMatches().then(setLiveRibbonMatches).catch(() => {})
     }, 15000)
     return () => clearInterval(interval)
   }, [activeDateArg])
