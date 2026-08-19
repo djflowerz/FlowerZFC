@@ -402,14 +402,15 @@ export function formatLeagueName(stage: any): string {
 
 export async function fetchLiveScoreEndpoint(pathAndQuery: string): Promise<any> {
   const directUrl = `https://prod-cdn-public-api.livescore.com${pathAndQuery}`
+  const cfPagesFnUrl = `/api/livescore?path=${encodeURIComponent(pathAndQuery)}`
   const netlifyFnUrl = `/.netlify/functions/livescore?path=${encodeURIComponent(pathAndQuery)}`
   const localProxyUrl = `/api/livescore${pathAndQuery}`
 
-  // 1. Try Netlify Serverless Function Proxy (bypasses CORS and adds required browser headers)
+  // 1. Try Cloudflare Pages / Vite Proxy (/api/livescore?path=...)
   try {
     const ctrl1 = new AbortController()
     const t1 = setTimeout(() => ctrl1.abort(), 8000)
-    const res1 = await fetch(netlifyFnUrl, {
+    const res1 = await fetch(cfPagesFnUrl, {
       signal: ctrl1.signal,
       headers: { 'Accept': 'application/json' },
     })
@@ -420,11 +421,11 @@ export async function fetchLiveScoreEndpoint(pathAndQuery: string): Promise<any>
     }
   } catch (e) { /* ignore */ }
 
-  // 2. Try Vite / Netlify local proxy
+  // 2. Try Netlify Serverless Function Proxy
   try {
     const ctrl2 = new AbortController()
-    const t2 = setTimeout(() => ctrl2.abort(), 6000)
-    const res2 = await fetch(localProxyUrl, {
+    const t2 = setTimeout(() => ctrl2.abort(), 8000)
+    const res2 = await fetch(netlifyFnUrl, {
       signal: ctrl2.signal,
       headers: { 'Accept': 'application/json' },
     })
@@ -435,35 +436,50 @@ export async function fetchLiveScoreEndpoint(pathAndQuery: string): Promise<any>
     }
   } catch (e) { /* ignore */ }
 
-  // 3. Try AllOrigins CORS proxy (JSON wrapper) with generous 12s timeout for large football datasets
+  // 3. Try Local Vite Proxy (/api/livescore/...)
   try {
     const ctrl3 = new AbortController()
-    const t3 = setTimeout(() => ctrl3.abort(), 12000)
-    const res3 = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`, {
+    const t3 = setTimeout(() => ctrl3.abort(), 6000)
+    const res3 = await fetch(localProxyUrl, {
       signal: ctrl3.signal,
+      headers: { 'Accept': 'application/json' },
     })
     clearTimeout(t3)
     if (res3.ok) {
       const data3 = await res3.json()
-      if (data3?.contents) {
-        const parsed = typeof data3.contents === 'string' ? JSON.parse(data3.contents) : data3.contents
+      if (data3 && (data3.Stages || data3.Stage || data3.LeagueTable)) return data3
+    }
+  } catch (e) { /* ignore */ }
+
+  // 4. Try AllOrigins CORS proxy (JSON wrapper) with generous 12s timeout
+  try {
+    const ctrl4 = new AbortController()
+    const t4 = setTimeout(() => ctrl4.abort(), 12000)
+    const res4 = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`, {
+      signal: ctrl4.signal,
+    })
+    clearTimeout(t4)
+    if (res4.ok) {
+      const data4 = await res4.json()
+      if (data4?.contents) {
+        const parsed = typeof data4.contents === 'string' ? JSON.parse(data4.contents) : data4.contents
         if (parsed && (parsed.Stages || parsed.Stage || parsed.LeagueTable)) return parsed
       }
     }
   } catch (e) { /* ignore */ }
 
-  // 4. Try Direct CDN fetch
+  // 5. Try Direct CDN fetch
   try {
-    const ctrl4 = new AbortController()
-    const t4 = setTimeout(() => ctrl4.abort(), 6000)
-    const res4 = await fetch(directUrl, {
-      signal: ctrl4.signal,
+    const ctrl5 = new AbortController()
+    const t5 = setTimeout(() => ctrl5.abort(), 6000)
+    const res5 = await fetch(directUrl, {
+      signal: ctrl5.signal,
       headers: { 'Accept': 'application/json' },
     })
-    clearTimeout(t4)
-    if (res4.ok) {
-      const data4 = await res4.json()
-      if (data4 && (data4.Stages || data4.Stage || data4.LeagueTable)) return data4
+    clearTimeout(t5)
+    if (res5.ok) {
+      const data5 = await res5.json()
+      if (data5 && (data5.Stages || data5.Stage || data5.LeagueTable)) return data5
     }
   } catch (e) { /* ignore */ }
 
