@@ -13,6 +13,7 @@ import {
   saveArticle, saveArticles, getAllArticles, deleteArticle as storeDeleteArticle, deleteArticles as storeDeleteArticles, clearArticleStore,
   type StoredArticle
 } from '../services/articleStore'
+import { getSubscribers, deleteSubscriber as nlDeleteSubscriber, subscribeEmail as nlSubscribeEmail, unsubscribeEmail, type NewsletterSubscriber } from '../services/newsletterService'
 
 // ─── SECURITY: No API keys, key prefixes, or secrets are rendered anywhere in this file.
 //               The admin gate is a client-side UX layer only. Production deployments
@@ -456,13 +457,20 @@ export default function Admin() {
   const [bulkCount,    setBulkCount]    = useState('10')
 
   const [quizzes,   setQuizzes]   = useState(QUIZ_INIT)
-  const [subs,      setSubs]      = useState(INIT_SUBS)
+  const [subs,      setSubs]      = useState<NewsletterSubscriber[]>(getSubscribers)
   const [sentEmails,setSentEmails]= useState(SENT_EMAILS_INIT)
   const [auditLogs, setAuditLogs] = useState<AuditAction[]>(getAuditLogs)
   const [healthData, setHealthData] = useState<HealthCheck[]>(HEALTH_DATA)
   const [showAddMix, setShowAddMix] = useState(false)
   const [editMix, setEditMix] = useState<MixRow | null>(null)
   const [mixes, setMixes] = useState<MixRow[]>([])
+
+  // Real-time subscriber list sync from localStorage
+  useEffect(() => {
+    const handler = () => setSubs(getSubscribers())
+    window.addEventListener('flowerzfc_subscribers_updated', handler)
+    return () => window.removeEventListener('flowerzfc_subscribers_updated', handler)
+  }, [])
 
   useEffect(() => {
     fetchAllMixes().then(({ mixes: m, error }) => {
@@ -2944,9 +2952,9 @@ export default function Admin() {
                         <td className="px-5 py-3.5 font-bold text-[#00b341]">{s.clicks}</td>
                         <td className="px-5 py-3.5"><Badge s={s.status} /></td>
                         <td className="px-5 py-3.5 space-x-2">
-                          <button onClick={() => setSubs(prev => prev.map(x => x.id === s.id ? { ...x, status: x.status === 'Active' ? 'Inactive' : 'Active' } : x))}
+                          <button onClick={() => { unsubscribeEmail(s.email); setSubs(getSubscribers()) }}
                             className="text-[10px] font-bold text-[#00b341] hover:underline">{s.status === 'Active' ? 'Unsubscribe' : 'Reactivate'}</button>
-                          <button onClick={() => setSubs(prev => prev.filter(x => x.id !== s.id))} className="text-[10px] font-bold text-red-400 hover:underline">Remove</button>
+                          <button onClick={() => { nlDeleteSubscriber(s.id); setSubs(getSubscribers()) }} className="text-[10px] font-bold text-red-400 hover:underline">Remove</button>
                         </td>
                       </tr>
                     ))}
@@ -6789,16 +6797,9 @@ export default function Admin() {
             e.preventDefault()
             if (!newSubEmail) return
             if (!newSubConsent) { toast('⚠️ GDPR consent required before adding subscriber.', 'warning'); return }
-            const newSub = {
-              id: `sub-${Date.now()}`,
-              email: newSubEmail,
-              name: newSubName || newSubEmail.split('@')[0],
-              joined: new Date().toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' }),
-              status: 'Active' as const,
-              opens: 0,
-              clicks: 0
-            }
-            setSubs(p => [newSub, ...p])
+            nlSubscribeEmail(newSubEmail, newSubName, newSubSource)
+            // Refresh from storage so the real list updates
+            setSubs(getSubscribers())
             if (newSubWelcome) toast(`📧 Welcome email queued for ${newSubEmail}!`, 'success')
             setShowAddSubscriber(false)
             setNewSubEmail(''); setNewSubName(''); setNewSubPhone(''); setNewSubCountry('Kenya')

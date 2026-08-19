@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useParams, Navigate, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Shield, FileText, Target, Settings as SettingsIcon, LogOut } from 'lucide-react'
+import { Shield, FileText, Target, Settings as SettingsIcon, LogOut, Volume2 } from 'lucide-react'
 import {
   uploadAvatar, upsertProfile, changePassword, supabase
 } from '../services/supabaseClient'
+import { subscribeEmail, unsubscribeEmail, isEmailSubscribed } from '../services/newsletterService'
+import { isSoundEnabled, setSoundEnabled, playTestSound } from '../services/audioAlertService'
 
 const SECTIONS = [
   { to: '/account/teams', label: 'My Teams', Icon: Shield },
@@ -19,16 +21,21 @@ const NOTIFICATION_LABELS: Record<NotificationKey, string> = {
   goalAlerts: 'Goal alerts',
   commentReplies: 'Comment replies',
   breakingTransferNews: 'Breaking transfer news',
-  newsletter: 'Newsletter',
+  newsletter: 'Email Newsletter',
 }
 const NOTIF_STORAGE_KEY = 'flowerzfc_notification_prefs'
 
-function loadNotificationPrefs(): Record<NotificationKey, boolean> {
+function loadNotificationPrefs(userEmail?: string): Record<NotificationKey, boolean> {
+  const defaultPrefs = { goalAlerts: true, commentReplies: true, breakingTransferNews: true, newsletter: false }
   try {
     const raw = localStorage.getItem(NOTIF_STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
+    const parsed = raw ? JSON.parse(raw) : defaultPrefs
+    if (userEmail && isEmailSubscribed(userEmail)) {
+      parsed.newsletter = true
+    }
+    return { ...defaultPrefs, ...parsed }
   } catch { /* ignore */ }
-  return { goalAlerts: true, commentReplies: true, breakingTransferNews: true, newsletter: false }
+  return defaultPrefs
 }
 
 const POPULAR_TEAMS = [
@@ -47,7 +54,8 @@ export default function Account() {
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const [notifPrefs, setNotifPrefs] = useState(loadNotificationPrefs)
+  const [notifPrefs, setNotifPrefs] = useState(() => loadNotificationPrefs(user?.email))
+  const [soundOn, setSoundOn] = useState(isSoundEnabled)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [newPassword, setNewPassword] = useState('')
@@ -173,9 +181,31 @@ export default function Account() {
   }
 
   const toggleNotif = (key: NotificationKey) => {
-    const next = { ...notifPrefs, [key]: !notifPrefs[key] }
+    const nextVal = !notifPrefs[key]
+    const next = { ...notifPrefs, [key]: nextVal }
     setNotifPrefs(next)
     localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(next))
+
+    if (key === 'newsletter') {
+      if (nextVal) {
+        if (user?.email) {
+          subscribeEmail(user.email, user.name, 'Account Settings')
+        }
+      } else {
+        if (user?.email) {
+          unsubscribeEmail(user.email)
+        }
+      }
+    }
+  }
+
+  const toggleSound = () => {
+    const next = !soundOn
+    setSoundOn(next)
+    setSoundEnabled(next)
+    if (next) {
+      playTestSound()
+    }
   }
 
   const addTeam = async (teamName: string) => {
@@ -381,7 +411,7 @@ export default function Account() {
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-400 mb-3">Notifications</h3>
+                  <h3 className="text-sm font-semibold text-gray-400 mb-3">Notifications & Alerts</h3>
                   {NOTIFICATION_KEYS.map(key => (
                     <label key={key} className="flex items-center justify-between py-2 cursor-pointer">
                       <span className="text-sm text-gray-300">{NOTIFICATION_LABELS[key]}</span>
@@ -394,6 +424,36 @@ export default function Account() {
                       </div>
                     </label>
                   ))}
+
+                  {/* Sound Effects & Goal Chimes Toggle */}
+                  <div className="flex items-center justify-between py-2 mt-2 border-t border-white/5 pt-3">
+                    <div className="flex items-center gap-2">
+                      <Volume2 size={16} className={soundOn ? 'text-emerald-400' : 'text-gray-500'} />
+                      <div>
+                        <span className="text-sm text-gray-300 block">Match Goal & Alert Sounds</span>
+                        <span className="text-[11px] text-gray-500 block">Play audio chimes on live goals and score alerts</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {soundOn && (
+                        <button
+                          type="button"
+                          onClick={() => playTestSound()}
+                          className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition-all"
+                          title="Test audio sound"
+                        >
+                          🔊 Test Sound
+                        </button>
+                      )}
+                      <div
+                        onClick={toggleSound}
+                        className="w-10 h-5 rounded-full relative cursor-pointer transition-colors"
+                        style={{ background: soundOn ? '#00b341' : '#2a2a3e' }}
+                      >
+                        <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: soundOn ? '22px' : '2px' }} />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t" style={{ borderColor: '#1e1e32' }}>

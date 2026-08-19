@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { isSoundEnabled, setSoundEnabled, playGoalSound, playTestSound } from '../services/audioAlertService'
 
 export interface SiteNotification {
   id: string
@@ -28,6 +29,9 @@ export function sendGoalNotification(homeTeam: string, awayTeam: string, scorer:
   const title = `⚽ GOAL! ${homeTeam} vs ${awayTeam}`
   const body = `${scorer} scores — ${minute}'`
 
+  // Play energetic goal sound if enabled
+  playGoalSound()
+
   // Browser Push Notification
   if (Notification.permission === 'granted') {
     new Notification(title, { body, icon: '/favicon.ico' })
@@ -52,6 +56,7 @@ export default function NotificationManager() {
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState<SiteNotification[]>(loadNotifications)
   const [permGranted, setPermGranted] = useState(Notification.permission === 'granted')
+  const [soundOn, setSoundOn] = useState(isSoundEnabled)
   const panelRef = useRef<HTMLDivElement>(null)
 
   const unread = notifications.filter(n => !n.read).length
@@ -161,7 +166,36 @@ export default function NotificationManager() {
             )}
           </div>
 
-          {/* Footer */}
+          {/* Footer Controls */}
+          <div className="px-4 py-2.5 border-t border-white/5 bg-[#171725] flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 flex items-center gap-1">
+              <span>🔊</span> Sound Alerts
+            </span>
+            <div className="flex items-center gap-2">
+              {soundOn && (
+                <button
+                  onClick={() => playTestSound()}
+                  className="text-[10px] text-emerald-400 hover:underline"
+                >
+                  Test
+                </button>
+              )}
+              <div
+                onClick={() => {
+                  const next = !soundOn
+                  setSoundOn(next)
+                  setSoundEnabled(next)
+                  if (next) playTestSound()
+                }}
+                className="w-8 h-4 rounded-full relative cursor-pointer transition-colors"
+                style={{ background: soundOn ? '#00b341' : '#2a2a3e' }}
+                title="Toggle alert sounds"
+              >
+                <div className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all" style={{ left: soundOn ? '17px' : '2px' }} />
+              </div>
+            </div>
+          </div>
+
           {!permGranted && (
             <div className="px-4 py-3 border-t border-white/5 bg-emerald-500/5">
               <p className="text-[11px] text-emerald-400 text-center">

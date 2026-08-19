@@ -5,6 +5,55 @@ import AdBanner from '../components/AdBanner'
 import { getAllArticles, getDeletedArticleIds, StoredArticle } from '../services/articleStore'
 import { getIngestedPosts } from '../services/contentIngestion'
 import { fetchAllArticles, fetchAllComments } from '../services/supabaseClient'
+import { subscribeEmail } from '../services/newsletterService'
+
+function NewsletterWidget() {
+  const [nlEmail, setNlEmail] = useState('')
+  const [nlDone, setNlDone] = useState(false)
+  const [nlMsg, setNlMsg] = useState('')
+  const handleNl = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if (!nlEmail.trim()) return
+    const res = subscribeEmail(nlEmail.trim(), '', 'News Page Sidebar')
+    setNlDone(true)
+    setNlMsg(res.success ? '🎉 You\'re in! Check your inbox for updates.' : res.message)
+  }
+  return (
+    <div className="rounded-xl p-5" style={{ background: 'linear-gradient(135deg, #0d1f10 0%, #131320 100%)', border: '1px solid #00b34133' }}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-lg">📧</span>
+        <h3 className="font-black text-white text-sm uppercase tracking-wider" style={{ fontFamily: 'Big Shoulders Display' }}>
+          Free Newsletter
+        </h3>
+      </div>
+      <p className="text-xs text-gray-400 mb-4 leading-relaxed">
+        Get the latest football news, goals, and transfer updates delivered straight to your inbox. Free, every matchday.
+      </p>
+      {nlDone ? (
+        <p className="text-sm font-bold text-emerald-400 py-2">{nlMsg}</p>
+      ) : (
+        <form onSubmit={handleNl} className="space-y-2">
+          <input
+            type="email"
+            value={nlEmail}
+            onChange={e => setNlEmail(e.target.value)}
+            placeholder="Your email address"
+            className="w-full px-3 py-2.5 text-sm text-white rounded-lg outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-gray-600"
+            style={{ background: '#0c0c14', border: '1px solid #1e1e32' }}
+          />
+          <button
+            type="submit"
+            className="w-full py-2.5 text-sm font-black text-white rounded-lg transition-all hover:opacity-90 cursor-pointer"
+            style={{ background: '#00b341', fontFamily: 'Big Shoulders Display' }}
+          >
+            ⚡ SUBSCRIBE FREE
+          </button>
+        </form>
+      )}
+      <p className="text-[10px] text-gray-600 mt-2 text-center">No spam. Unsubscribe anytime.</p>
+    </div>
+  )
+}
 
 interface ArticleItem {
   id: string
@@ -610,6 +659,9 @@ export default function News() {
 
                 {/* Sidebar 300x600 Half Page Ad */}
                 <AdBanner size="halfpage" label="News Sponsor — 300×600 Space" />
+
+                {/* Newsletter Signup Widget */}
+                <NewsletterWidget />
               </div>
             </div>
           </>
