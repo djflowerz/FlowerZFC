@@ -404,11 +404,11 @@ export async function fetchLiveScoreEndpoint(pathAndQuery: string): Promise<any>
   const directUrl = `https://prod-cdn-public-api.livescore.com${pathAndQuery}`
   const primaryUrl = `/api/livescore${pathAndQuery}`
 
-  // 1. Try Direct CDN fetch first (fastest, no proxy overhead)
+  // 1. Try Netlify / Vite proxy first
   try {
     const ctrl1 = new AbortController()
-    const t1 = setTimeout(() => ctrl1.abort(), 6000)
-    const res1 = await fetch(directUrl, {
+    const t1 = setTimeout(() => ctrl1.abort(), 4000)
+    const res1 = await fetch(primaryUrl, {
       signal: ctrl1.signal,
       headers: { 'Accept': 'application/json' },
     })
@@ -419,18 +419,35 @@ export async function fetchLiveScoreEndpoint(pathAndQuery: string): Promise<any>
     }
   } catch (e) { /* ignore */ }
 
-  // 2. Try Netlify / Vite proxy
+  // 2. Try AllOrigins CORS proxy (JSON wrapper)
   try {
     const ctrl2 = new AbortController()
-    const t2 = setTimeout(() => ctrl2.abort(), 6000)
-    const res2 = await fetch(primaryUrl, {
+    const t2 = setTimeout(() => ctrl2.abort(), 5000)
+    const res2 = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`, {
       signal: ctrl2.signal,
-      headers: { 'Accept': 'application/json' },
     })
     clearTimeout(t2)
     if (res2.ok) {
       const data2 = await res2.json()
-      if (data2 && (data2.Stages || data2.Stage || data2.LeagueTable)) return data2
+      if (data2?.contents) {
+        const parsed = typeof data2.contents === 'string' ? JSON.parse(data2.contents) : data2.contents
+        if (parsed && (parsed.Stages || parsed.Stage || parsed.LeagueTable)) return parsed
+      }
+    }
+  } catch (e) { /* ignore */ }
+
+  // 3. Try Direct CDN fetch
+  try {
+    const ctrl3 = new AbortController()
+    const t3 = setTimeout(() => ctrl3.abort(), 4000)
+    const res3 = await fetch(directUrl, {
+      signal: ctrl3.signal,
+      headers: { 'Accept': 'application/json' },
+    })
+    clearTimeout(t3)
+    if (res3.ok) {
+      const data3 = await res3.json()
+      if (data3 && (data3.Stages || data3.Stage || data3.LeagueTable)) return data3
     }
   } catch (e) { /* ignore */ }
 
@@ -558,17 +575,7 @@ const LEAGUE_STAGE_IDS: Record<string, string> = {
 export async function fetchLiveStandings(league: string = 'Premier League'): Promise<LiveStanding[]> {
   const stageId = LEAGUE_STAGE_IDS[league] || '1'
   try {
-    // Route through Vite proxy (bypasses CORS)
-    const url = `/api/livescore/v1/api/app/stage/soccer/${stageId}/table`
-    const res = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-        'Origin': 'https://www.livescore.com',
-        'Referer': 'https://www.livescore.com/',
-      }
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = await res.json()
+    const data = await fetchLiveScoreEndpoint(`/v1/api/app/stage/soccer/${stageId}/table`)
 
     const rows: any[] = (
       data.Stages?.[0]?.Tables?.[0]?.team ||

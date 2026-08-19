@@ -21,10 +21,7 @@ function loadNotifications(): SiteNotification[] {
       return clean
     }
   } catch { /* ignore */ }
-  // Clean default notification
-  return [
-    { id: 'welcome', title: '⚽ Welcome to FlowerZFC', body: 'Enable push notifications to receive live goal alerts for your favorite teams.', time: 'Just now', read: false, icon: '⚽' },
-  ]
+  return []
 }
 
 export function sendGoalNotification(homeTeam: string, awayTeam: string, scorer: string, minute: number) {
