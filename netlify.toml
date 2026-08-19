@@ -1,22 +1,20 @@
 [build]
   publish = "dist"
   command = "npm run build"
+  functions = "netlify/functions"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
 
 [[redirects]]
   from = "/api/livescore/*"
-  to = "https://prod-cdn-public-api.livescore.com/:splat"
+  to = "/.netlify/functions/livescore?path=/:splat"
   status = 200
-  force = true
 
 [[redirects]]
   from = "/api/ls-cdn/*"
   to = "https://lsm-static-prod.livescore.com/:splat"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/ls-page/*"
-  to = "https://www.livescore.com/:splat"
   status = 200
   force = true
 

@@ -408,7 +408,7 @@ export async function fetchLiveScoreEndpoint(pathAndQuery: string): Promise<any>
   // 1. Try Netlify Serverless Function Proxy (bypasses CORS and adds required browser headers)
   try {
     const ctrl1 = new AbortController()
-    const t1 = setTimeout(() => ctrl1.abort(), 5000)
+    const t1 = setTimeout(() => ctrl1.abort(), 8000)
     const res1 = await fetch(netlifyFnUrl, {
       signal: ctrl1.signal,
       headers: { 'Accept': 'application/json' },
@@ -423,7 +423,7 @@ export async function fetchLiveScoreEndpoint(pathAndQuery: string): Promise<any>
   // 2. Try Vite / Netlify local proxy
   try {
     const ctrl2 = new AbortController()
-    const t2 = setTimeout(() => ctrl2.abort(), 4000)
+    const t2 = setTimeout(() => ctrl2.abort(), 6000)
     const res2 = await fetch(localProxyUrl, {
       signal: ctrl2.signal,
       headers: { 'Accept': 'application/json' },
@@ -435,10 +435,10 @@ export async function fetchLiveScoreEndpoint(pathAndQuery: string): Promise<any>
     }
   } catch (e) { /* ignore */ }
 
-  // 3. Try AllOrigins CORS proxy (JSON wrapper)
+  // 3. Try AllOrigins CORS proxy (JSON wrapper) with generous 12s timeout for large football datasets
   try {
     const ctrl3 = new AbortController()
-    const t3 = setTimeout(() => ctrl3.abort(), 5000)
+    const t3 = setTimeout(() => ctrl3.abort(), 12000)
     const res3 = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`, {
       signal: ctrl3.signal,
     })
@@ -455,7 +455,7 @@ export async function fetchLiveScoreEndpoint(pathAndQuery: string): Promise<any>
   // 4. Try Direct CDN fetch
   try {
     const ctrl4 = new AbortController()
-    const t4 = setTimeout(() => ctrl4.abort(), 4000)
+    const t4 = setTimeout(() => ctrl4.abort(), 6000)
     const res4 = await fetch(directUrl, {
       signal: ctrl4.signal,
       headers: { 'Accept': 'application/json' },
