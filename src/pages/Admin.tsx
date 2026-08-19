@@ -2693,25 +2693,56 @@ export default function Admin() {
 
             {/* Google AdSense & Third-Party Ad Code Integration */}
             <Card className="p-6 space-y-4">
-              <h3 className="text-sm font-black text-white uppercase tracking-wider border-b border-[#1e1e32] pb-3 flex items-center justify-between">
-                <span>🌐 Google AdSense &amp; Third-Party Ad Script Code</span>
-                <span className="text-[10px] text-[#00b341] font-bold">Live Script Injector</span>
-              </h3>
-              <p className="text-xs text-gray-400">
-                Paste your Google AdSense script tag (e.g. <code className="text-emerald-400 font-mono">&lt;script async src="https://pagead2.googlesyndication.com/..."&gt;&lt;/script&gt;</code>) or any custom ad network embed code. It will inject into all ad banner slots across the site instantly.
-              </p>
-              <textarea
-                defaultValue={localStorage.getItem('flowerzfc_adsense_code') || ''}
-                onBlur={e => {
-                  const code = e.target.value
-                  localStorage.setItem('flowerzfc_adsense_code', code)
-                  toastLib.success('Ad embed code saved! Live on all site ad banners.')
-                }}
-                rows={4}
-                placeholder="<script async src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXXX' crossorigin='anonymous'></script>"
-                className={`${INPUT} font-mono text-xs`}
-                style={INPUT_STYLE}
-              />
+              <div className="border-b border-[#1e1e32] pb-3 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🌐</span>
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-wider">Google AdSense &amp; Ad Provider Network</h3>
+                    <p className="text-[11px] text-gray-400">Manage site-wide monetization, responsive ad units, and custom ad network scripts</p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-black text-emerald-400 font-mono">
+                  ✓ VERIFIED: ca-pub-8978122989908133
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-[#0d0d1e] border border-[#1e1e32] space-y-2">
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span>⚡</span> AdSense Auto-Ads &amp; Responsive Fallback
+                  </div>
+                  <p className="text-[11px] text-gray-400 leading-relaxed">
+                    Google AdSense verification script is embedded in <code className="text-emerald-400 font-mono">&lt;head&gt;</code>. Unsold ad slots automatically render responsive Google Ad units using your publisher ID.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-[#0d0d1e] border border-[#1e1e32] space-y-2">
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span>🎯</span> Direct Sponsors &amp; Page Targeting
+                  </div>
+                  <p className="text-[11px] text-gray-400 leading-relaxed">
+                    When you add or edit an ad slot above with a sponsor creative image and link (e.g. for Homepage or Scores), the direct sponsor ad takes priority over AdSense on that slot.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <label className="block text-[11px] font-bold text-gray-300">
+                  Custom Third-Party Ad Embed Code (Optional — e.g. PropellerAds, Adsterra, Ezoic, Google Ad Manager):
+                </label>
+                <textarea
+                  defaultValue={localStorage.getItem('flowerzfc_adsense_code') || ''}
+                  onBlur={e => {
+                    const code = e.target.value
+                    localStorage.setItem('flowerzfc_adsense_code', code)
+                    toastLib.success('Ad embed code saved! Live on all site ad banners.')
+                  }}
+                  rows={3}
+                  placeholder="<!-- Paste custom HTML / Ad Tag / Script embed code here if using third-party networks -->"
+                  className={`${INPUT} font-mono text-xs`}
+                  style={INPUT_STYLE}
+                />
+              </div>
             </Card>
 
             {/* Booking Requests */}
@@ -4404,8 +4435,49 @@ export default function Admin() {
                   <input value={editAdSlot.slot} onChange={e => setEditAdSlot(p => p ? { ...p, slot: e.target.value } : p)} className={INPUT} style={INPUT_STYLE} />
                 </div>
                 <div>
+                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Target Page</label>
+                  <select value={editAdSlot.page || 'Homepage'} onChange={e => setEditAdSlot(p => p ? { ...p, page: e.target.value } : p)} className={INPUT} style={INPUT_STYLE}>
+                    {['All Pages', 'Homepage', 'Scores', 'Fixtures', 'Standings', 'News', 'Match', 'Article', 'Transfers', 'Videos', 'Mixes', 'Shop', 'Tips', 'Fantasy', 'Quiz'].map(pg => (
+                      <option key={pg} value={pg}>{pg}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Banner Size</label>
+                  <select value={editAdSlot.size || '728x90'} onChange={e => setEditAdSlot(p => p ? { ...p, size: e.target.value } : p)} className={INPUT} style={INPUT_STYLE}>
+                    <option value="728x90">728×90 (Leaderboard)</option>
+                    <option value="300x250">300×250 (Medium Rectangle)</option>
+                    <option value="300x600">300×600 (Half Page)</option>
+                    <option value="160x600">160×600 (Wide Skyscraper)</option>
+                    <option value="320x50">320×50 (Mobile Banner)</option>
+                    <option value="native">Native In-Feed</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block text-[10px] font-bold text-gray-500 mb-1">Advertiser</label>
                   <input value={editAdSlot.advertiser || ''} onChange={e => setEditAdSlot(p => p ? { ...p, advertiser: e.target.value } : p)} className={INPUT} style={INPUT_STYLE} />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Destination URL (where clicks go)</label>
+                  <input value={editAdSlot.destination_url || ''} onChange={e => setEditAdSlot(p => p ? { ...p, destination_url: e.target.value } : p)} placeholder="https://advertiser.com/offer or /advertise" className={INPUT} style={INPUT_STYLE} />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Banner Creative Image URL</label>
+                  <div className="flex gap-2">
+                    <input value={editAdSlot.image_url || ''} onChange={e => setEditAdSlot(p => p ? { ...p, image_url: e.target.value } : p)} placeholder="https://... or upload below" className={INPUT} style={INPUT_STYLE} />
+                    <label className="px-3 py-2 text-xs font-bold text-amber-400 rounded-lg border border-amber-400/30 hover:border-amber-400 cursor-pointer shrink-0 flex items-center gap-1">
+                      📁 Upload
+                      <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        toastLib.info('Uploading creative...')
+                        const { url, error: upErr } = await uploadAdCreative(file)
+                        if (upErr || !url) { toastLib.error('Upload failed'); return }
+                        setEditAdSlot(p => p ? { ...p, image_url: url } : p)
+                        toastLib.success('Image uploaded!')
+                      }} />
+                    </label>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-gray-500 mb-1">Start Date</label>
@@ -4419,20 +4491,20 @@ export default function Admin() {
             </div>
             {/* Pricing */}
             <div className="rounded-xl p-4 space-y-3" style={{ background: '#0d0d1e', border: '1px solid #1e1e32' }}>
-              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">💰 Pricing</p>
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">💰 Pricing &amp; Status</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Price / Month (KES)</label>
+                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Price / Month ($)</label>
                   <input type="number" value={editAdSlot.price} onChange={e => setEditAdSlot(p => p ? { ...p, price: parseInt(e.target.value)||0 } : p)} className={INPUT} style={INPUT_STYLE} />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-gray-500 mb-1">Status</label>
                   <div className="flex gap-1 mt-1">
-                    {(['Active','Inactive','Pending'] as const).map(s => (
+                    {(['Active','Booked','Available','Inactive'] as const).map(s => (
                       <button key={s} type="button"
                         onClick={() => setEditAdSlot(p => p ? { ...p, status: s } : p)}
                         className="flex-1 py-2 text-[9px] font-black rounded-lg border transition-all"
-                        style={{ background: editAdSlot.status === s ? (s==='Active'?'#00b341':s==='Inactive'?'#374151':'#f59e0b') : 'transparent',
+                        style={{ background: editAdSlot.status === s ? (s==='Active'||s==='Booked'?'#00b341':s==='Inactive'?'#374151':'#f59e0b') : 'transparent',
                                  borderColor: editAdSlot.status === s ? 'transparent' : '#2a2a3e', color: editAdSlot.status === s ? '#fff' : '#9ca3af' }}>
                         {s}
                       </button>
@@ -4444,7 +4516,7 @@ export default function Admin() {
               <div className="mt-1 px-3 py-2 rounded-lg" style={{ background: '#0a1a10', border: '1px solid rgba(0,179,65,.3)' }}>
                 <p className="text-[10px] text-gray-500">Revenue projection</p>
                 <p className="text-base font-black text-green-400" style={{ fontFamily: 'Big Shoulders Display' }}>
-                  KES {(editAdSlot.price * 12).toLocaleString()} / year
+                  ${(editAdSlot.price * 12).toLocaleString()} / year
                 </p>
               </div>
             </div>
@@ -6353,7 +6425,7 @@ export default function Admin() {
                 <div>
                   <label className="block text-[10px] font-bold text-gray-500 mb-1">Target Page</label>
                   <select value={newAdSlot.page} onChange={e => setNewAdSlot(p => ({ ...p, page: e.target.value }))} className={INPUT} style={INPUT_STYLE}>
-                    {['Homepage','Article Detail','Match Center','Merchandise Store','News Feed','Sidebar Global'].map(pg => <option key={pg}>{pg}</option>)}
+                    {['All Pages', 'Homepage', 'Scores', 'Fixtures', 'Standings', 'News', 'Match', 'Article', 'Transfers', 'Videos', 'Mixes', 'Shop', 'Tips', 'Fantasy', 'Quiz'].map(pg => <option key={pg}>{pg}</option>)}
                   </select>
                 </div>
                 <div>

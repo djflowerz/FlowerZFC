@@ -1,0 +1,21 @@
+{
+  "routes": [
+    {
+      "routePath": "/api/livescore",
+      "mountPath": "/api",
+      "method": "",
+      "module": [
+        "api/livescore.ts:onRequest"
+      ]
+    },
+    {
+      "routePath": "/api/:path",
+      "mountPath": "/api",
+      "method": "",
+      "module": [
+        "api/[path].ts:onRequest"
+      ]
+    }
+  ],
+  "baseURL": "/"
+}
