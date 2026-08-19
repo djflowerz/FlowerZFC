@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import { Truck, RotateCcw, Lock, Globe } from 'lucide-react'
 import AdBanner from '../components/AdBanner'
 import { fetchAllProducts } from '../services/supabaseClient'
 
@@ -317,13 +318,13 @@ export default function Shop() {
         {/* Trust Badges */}
         <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { icon: '🚚', title: 'Free Shipping', sub: 'On orders over $80' },
-            { icon: '🔄', title: '30-Day Returns', sub: 'No questions asked' },
-            { icon: '🔒', title: 'Secure Checkout', sub: 'SSL encrypted & safe' },
-            { icon: '🌍', title: 'Ships Worldwide', sub: 'Kenya to the globe' },
+            { Icon: Truck, title: 'Free Shipping', sub: 'On orders over $80' },
+            { Icon: RotateCcw, title: '30-Day Returns', sub: 'No questions asked' },
+            { Icon: Lock, title: 'Secure Checkout', sub: 'SSL encrypted & safe' },
+            { Icon: Globe, title: 'Ships Worldwide', sub: 'Kenya to the globe' },
           ].map(b => (
             <div key={b.title} className="flex items-center gap-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#131320' }}>
-              <span className="text-2xl">{b.icon}</span>
+              <b.Icon size={22} strokeWidth={2} className="text-[#00b341] shrink-0" />
               <div>
                 <p className="text-xs font-bold text-white">{b.title}</p>
                 <p className="text-[10px] text-gray-500">{b.sub}</p>

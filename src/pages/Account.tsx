@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useParams, Navigate, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import { Shield, FileText, Target, Settings as SettingsIcon, LogOut } from 'lucide-react'
 import {
   uploadAvatar, upsertProfile, changePassword, supabase
 } from '../services/supabaseClient'
 
 const SECTIONS = [
-  { to: '/account/teams', label: 'My Teams', icon: '⚽' },
-  { to: '/account/saved', label: 'Saved Articles', icon: '📄' },
-  { to: '/account/predictions', label: 'My Predictions', icon: '🎯' },
-  { to: '/account/settings', label: 'Settings', icon: '⚙️' },
+  { to: '/account/teams', label: 'My Teams', Icon: Shield },
+  { to: '/account/saved', label: 'Saved Articles', Icon: FileText },
+  { to: '/account/predictions', label: 'My Predictions', Icon: Target },
+  { to: '/account/settings', label: 'Settings', Icon: SettingsIcon },
 ]
 
 const NOTIFICATION_KEYS = ['goalAlerts', 'commentReplies', 'breakingTransferNews', 'newsletter'] as const
@@ -240,11 +241,11 @@ export default function Account() {
               {SECTIONS.map(s => (
                 <Link key={s.to} to={s.to} className={`flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${section === s.to.split('/').pop() ? 'text-white font-semibold' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                   style={section === s.to.split('/').pop() ? { background: '#1e1e32' } : {}}>
-                  <span>{s.icon}</span> {s.label}
+                  <s.Icon size={15} strokeWidth={2.5} /> {s.label}
                 </Link>
               ))}
               <button onClick={logout} className="w-full flex items-center gap-2 px-3 py-2 rounded text-sm text-red-400 hover:bg-white/5 transition-colors mt-2">
-                🚪 {t('logout')}
+                <LogOut size={15} strokeWidth={2.5} /> {t('logout')}
               </button>
             </nav>
           </div>

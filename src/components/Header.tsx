@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useApp, type Lang } from '../context/AppContext'
 import CartDrawer from './CartDrawer'
 import NotificationManager from './NotificationManager'
+import { ShieldCheck, PenLine, Headset } from 'lucide-react'
 
 const LANGS: { code: Lang; flag: string; label: string }[] = [
   { code: 'en', flag: '🇬🇧', label: 'EN' },
@@ -96,7 +97,7 @@ export default function Header() {
             <NotificationManager />
 
             {/* Language Dropdown */}
-            <div className="relative">
+            <div className="relative hidden md:block">
               <button
                 onClick={() => setLangOpen(o => !o)}
                 className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-gray-400 hover:text-white transition-colors"
@@ -120,7 +121,7 @@ export default function Header() {
             </div>
 
             {/* Currency Dropdown */}
-            <div className="relative">
+            <div className="relative hidden md:block">
               <button
                 onClick={() => setCurrencyOpen(o => !o)}
                 className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-gray-400 hover:text-white transition-colors"
@@ -185,17 +186,17 @@ export default function Header() {
                     <div className="border-t border-white/10 my-1" />
                     {user.role === 'super_admin' && (
                       <Link to="/admin" className="flex items-center gap-2 px-3 py-2 text-sm font-bold hover:bg-[#00b341]/10 transition-colors" style={{ color: '#00b341' }} onClick={() => setAccountOpen(false)}>
-                        🔑 Admin Dashboard
+                        <ShieldCheck size={15} strokeWidth={2.5} /> Admin Dashboard
                       </Link>
                     )}
                     {user.role === 'editor' && (
                       <Link to="/editor-dashboard" className="flex items-center gap-2 px-3 py-2 text-sm font-bold hover:bg-blue-500/10 transition-colors" style={{ color: '#3b82f6' }} onClick={() => setAccountOpen(false)}>
-                        ✍️ Editor Dashboard
+                        <PenLine size={15} strokeWidth={2.5} /> Editor Dashboard
                       </Link>
                     )}
                     {user.role === 'support' && (
                       <Link to="/support-dashboard" className="flex items-center gap-2 px-3 py-2 text-sm font-bold hover:bg-purple-500/10 transition-colors" style={{ color: '#a855f7' }} onClick={() => setAccountOpen(false)}>
-                        🎧 Support Dashboard
+                        <Headset size={15} strokeWidth={2.5} /> Support Dashboard
                       </Link>
                     )}
                     <div className="border-t border-white/10 my-1" />
@@ -228,6 +229,36 @@ export default function Header() {
         {/* Mobile drawer */}
         {menuOpen && (
           <div className="lg:hidden border-t" style={{ background: '#0a0a12', borderColor: '#1e1e32' }}>
+            <div className="px-4 py-3 flex gap-2 border-b border-white/10">
+              <div className="flex-1">
+                <p className="text-[10px] font-bold text-gray-500 uppercase mb-1.5">Language</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {LANGS.map(l => (
+                    <button
+                      key={l.code}
+                      onClick={() => setLang(l.code)}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${lang === l.code ? 'text-[#00b341] font-semibold bg-[#00b341]/10' : 'text-gray-400 bg-white/5'}`}
+                    >
+                      {l.flag} {l.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="text-[10px] font-bold text-gray-500 uppercase mb-1.5">Currency</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {CURRENCIES.map(c => (
+                    <button
+                      key={c.code}
+                      onClick={() => setCurrency(c.code)}
+                      className={`px-2 py-1 text-xs rounded transition-colors ${currency === c.code ? 'text-[#00b341] font-semibold bg-[#00b341]/10' : 'text-gray-400 bg-white/5'}`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
             <nav className="px-4 py-3 flex flex-col gap-1">
               {navLinks.map(l => (
                 <Link
@@ -245,17 +276,17 @@ export default function Header() {
               <div className="border-t border-white/10 my-1" />
               {user?.role === 'super_admin' && (
                 <Link to="/admin" className="py-2.5 px-3 text-sm font-bold flex items-center gap-2 rounded transition-colors hover:bg-[#00b341]/10" style={{ color: '#00b341' }} onClick={() => setMenuOpen(false)}>
-                  🔑 Admin Dashboard
+                  <ShieldCheck size={15} strokeWidth={2.5} /> Admin Dashboard
                 </Link>
               )}
               {user?.role === 'editor' && (
                 <Link to="/editor-dashboard" className="py-2.5 px-3 text-sm font-bold flex items-center gap-2 rounded transition-colors hover:bg-blue-500/10" style={{ color: '#3b82f6' }} onClick={() => setMenuOpen(false)}>
-                  ✍️ Editor Dashboard
+                  <PenLine size={15} strokeWidth={2.5} /> Editor Dashboard
                 </Link>
               )}
               {user?.role === 'support' && (
                 <Link to="/support-dashboard" className="py-2.5 px-3 text-sm font-bold flex items-center gap-2 rounded transition-colors hover:bg-purple-500/10" style={{ color: '#a855f7' }} onClick={() => setMenuOpen(false)}>
-                  🎧 Support Dashboard
+                  <Headset size={15} strokeWidth={2.5} /> Support Dashboard
                 </Link>
               )}
             </nav>

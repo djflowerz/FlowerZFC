@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
+import { MessageCircle, Headphones, TicketCheck } from 'lucide-react'
 import { fetchAllTickets, fetchAllMixes } from '../services/supabaseClient'
 
 export interface MixItem {
@@ -184,7 +185,7 @@ export default function Mixes() {
               rel="noreferrer"
               className="px-6 py-3 text-xs font-bold text-emerald-400 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all"
             >
-              💬 {t('whatsappBooking')}
+              <MessageCircle size={14} className="inline mr-1" strokeWidth={2.5} /> {t('whatsappBooking')}
             </a>
           </div>
         </div>
@@ -210,15 +211,15 @@ export default function Mixes() {
         {/* DJ Mixes Grid */}
         <section className="mb-12">
           <div className="flex items-center justify-between border-b pb-3 mb-6" style={{ borderColor: '#1e1e32' }}>
-            <h2 className="text-2xl font-black text-white uppercase tracking-wider" style={{ fontFamily: 'Big Shoulders Display' }}>
-              🎧 Official Mixtapes & Playlists
+            <h2 className="text-2xl font-black text-white uppercase tracking-wider flex items-center gap-2" style={{ fontFamily: 'Big Shoulders Display' }}>
+              <Headphones size={22} strokeWidth={2.5} /> Official Mixtapes & Playlists
             </h2>
             <span className="text-xs text-gray-500">{mixList.length} exclusive sets</span>
           </div>
 
           {mixList.length === 0 ? (
             <div className="text-center py-16 rounded-2xl border border-[#1e1e32]" style={{ background: '#131320' }}>
-              <p className="text-4xl mb-2">🎧</p>
+              <Headphones size={40} className="mx-auto mb-2 text-gray-600" strokeWidth={1.5} />
               <h3 className="text-xl font-black text-white mb-1" style={{ fontFamily: 'Big Shoulders Display' }}>No Mixtapes Available</h3>
               <p className="text-xs text-gray-400">Official DJ Flowerz mixtapes and playlists will be listed here.</p>
             </div>
@@ -359,7 +360,7 @@ export default function Mixes() {
                   rel="noreferrer"
                   className="flex items-center gap-3 p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-bold hover:bg-emerald-500/20 transition-colors"
                 >
-                  💬 WhatsApp Direct: +254 700 000 000
+                  <MessageCircle size={16} strokeWidth={2.5} /> WhatsApp Direct: +254 700 000 000
                 </a>
                 <a
                   href="mailto:bookings@flowerz.fc"
@@ -685,7 +686,7 @@ export default function Mixes() {
               </form>
             ) : (
               <div className="text-center py-6">
-                <span className="text-5xl mb-3 block">🎟️</span>
+                <TicketCheck size={48} className="mx-auto mb-3 text-[#00b341]" strokeWidth={1.5} />
                 <h3 className="text-2xl font-black text-white mb-1" style={{ fontFamily: 'Big Shoulders Display' }}>
                   Tickets Confirmed!
                 </h3>

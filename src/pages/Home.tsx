@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
+import { Headphones, Heart, MessageCircle } from 'lucide-react'
 import { fetchLiveMatches, LiveMatch, fetchLiveStandings } from '../services/liveScoreApi'
 import { fetchLiveIngestedPosts, IngestedPost } from '../services/contentIngestion'
 import { fetchAllArticles, fetchAllComments, fetchAllMixes } from '../services/supabaseClient'
@@ -76,7 +77,7 @@ function LiveTicker() {
       <div className="ticker-scroll flex items-center gap-2 px-4 py-2" style={{ overflowX: 'auto' }}>
         <div className={`flex items-center gap-1.5 px-3 py-1 ${liveCount > 0 ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'} border rounded text-[11px] font-black shrink-0`}>
           <span className={`live-dot ${liveCount > 0 ? 'bg-red-500' : 'bg-emerald-500'}`} />
-          <span>{liveCount > 0 ? `🔴 LIVE IN-PLAY (${liveCount})` : `⚽ TODAY'S MATCHES (${matches.length})`}</span>
+          <span>{liveCount > 0 ? `LIVE IN-PLAY (${liveCount})` : `TODAY'S MATCHES (${matches.length})`}</span>
         </div>
 
         {matches.length > 0 ? (
@@ -290,8 +291,8 @@ export default function Home() {
         {/* Dj Flowerz Mixes Section */}
         <section className="mb-10">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>
-              🎧 Dj Flowerz Mixes & Events
+            <h2 className="text-2xl font-black text-white flex items-center gap-2" style={{ fontFamily: 'Big Shoulders Display' }}>
+              <Headphones size={22} strokeWidth={2.5} /> Dj Flowerz Mixes & Events
             </h2>
             <Link to="/mixes" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">{t('viewAll')} →</Link>
           </div>
@@ -353,8 +354,8 @@ export default function Home() {
                     <h3 className="text-base font-bold text-white leading-snug group-hover:text-emerald-400 transition-colors line-clamp-2" style={{ fontFamily: 'Big Shoulders Display' }}>{a.title}</h3>
                     <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
                       <span>{a.date}</span>
-                      <span>♥ {a.likes}</span>
-                      <span>💬 {a.comments}</span>
+                      <span className="flex items-center gap-1"><Heart size={12} /> {a.likes}</span>
+                      <span className="flex items-center gap-1"><MessageCircle size={12} /> {a.comments}</span>
                     </div>
                   </div>
                 </Link>
