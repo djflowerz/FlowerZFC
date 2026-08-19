@@ -402,13 +402,14 @@ export function formatLeagueName(stage: any): string {
 
 export async function fetchLiveScoreEndpoint(pathAndQuery: string): Promise<any> {
   const directUrl = `https://prod-cdn-public-api.livescore.com${pathAndQuery}`
-  const primaryUrl = `/api/livescore${pathAndQuery}`
+  const netlifyFnUrl = `/.netlify/functions/livescore?path=${encodeURIComponent(pathAndQuery)}`
+  const localProxyUrl = `/api/livescore${pathAndQuery}`
 
-  // 1. Try Netlify / Vite proxy first
+  // 1. Try Netlify Serverless Function Proxy (bypasses CORS and adds required browser headers)
   try {
     const ctrl1 = new AbortController()
-    const t1 = setTimeout(() => ctrl1.abort(), 4000)
-    const res1 = await fetch(primaryUrl, {
+    const t1 = setTimeout(() => ctrl1.abort(), 5000)
+    const res1 = await fetch(netlifyFnUrl, {
       signal: ctrl1.signal,
       headers: { 'Accept': 'application/json' },
     })
@@ -419,35 +420,50 @@ export async function fetchLiveScoreEndpoint(pathAndQuery: string): Promise<any>
     }
   } catch (e) { /* ignore */ }
 
-  // 2. Try AllOrigins CORS proxy (JSON wrapper)
+  // 2. Try Vite / Netlify local proxy
   try {
     const ctrl2 = new AbortController()
-    const t2 = setTimeout(() => ctrl2.abort(), 5000)
-    const res2 = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`, {
+    const t2 = setTimeout(() => ctrl2.abort(), 4000)
+    const res2 = await fetch(localProxyUrl, {
       signal: ctrl2.signal,
+      headers: { 'Accept': 'application/json' },
     })
     clearTimeout(t2)
     if (res2.ok) {
       const data2 = await res2.json()
-      if (data2?.contents) {
-        const parsed = typeof data2.contents === 'string' ? JSON.parse(data2.contents) : data2.contents
+      if (data2 && (data2.Stages || data2.Stage || data2.LeagueTable)) return data2
+    }
+  } catch (e) { /* ignore */ }
+
+  // 3. Try AllOrigins CORS proxy (JSON wrapper)
+  try {
+    const ctrl3 = new AbortController()
+    const t3 = setTimeout(() => ctrl3.abort(), 5000)
+    const res3 = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`, {
+      signal: ctrl3.signal,
+    })
+    clearTimeout(t3)
+    if (res3.ok) {
+      const data3 = await res3.json()
+      if (data3?.contents) {
+        const parsed = typeof data3.contents === 'string' ? JSON.parse(data3.contents) : data3.contents
         if (parsed && (parsed.Stages || parsed.Stage || parsed.LeagueTable)) return parsed
       }
     }
   } catch (e) { /* ignore */ }
 
-  // 3. Try Direct CDN fetch
+  // 4. Try Direct CDN fetch
   try {
-    const ctrl3 = new AbortController()
-    const t3 = setTimeout(() => ctrl3.abort(), 4000)
-    const res3 = await fetch(directUrl, {
-      signal: ctrl3.signal,
+    const ctrl4 = new AbortController()
+    const t4 = setTimeout(() => ctrl4.abort(), 4000)
+    const res4 = await fetch(directUrl, {
+      signal: ctrl4.signal,
       headers: { 'Accept': 'application/json' },
     })
-    clearTimeout(t3)
-    if (res3.ok) {
-      const data3 = await res3.json()
-      if (data3 && (data3.Stages || data3.Stage || data3.LeagueTable)) return data3
+    clearTimeout(t4)
+    if (res4.ok) {
+      const data4 = await res4.json()
+      if (data4 && (data4.Stages || data4.Stage || data4.LeagueTable)) return data4
     }
   } catch (e) { /* ignore */ }
 
@@ -527,17 +543,11 @@ export async function fetchLiveMatches(dateStr?: string, liveOnly = false): Prom
     if (matches.length > 0) return matches
     throw new Error('Empty response')
   } catch (err) {
-    console.warn('[LiveScoreAPI] fetchLiveMatches fallback:', err)
+    console.warn('[LiveScoreAPI] fetchLiveMatches error:', err)
   }
 
-  // Static fallback (only shown if network completely blocked)
-  return [
-    { id: 'm1', home: 'Paris Saint-Germain', away: 'Aston Villa',   homeScore: 0, awayScore: 0, minute: 0, live: false, league: 'UEFA Super Cup',    leagueId: '25431', leagueSlug: 'uefa-super-cup', region: 'International',  flag: '🌐', date: 'Today', venue: 'International',   status: '19:00', homeLogo: getClubLogo('PSG', 'enet/9847.png'), awayLogo: getClubLogo('Aston Villa', 'teambadge/aston-villa-2024.png') },
-    { id: 'm2', home: 'Arsenal',             away: 'Como 1907',     homeScore: 0, awayScore: 0, minute: 0, live: false, league: 'Club Friendlies',   leagueId: '18545', leagueSlug: 'featured-club-friendlies', region: 'International', flag: '🌐', date: 'Today', venue: 'Friendlies', status: '18:30', homeLogo: getClubLogo('Arsenal', 'enet/9825.png'), awayLogo: getClubLogo('Arsenal') },
-    { id: 'm3', home: 'Manchester United',   away: 'Leeds United',  homeScore: 0, awayScore: 0, minute: 0, live: false, league: 'Club Friendlies',   leagueId: '18545', leagueSlug: 'featured-club-friendlies', region: 'International', flag: '🌐', date: 'Today', venue: 'Friendlies', status: '18:30', homeLogo: getClubLogo('Man Utd', 'enet/10260.png'), awayLogo: getClubLogo('Man Utd') },
-    { id: 'm4', home: 'Everton',             away: 'Newcastle United',homeScore:0, awayScore: 0, minute: 0, live: false, league: 'Club Friendlies',  leagueId: '18545', leagueSlug: 'featured-club-friendlies', region: 'International', flag: '🌐', date: 'Today', venue: 'Friendlies', status: '16:15', homeLogo: getClubLogo('Everton', 'enet/10261.png'), awayLogo: getClubLogo('Newcastle') },
-    { id: 'm5', home: 'Real Madrid',         away: 'Dep. La Coruna',homeScore: 0, awayScore: 0, minute: 0, live: false, league: 'Club Friendlies',  leagueId: '24129', leagueSlug: 'club-friendlies-2026',    region: 'International', flag: '🇪🇸', date: 'Today', venue: 'Friendlies', status: '19:00', homeLogo: getClubLogo('Real Madrid', 'enet/8633.png'), awayLogo: getClubLogo('Real Madrid') },
-  ]
+  // Never return fake hardcoded mock data — return empty array
+  return []
 }
 
 // ─── Live-Only Matches (powers the LIVE page) ─────────────────────────────────
