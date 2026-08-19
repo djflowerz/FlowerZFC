@@ -97,10 +97,10 @@ export default function Article() {
             id: matched.id,
             tag: (matched.category || 'NEWS').toUpperCase(),
             title: matched.title,
-            subtitle: matched.excerpt || (bodyText.length > 140 ? bodyText.slice(0, 140) + '...' : undefined),
+            subtitle: (bodyText.length > 140 ? bodyText.slice(0, 140) + '...' : undefined),
             author: matched.author || 'Admin',
             authorAvatar: (matched.author || 'A').charAt(0).toUpperCase(),
-            date: matched.published_at ? new Date(matched.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : (matched.date || 'Today'),
+            date: matched.published_at ? new Date(matched.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today',
             readTime: `${readMin} min read`,
             image: matched.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
             imageCaption: matched.tags ? `Tags: ${matched.tags}` : undefined,
@@ -145,7 +145,7 @@ export default function Article() {
       // 3. Fallback to live ingested / scanned articles
       if (!foundData) {
         try {
-          const livePosts = await fetchLiveIngestedPosts()
+          const livePosts = getIngestedPosts()
           const matchedPost = livePosts.find(p =>
             p.id === id ||
             p.id.toLowerCase() === id.toLowerCase() ||

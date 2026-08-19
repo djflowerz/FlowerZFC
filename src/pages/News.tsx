@@ -265,7 +265,7 @@ export default function News() {
         if (!error && dbArts && dbArts.length > 0) {
           const deletedIds = getDeletedArticleIds()
           const dbMapped = dbArts.map(a => {
-            const rawDate = a.published_at || a.date
+            const rawDate = a.published_at
             // Fallback to Date.now() so articles without a date sort to top
             let ts = rawDate ? new Date(rawDate).getTime() : 0
             if (!ts || isNaN(ts)) ts = Date.now()
