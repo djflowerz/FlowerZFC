@@ -17,17 +17,24 @@ function LiveTicker() {
   const { t } = useApp()
   const [matches, setMatches] = useState<LiveMatch[]>([])
   const [liveCount, setLiveCount] = useState(0)
+  const [loading, setLoading] = useState(true)
   const [goalAlert, setGoalAlert] = useState<string | null>(null)
   const prevScoresRef = useRef<Record<string, { homeScore: number; awayScore: number }>>({})
 
   const processLiveMatches = (apiMatches: LiveMatch[]) => {
-    // Filter to live matches currently playing
+    // Strictly filter to live matches currently in-play (exclude scheduled, NS, and FT)
     const liveOnly = apiMatches.filter(m => {
-      if (m.live) return true
       const st = (m.status || '').toUpperCase()
+      if (st === 'FT' || st === 'AET' || st === 'AP' || st === 'POSTPONED' || st === 'CANCELLED' || st === 'ABANDONED' || st === 'NS' || st.includes(':') || st.includes('STARTS')) {
+        return false
+      }
+      if (m.live) return true
       return st.includes("'") || st === '1H' || st === '2H' || st === 'HT' || st === 'LIVE' || st === 'ET' || st === 'PEN'
     })
+    
     setLiveCount(liveOnly.length)
+    setMatches(liveOnly)
+    setLoading(false)
 
     // Detect real-time goals for popup notifications
     apiMatches.forEach(m => {
@@ -49,19 +56,12 @@ function LiveTicker() {
         prevScoresRef.current[m.id] = { homeScore: m.homeScore, awayScore: m.awayScore }
       }
     })
-
-    // Display live in-play matches first, followed by today's top matches
-    const combined = [
-      ...liveOnly,
-      ...apiMatches.filter(m => !liveOnly.some(l => l.id === m.id))
-    ]
-    setMatches(combined.slice(0, 20))
   }
 
   useEffect(() => {
-    fetchLiveMatches('TODAY').then(processLiveMatches)
+    fetchLiveMatches('TODAY').then(processLiveMatches).catch(() => setLoading(false))
     const interval = setInterval(() => {
-      fetchLiveMatches('TODAY').then(processLiveMatches)
+      fetchLiveMatches('TODAY').then(processLiveMatches).catch(() => {})
     }, 10000)
     return () => clearInterval(interval)
   }, [])
@@ -75,36 +75,40 @@ function LiveTicker() {
         </div>
       )}
       <div className="ticker-scroll flex items-center gap-2 px-4 py-2" style={{ overflowX: 'auto' }}>
-        <div className={`flex items-center gap-1.5 px-3 py-1 ${liveCount > 0 ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'} border rounded text-[11px] font-black shrink-0`}>
-          <span className={`live-dot ${liveCount > 0 ? 'bg-red-500' : 'bg-emerald-500'}`} />
-          <span>{liveCount > 0 ? `LIVE IN-PLAY (${liveCount})` : `TODAY'S MATCHES (${matches.length})`}</span>
+        <div className={`flex items-center gap-1.5 px-3 py-1 ${liveCount > 0 ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-[#1a1a28] border-white/10 text-gray-400'} border rounded text-[11px] font-black shrink-0`}>
+          <span className={`live-dot ${liveCount > 0 ? 'bg-red-500 animate-pulse' : 'bg-gray-500'}`} />
+          <span>LIVE IN-PLAY ({liveCount})</span>
         </div>
 
-        {matches.length > 0 ? (
+        {loading ? (
+          <div className="py-1 text-xs text-gray-500 italic">
+            Checking live in-play match telemetry...
+          </div>
+        ) : matches.length > 0 ? (
           matches.map(m => (
             <Link
               key={m.id}
               to={`/match/${m.id}`}
-              className="flex-none flex items-center gap-3 px-4 py-2 rounded-sm transition-colors hover:bg-white/5"
-              style={{ border: '1px solid #1e1e32', minWidth: '180px' }}
+              className="flex-none flex items-center gap-3 px-4 py-2 rounded-sm transition-colors hover:bg-white/5 border border-red-500/20 bg-red-950/10"
+              style={{ minWidth: '190px' }}
             >
-              <div className="text-right text-xs text-gray-300 font-bold min-w-[60px] truncate">{m.home}</div>
+              <div className="text-right text-xs text-white font-bold min-w-[65px] truncate">{m.home}</div>
               <div className="text-center">
-                <div className="text-white font-black text-sm" style={{ fontFamily: 'Big Shoulders Display' }}>
-                  {m.homeScore !== null && m.awayScore !== null ? `${m.homeScore} – ${m.awayScore}` : 'vs'}
+                <div className="text-white font-black text-sm font-mono tracking-tight" style={{ fontFamily: 'Big Shoulders Display' }}>
+                  {m.homeScore ?? 0} – {m.awayScore ?? 0}
                 </div>
                 <div className="flex items-center gap-1 justify-center mt-0.5">
-                  {m.live && <span className="live-dot bg-red-500" />}
-                  <span className={`text-[10px] font-bold ${m.live ? 'text-red-400' : 'text-emerald-400'}`}>{m.status || (m.minute ? `${m.minute}'` : 'LIVE')}</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-[10px] font-bold text-red-400">{m.status || (m.minute ? `${m.minute}'` : 'LIVE')}</span>
                 </div>
               </div>
-              <div className="text-left text-xs text-gray-300 font-bold min-w-[60px] truncate">{m.away}</div>
+              <div className="text-left text-xs text-white font-bold min-w-[65px] truncate">{m.away}</div>
             </Link>
           ))
         ) : (
-          <div className="py-1.5 text-xs text-gray-400 font-medium italic flex items-center gap-2">
-            <span>Loading today's live matches...</span>
-            <Link to="/scores" className="text-emerald-400 font-bold not-italic hover:underline">View today's full match schedule →</Link>
+          <div className="py-1.5 text-xs text-gray-400 font-medium flex items-center gap-2">
+            <span>No matches currently playing live right now.</span>
+            <Link to="/fixtures" className="text-emerald-400 font-bold hover:underline">View today's upcoming fixtures schedule →</Link>
           </div>
         )}
       </div>
