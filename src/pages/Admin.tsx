@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { toast as toastLib } from 'react-toastify'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
+import { getPaymentConfig } from '../services/paymentService'
 import { fetchLiveMatches, fetchLiveStandings, fetchLiveFixtures, getUserTimezoneInfo, fetchLiveCatalogStats, type LiveMatch, type LiveStanding, type LiveFixture, type LiveCatalogStats } from '../services/liveScoreApi'
 import { getIngestedPosts, fetchLiveIngestedPosts, transformContentContext, filterPostsByDate, downloadImageAsset, IngestedPost } from '../services/contentIngestion'
 import { getAuthUser, loginWithEmail, hasTabAccessRole, setAuthSession, SUPER_ADMIN_EMAIL, type UserRole, type AuthProfile } from '../services/authService'
@@ -5207,7 +5208,7 @@ export default function Admin() {
                 </div>
 
                 {/* Addons / Extra Charges */}
-                {editProduct.type !== 'digital' && (
+                {(editProduct as any).type !== 'digital' && (
                   <div className="mt-4">
                     <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Product Add-ons (Extra Charges)</label>
                     <div className="space-y-2 mb-2">
