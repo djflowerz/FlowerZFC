@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { initiatePayment } from '../services/paymentService'
 import { calculateShippingQuotes, getShippingConfig, type ShippingQuoteOption } from '../services/shippingService'
@@ -12,6 +12,10 @@ const inputCls = 'w-full px-4 py-3 text-sm text-white placeholder-gray-500 round
 const inputStyle = { background: '#0c0c14', border: '1px solid #1e1e32' }
 
 export default function Checkout() {
+  const [searchParams] = useSearchParams()
+  const confirmedRef = searchParams.get('ref')
+  const isConfirmedDirectPay = searchParams.get('confirmed') === '1'
+
   const { cart, cartTotal, clearCart, user, t, formatPrice } = useApp()
   const [orderNum] = useState(`FZ${Date.now().toString().slice(-6)}`)
   const [errorMessage, setErrorMessage] = useState('')
@@ -56,7 +60,7 @@ export default function Checkout() {
   const isAllDigital = cart.length > 0 && cart.every(item => cartProductTypes[item.id] === 'digital')
   const hasDigitalItems = cart.some(item => cartProductTypes[item.id] === 'digital')
 
-  const [step, setStep] = useState<Step>('contact')
+  const [step, setStep] = useState<Step>(isAllDigital ? 'payment' : 'contact')
   const [savedCartItems, setSavedCartItems] = useState(cart)
 
   // Keep savedCartItems updated before clearCart
@@ -68,10 +72,16 @@ export default function Checkout() {
 
   // Sync step for digital/physical products
   useEffect(() => {
-    if (isAllDigital && step === 'shipping') {
+    if (isAllDigital && (step === 'contact' || step === 'shipping')) {
       setStep('payment')
     }
   }, [isAllDigital, step])
+
+  useEffect(() => {
+    if (isConfirmedDirectPay) {
+      setStep('confirmation')
+    }
+  }, [isConfirmedDirectPay])
 
   const [shipping, setShipping] = useState({
     name: user?.name || '',
@@ -746,9 +756,18 @@ export default function Checkout() {
                     </div>
 
                     <div className="flex gap-3 mt-6 pt-4 border-t border-[#1e1e32]">
-                      <button onClick={() => setStep(isAllDigital ? 'contact' : 'shipping')} className="px-5 py-3 text-xs font-bold text-gray-400 hover:text-white rounded-xl border border-[#1e1e32] transition-colors">
-                        ← Back
-                      </button>
+                      <Link
+                        to={isAllDigital ? '/shop' : '#'}
+                        onClick={(e) => {
+                          if (!isAllDigital) {
+                            e.preventDefault()
+                            setStep('shipping')
+                          }
+                        }}
+                        className="px-5 py-3 text-xs font-bold text-gray-400 hover:text-white rounded-xl border border-[#1e1e32] transition-colors flex items-center"
+                      >
+                        ← {isAllDigital ? 'Go back to Shop' : 'Back'}
+                      </Link>
 
                       <button
                         onClick={handleStartPayment}
@@ -777,6 +796,12 @@ export default function Checkout() {
                 <h3 className="font-black text-white text-lg mb-4" style={{ fontFamily: 'Big Shoulders Display' }}>
                   Order Summary
                 </h3>
+                {hasDigitalItems && !isAllDigital && (
+                  <div className="mb-3 p-3 rounded-xl border border-[#6366f1]/40 text-xs" style={{ background: 'rgba(99,102,241,0.08)' }}>
+                    <p className="font-bold text-[#a5b4fc] mb-1">🛍️ Mixed Order (Digital + Physical)</p>
+                    <p className="text-gray-400">Your cart has both digital files and physical items. Physical items require shipping. After payment, digital files will be available instantly and physical items will be shipped separately.</p>
+                  </div>
+                )}
                 <div className="space-y-3 mb-4 pb-4 border-b border-[#1e1e32]">
                   {(cart.length > 0 ? cart : savedCartItems).map(item => (
                     <div key={`${item.id}-${item.size}`} className="flex items-center gap-3">

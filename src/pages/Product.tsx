@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { fetchAllProducts, verifyPaidReceipt } from '../services/supabaseClient'
+import { initiatePayment } from '../services/paymentService'
 import type { ProductType } from './Shop'
 
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
@@ -35,6 +36,9 @@ export default function Product() {
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
   const [activeTab, setActiveTab] = useState<'description' | 'sizing' | 'shipping'>('description')
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([])
+  const [buyNowLoading, setBuyNowLoading] = useState(false)
+  const [buyNowError, setBuyNowError] = useState('')
 
   // Payment code receipt recovery state
   const [showRecovery, setShowRecovery] = useState(false)
@@ -121,19 +125,62 @@ export default function Product() {
   const isDigital = product.type === 'digital'
   const isApparel = !isDigital && ['jerseys', 'shorts', 'tracksuits', 'apparel', 'clothing', 'boots', 'shoes'].includes((product.category || '').toLowerCase())
 
+  const addonTotal = (product.addons || []).filter((a: any) => selectedAddons.includes(a.id)).reduce((s: number, a: any) => s + a.price, 0)
+  const totalPriceWithAddons = product.price * qty + addonTotal
+
   const handleAdd = () => {
     const chosenSize = isDigital ? 'Digital' : (isApparel ? size : (size || 'Standard'))
     if (isApparel && !size) return
-    addToCart({ id: product.id, name: product.name, price: product.price, size: chosenSize, quantity: qty, image: product.images[0] })
+    addToCart({ 
+      id: product.id, 
+      name: product.name + (selectedAddons.length > 0 ? ` (+${selectedAddons.map(sid => product.addons!.find((a: any) => a.id === sid)?.label || '').join(', ')})` : ''), 
+      price: product.price + addonTotal / qty, 
+      size: chosenSize, 
+      quantity: qty, 
+      image: product.images[0] 
+    })
     setAdded(true)
     setTimeout(() => setAdded(false), 2500)
   }
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     const chosenSize = isDigital ? 'Digital' : (isApparel ? size : (size || 'Standard'))
     if (isApparel && !size) return
-    addToCart({ id: product.id, name: product.name, price: product.price, size: chosenSize, quantity: qty, image: product.images[0] })
-    navigate('/checkout')
+    addToCart({ 
+      id: product.id, 
+      name: product.name + (selectedAddons.length > 0 ? ` (+${selectedAddons.map(sid => product.addons!.find((a: any) => a.id === sid)?.label || '').join(', ')})` : ''), 
+      price: product.price + addonTotal / qty, 
+      size: chosenSize, 
+      quantity: qty, 
+      image: product.images[0] 
+    })
+    
+    if (isDigital) {
+      setBuyNowLoading(true)
+      setBuyNowError('')
+      const orderRef = `FZ${Date.now().toString().slice(-6)}`
+      try {
+        const res = await initiatePayment({
+          amount: product.price * qty,
+          currency: 'KES',
+          email: 'customer@flowerz.fc',
+          method: 'card',
+          reference: orderRef,
+          metadata: { productId: product.id, productName: product.name },
+        })
+        if (res.success) {
+          navigate(`/checkout?confirmed=1&ref=${orderRef}&product=${encodeURIComponent(product.name)}`)
+        } else {
+          setBuyNowError('Payment was cancelled. Please try again.')
+        }
+      } catch {
+        setBuyNowError('Payment failed. Please try again.')
+      } finally {
+        setBuyNowLoading(false)
+      }
+    } else {
+      navigate('/checkout')
+    }
   }
 
   const handleUnlockDownload = () => {
@@ -242,13 +289,21 @@ export default function Product() {
                   <p className="text-xs text-gray-300 leading-relaxed">{product.description}</p>
                 </div>
 
-                <div className="flex gap-3">
-                  <button onClick={handleBuyNow} className="flex-1 py-4 text-sm font-black rounded-xl transition-all hover:opacity-90 shadow-lg shadow-indigo-500/20" style={{ background: '#6366f1', color: '#fff', fontFamily: 'Big Shoulders Display', fontSize: '16px' }}>
-                    💾 Buy & Download Now
-                  </button>
-                  <button onClick={handleAdd} className="py-4 px-5 text-sm font-black rounded-xl transition-all border hover:bg-[#6366f1]/10" style={{ color: added ? '#22c55e' : '#a5b4fc', borderColor: added ? '#22c55e' : '#6366f1', background: '#131320' }} title="Add to cart">
-                    {added ? '✓ Added' : '🛒'}
-                  </button>
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={handleBuyNow} 
+                      disabled={buyNowLoading}
+                      className="flex-1 py-4 text-sm font-black rounded-xl transition-all hover:opacity-90 shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 disabled:opacity-60" 
+                      style={{ background: '#6366f1', color: '#fff', fontFamily: 'Big Shoulders Display', fontSize: '16px' }}
+                    >
+                      {buyNowLoading ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /><span>Opening Payment...</span></> : <>💾 Buy & Download Now</>}
+                    </button>
+                    <button onClick={handleAdd} className="py-4 px-5 text-sm font-black rounded-xl transition-all border hover:bg-[#6366f1]/10" style={{ color: added ? '#22c55e' : '#a5b4fc', borderColor: added ? '#22c55e' : '#6366f1', background: '#131320' }} title="Add to cart">
+                      {added ? '✓ Added' : '🛒'}
+                    </button>
+                  </div>
+                  {buyNowError && <p className="text-xs text-red-400 font-bold text-center">{buyNowError}</p>}
                 </div>
 
                 <div className="p-3.5 rounded-xl border border-[#1e1e32] flex items-center gap-3" style={{ background: '#131320' }}>
@@ -395,6 +450,39 @@ export default function Product() {
                   </div>
                 )}
 
+                {product.addons && product.addons.length > 0 && (
+                  <div className="mb-5">
+                    <p className="text-sm font-bold text-gray-300 mb-2">Customisation Options</p>
+                    <div className="space-y-2">
+                      {product.addons.map(addon => (
+                        <label key={addon.id} className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all" style={{
+                          background: selectedAddons.includes(addon.id) ? 'rgba(0,179,65,0.08)' : '#0c0c14',
+                          borderColor: selectedAddons.includes(addon.id) ? '#00b341' : '#1e1e32',
+                        }}>
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 accent-[#00b341]"
+                            checked={selectedAddons.includes(addon.id)}
+                            onChange={e => {
+                              setSelectedAddons(prev => e.target.checked ? [...prev, addon.id] : prev.filter(id => id !== addon.id))
+                            }}
+                          />
+                          {addon.icon && <span className="text-base">{addon.icon}</span>}
+                          <span className="flex-1 text-xs font-semibold text-white">{addon.label}</span>
+                          <span className="text-xs font-black text-[#00b341]">+{formatPrice(addon.price)}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {addonTotal > 0 && (
+                  <div className="flex items-center justify-between p-3 rounded-xl border border-[#00b341]/30 mb-4" style={{ background: 'rgba(0,179,65,0.06)' }}>
+                    <span className="text-xs font-bold text-gray-300">Total (with options)</span>
+                    <span className="text-lg font-black text-[#00b341]">{formatPrice(totalPriceWithAddons)}</span>
+                  </div>
+                )}
+
                 <div className="mb-6">
                   <span className="text-sm font-bold text-gray-300 mb-2 block">Quantity</span>
                   <div className="flex items-center gap-3 w-fit">
@@ -422,29 +510,112 @@ export default function Product() {
                   ))}
                 </div>
 
-                <div className="flex gap-0 border-b border-[#1e1e32] mb-4">
-                  {(['description', 'sizing', 'shipping'] as const).map(tab => (
-                    <button key={tab} onClick={() => setActiveTab(tab)} className="px-4 py-2.5 text-xs font-bold capitalize transition-colors border-b-2" style={{ borderBottomColor: activeTab === tab ? '#00b341' : 'transparent', color: activeTab === tab ? '#00b341' : '#6b7280' }}>{tab}</button>
-                  ))}
-                </div>
-                <div className="text-xs text-gray-400 leading-relaxed">
-                  {activeTab === 'description' && <p>{product.description}</p>}
-                  {activeTab === 'sizing' && (
-                    <table className="w-full">
-                      <thead><tr className="text-gray-500 border-b border-[#1e1e32]"><th className="text-left py-2">Size</th><th className="py-2 text-center">Chest (cm)</th><th className="py-2 text-center">Length (cm)</th></tr></thead>
-                      <tbody>{[['XS','80-85','66'],['S','86-91','68'],['M','92-97','70'],['L','98-103','72'],['XL','104-109','74'],['XXL','110-115','76']].map(r => (<tr key={r[0]} className="border-t border-[#1e1e32]"><td className="py-2 font-bold text-white">{r[0]}</td><td className="py-2 text-center">{r[1]}</td><td className="py-2 text-center">{r[2]}</td></tr>))}</tbody>
-                    </table>
-                  )}
-                  {activeTab === 'shipping' && (
-                    <div className="space-y-2">
-                      <p>🇰🇪 <strong className="text-white">Kenya & East Africa:</strong> Standard 7–14 days (\$5), Express 3–5 days (\$15)</p>
-                      <p>🌍 <strong className="text-white">International:</strong> 14–21 business days (DHL tracked)</p>
-                      <p>🎁 <strong className="text-white">Free shipping</strong> on all orders over \$80</p>
+                {/* ── 3-Column Info Row: Description | Informations | Specifications ── */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4 border-t border-[#1e1e32]">
+
+                  {/* DESCRIPTION */}
+                  <div>
+                    <h3 className="text-2xl font-black text-white mb-4" style={{ fontFamily: 'Big Shoulders Display' }}>Description</h3>
+                    <p className="text-xs text-gray-300 leading-relaxed mb-5">{product.description}</p>
+
+                    <p className="text-xs font-black text-white uppercase tracking-widest mb-3">Details</p>
+                    <ul className="space-y-1.5">
+                      {[
+                        product.sku && `Product ID: ${product.sku}`,
+                        product.team && `Team: ${product.team}`,
+                        product.kitType && `Kit Type: ${product.kitType}`,
+                        product.version && `Version: ${product.version}`,
+                        product.category && `Category: ${product.category}`,
+                        product.type === 'physical' && 'Machine wash (30°C)',
+                        product.type === 'physical' && 'Officially licensed merchandise',
+                        product.type === 'digital' && 'Instant digital download',
+                        product.type === 'digital' && 'No physical shipment required',
+                        product.type === 'physical' && 'Ships from Kenya 🇰🇪',
+                        product.type === 'physical' && 'Customised items are final sale and cannot be returned after order is placed',
+                      ].filter(Boolean).map((detail, i) => (
+                        <li key={i} className="flex items-start gap-2 text-[11px] text-gray-400">
+                          <span className="text-[#00b341] mt-0.5 shrink-0">•</span>
+                          <span>{detail as string}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* INFORMATIONS */}
+                  <div>
+                    <h3 className="text-2xl font-black text-white mb-4" style={{ fontFamily: 'Big Shoulders Display' }}>Informations</h3>
+                    <div className="space-y-5">
+                      <div>
+                        <p className="text-sm font-black text-white mb-1.5">🚚 Shipping</p>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">We offer countrywide (Kenya) shipping through G4S courier services at an additional cost of KSh. 350/-. International shipping available via DHL tracked — 14–21 business days.</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-white mb-1.5">📐 Sizing</p>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">Fits true to size. Refer to the size chart above for chest and length measurements. For jerseys, we recommend sizing up if between sizes.</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-white mb-1.5">🔄 Returns</p>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">Unopened / unworn items can be returned within 7 days of delivery. Customised or personalised items are final sale.</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-white mb-1.5">📞 Assistance</p>
+                        <p className="text-[11px] text-gray-400 leading-relaxed">Contact us on <strong className="text-white">+254 7XX XXX XXX</strong> (WhatsApp/Call) or email <strong className="text-white">support@djflowerz.co.ke</strong> for help with your order.</p>
+                      </div>
                     </div>
-                  )}
+                  </div>
+
+                  {/* SPECIFICATIONS */}
+                  <div>
+                    <h3 className="text-2xl font-black text-white mb-4" style={{ fontFamily: 'Big Shoulders Display' }}>Specifications</h3>
+                    <div className="space-y-5">
+                      <div>
+                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Clothing Size</p>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {['S', 'M', 'L', 'XL', 'XXL'].map(s => (
+                            <span key={s} className="w-10 h-10 flex items-center justify-center text-xs font-bold rounded-lg border text-gray-300 border-[#1e1e32]" style={{ background: '#0c0c14' }}>{s}</span>
+                          ))}
+                        </div>
+                      </div>
+                      {(product.platforms && product.platforms.length > 0 && product.type === 'digital') && (
+                        <div>
+                          <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Compatible Platforms</p>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {product.platforms.map(pl => (
+                              <span key={pl} className="px-2.5 py-1 text-[10px] font-bold rounded-lg border border-[#1e1e32] text-gray-300 capitalize" style={{ background: '#0c0c14' }}>{pl}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Dimensions</p>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-[11px]">
+                            <thead>
+                              <tr className="text-gray-500 border-b border-[#1e1e32]">
+                                <th className="text-left py-1.5 font-bold">Size</th>
+                                <th className="py-1.5 text-center font-bold">Chest (cm)</th>
+                                <th className="py-1.5 text-center font-bold">Length (cm)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {[['S','86–91','68'],['M','92–97','70'],['L','98–103','72'],['XL','104–109','74'],['XXL','110–115','76']].map(r => (
+                                <tr key={r[0]} className="border-t border-[#1e1e32] text-gray-400">
+                                  <td className="py-1.5 font-bold text-white">{r[0]}</td>
+                                  <td className="py-1.5 text-center">{r[1]}</td>
+                                  <td className="py-1.5 text-center">{r[2]}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
               </>
             )}
+
           </div>
         </div>
 
