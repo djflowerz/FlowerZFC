@@ -918,6 +918,23 @@ export default function Admin() {
 
   const slugify = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 
+  const generateAutoSKU = (item: { name?: string; team?: string; kitType?: string; season?: string; type?: string; category?: string }) => {
+    const rand = Math.floor(1000 + Math.random() * 9000)
+    if (item.type === 'digital') {
+      const cat = (item.category || 'DIGI').replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase() || 'DIGI'
+      return `DIGI-${cat}-${rand}`
+    }
+    const teamCode = (item.team || item.name || 'FZ')
+      .split(' ')
+      .map(w => w[0])
+      .join('')
+      .slice(0, 3)
+      .toUpperCase() || 'KIT'
+    const kitCode = (item.kitType || 'Home')[0].toUpperCase()
+    const seasonCode = (item.season || '26/27').replace(/[^0-9]/g, '').slice(-4) || '2627'
+    return `${teamCode}-${kitCode}${seasonCode}-${rand}`
+  }
+
   const getUserAvatarUrl = (u: { email: string; avatar?: string }) => {
     if (u?.avatar) return u.avatar
     if (u?.email) return `https://unavatar.io/${encodeURIComponent(u.email)}?fallback=https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(u.email)}`
@@ -1406,7 +1423,10 @@ export default function Admin() {
         {tab === 'products' && (
           <div className="space-y-8">
             <SectionHead title={`👕 Products (${products.length})`} sub="Inventory, image, pricing, and variants."
-              action={<button onClick={() => setShowAddProduct(true)} className="px-5 py-2.5 text-xs font-black text-white rounded-xl hover:opacity-90" style={{ background: '#00b341' }}>+ Add Product</button>} />
+              action={<button onClick={() => {
+                setNewProduct({ ...BLANK_PRODUCT, sku: generateAutoSKU(BLANK_PRODUCT) })
+                setShowAddProduct(true)
+              }} className="px-5 py-2.5 text-xs font-black text-white rounded-xl hover:opacity-90" style={{ background: '#00b341' }}>+ Add Product</button>} />
 
             {/* Product KPI Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -4845,7 +4865,16 @@ export default function Admin() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">SKU / Asset Code</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[10px] font-bold text-gray-500">SKU / Asset Code</label>
+                    <button
+                      type="button"
+                      onClick={() => setEditProduct(p => p ? { ...p, sku: generateAutoSKU(p) } : p)}
+                      className="text-[9px] font-bold text-[#00b341] hover:underline"
+                    >
+                      ⚡ Auto Generate
+                    </button>
+                  </div>
                   <input value={editProduct.sku} onChange={e => setEditProduct(p => p ? { ...p, sku: e.target.value } : p)} placeholder="e.g. DIGI-TAC-2026" className={INPUT} style={INPUT_STYLE} />
                 </div>
                 <div>
@@ -5348,7 +5377,16 @@ export default function Admin() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">SKU / Asset Code</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[10px] font-bold text-gray-500">SKU / Asset Code</label>
+                    <button
+                      type="button"
+                      onClick={() => setNewProduct(p => ({ ...p, sku: generateAutoSKU(p) }))}
+                      className="text-[9px] font-bold text-[#00b341] hover:underline"
+                    >
+                      ⚡ Auto Generate
+                    </button>
+                  </div>
                   <input value={newProduct.sku} onChange={e => setNewProduct(p => ({ ...p, sku: e.target.value }))} placeholder={newProduct.type === 'digital' ? 'DIGI-TAC-2026' : 'ARS-HJ-2026'} className={INPUT} style={INPUT_STYLE} />
                 </div>
                 <div>
