@@ -49,9 +49,9 @@ const US_STATES = [
 ]
 
 const PICKUP_HUBS = [
-  { id: 'hub_nairobi_cbd', name: 'CBD Nairobi Hub (Moi Avenue Office)', hours: 'Mon–Sat: 8:30 AM – 6:30 PM', phone: '+254 755 699 898' },
-  { id: 'hub_mombasa', name: 'Mombasa Pickup Center (Nyali Mall)', hours: 'Mon–Sat: 9:00 AM – 6:00 PM', phone: '+254 737 308 510' },
-  { id: 'hub_kisumu', name: 'Kisumu Hub (Mega Plaza Ground Floor)', hours: 'Mon–Sat: 9:00 AM – 5:30 PM', phone: '+254 755 699 898' },
+  { id: 'hub_nairobi_cbd', name: 'CBD Nairobi Hub (Moi Avenue Office)', hours: 'Mon–Sat: 8:30 AM – 6:30 PM', phone: '+254 712 293 303' },
+  { id: 'hub_mombasa', name: 'Mombasa Pickup Center (Nyali Mall)', hours: 'Mon–Sat: 9:00 AM – 6:00 PM', phone: '+254 789 783 258' },
+  { id: 'hub_kisumu', name: 'Kisumu Hub (Mega Plaza Ground Floor)', hours: 'Mon–Sat: 9:00 AM – 5:30 PM', phone: '+254 712 293 303' },
 ]
 
 const KES_TO_USD_RATE = 130 // 1 USD = 130 KES

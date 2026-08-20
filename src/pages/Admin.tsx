@@ -405,10 +405,10 @@ export default function Admin() {
             ios_url: p.ios_url || vg.ios_url || null,
             iosUrl: p.ios_url || vg.ios_url || null,
             addons: p.addons || vg.addons || [],
-            info_shipping: p.info_shipping || vg.info_shipping || 'We offer countrywide (Kenya) shipping through G4S courier services at an additional cost of KSh. 350/-. International shipping available via DHL tracked — 14–21 business days.',
-            info_sizing: p.info_sizing || vg.info_sizing || 'Fits true to size. Refer to the size chart above for chest and length measurements. For jerseys, we recommend sizing up if between sizes.',
-            info_returns: p.info_returns || vg.info_returns || 'Unopened / unworn items can be returned within 7 days of delivery. Customised or personalised items are final sale.',
-            info_assistance: p.info_assistance || vg.info_assistance || 'Contact us on (+254) 755 699 898 or (+254) 737 308 510, or email support@djflowerz.co.ke',
+            info_shipping: p.info_shipping || vg.info_shipping || DEFAULT_SITE_SETTINGS.shippingText,
+            info_sizing: p.info_sizing || vg.info_sizing || DEFAULT_SITE_SETTINGS.sizingText,
+            info_returns: p.info_returns || vg.info_returns || DEFAULT_SITE_SETTINGS.returnsText,
+            info_assistance: p.info_assistance || vg.info_assistance || DEFAULT_SITE_SETTINGS.assistanceText,
             spec_material: p.spec_material || vg.spec_material || '100% Polyester Dri-FIT moisture-wicking technology',
             spec_fit: p.spec_fit || vg.spec_fit || 'Replica / Stadium collection standard fit',
             spec_origin: p.spec_origin || vg.spec_origin || 'Officially licensed imported merchandise',
@@ -649,10 +649,10 @@ export default function Admin() {
     addons: [] as Array<{ id: string; label: string; price: number; icon?: string }>,
     printing_enabled: true,
     printing_price: '300',
-    info_shipping: 'We offer countrywide (Kenya) shipping through G4S courier services at an additional cost of KSh. 350/-. International shipping available via DHL tracked — 14–21 business days.',
-    info_sizing: 'Fits true to size. Refer to the size chart above for chest and length measurements. For jerseys, we recommend sizing up if between sizes.',
-    info_returns: 'Unopened / unworn items can be returned within 7 days of delivery. Customised or personalised items are final sale.',
-    info_assistance: 'Contact us on (+254) 755 699 898 or (+254) 737 308 510, or email support@djflowerz.co.ke',
+    info_shipping: DEFAULT_SITE_SETTINGS.shippingText,
+    info_sizing: DEFAULT_SITE_SETTINGS.sizingText,
+    info_returns: DEFAULT_SITE_SETTINGS.returnsText,
+    info_assistance: DEFAULT_SITE_SETTINGS.assistanceText,
     spec_material: '100% Polyester Dri-FIT moisture-wicking technology',
     spec_fit: 'Replica / Stadium collection standard fit',
     spec_origin: 'Officially licensed imported merchandise',
@@ -666,7 +666,22 @@ export default function Admin() {
     iosUrl: '',
   }
 
-  const [newProduct, setNewProduct] = useState(BLANK_PRODUCT)
+  const [newProduct, setNewProduct] = useState(() => {
+    try {
+      const savedDraft = localStorage.getItem('flowerzfc_admin_product_draft')
+      if (savedDraft) {
+        return { ...BLANK_PRODUCT, ...JSON.parse(savedDraft) }
+      }
+    } catch {}
+    return BLANK_PRODUCT
+  })
+
+  // Auto-persist active product draft in localStorage so changes are never lost on click away
+  useEffect(() => {
+    try {
+      localStorage.setItem('flowerzfc_admin_product_draft', JSON.stringify(newProduct))
+    } catch {}
+  }, [newProduct])
 
   // New article form with full football news CMS specifications
   const BLANK_ARTICLE = {
@@ -1522,7 +1537,9 @@ export default function Admin() {
           <div className="space-y-8">
             <SectionHead title={`👕 Products (${products.length})`} sub="Inventory, image, pricing, and variants."
               action={<button onClick={() => {
-                setNewProduct({ ...BLANK_PRODUCT, sku: generateAutoSKU(BLANK_PRODUCT) })
+                if (!newProduct.name && !newProduct.sku) {
+                  setNewProduct({ ...BLANK_PRODUCT, sku: generateAutoSKU(BLANK_PRODUCT) })
+                }
                 setShowAddProduct(true)
               }} className="px-5 py-2.5 text-xs font-black text-white rounded-xl hover:opacity-90" style={{ background: '#00b341' }}>+ Add Product</button>} />
 
@@ -5277,7 +5294,7 @@ export default function Admin() {
                     <textarea
                       value={(editProduct as any).info_assistance || ''}
                       onChange={e => setEditProduct(p => p ? { ...p, info_assistance: e.target.value } : p)}
-                      placeholder="Contact us on (+254) 755 699 898 or email support@..."
+                      placeholder="Contact us on (+254) 712293303 or Whatsapp (+254) 789783258, or email support@djflowerz.co.ke"
                       rows={2}
                       className={`${INPUT} text-[11px] resize-none`}
                       style={INPUT_STYLE}
@@ -5437,11 +5454,37 @@ export default function Admin() {
               console.error('Create product error:', error)
               return
             }
+            try {
+              localStorage.removeItem('flowerzfc_admin_product_draft')
+            } catch {}
             setProducts(p => [savedProduct as any, ...p])
             setShowAddProduct(false)
             setNewProduct(BLANK_PRODUCT)
             toastLib.success(newProduct.type === 'digital' ? '✅ Digital File published to store!' : '✅ Kit published to store!')
           }} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+
+            {/* Draft status bar & Reset button */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl border border-[#1e1e32] bg-[#0c0c14] text-xs">
+              <span className="text-gray-400 flex items-center gap-1.5 text-[11px]">
+                <span className="w-2 h-2 rounded-full bg-[#00b341] animate-pulse" />
+                Draft automatically saved
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm('Clear form and start fresh?')) {
+                    try {
+                      localStorage.removeItem('flowerzfc_admin_product_draft')
+                    } catch {}
+                    setNewProduct({ ...BLANK_PRODUCT, sku: generateAutoSKU(BLANK_PRODUCT) })
+                    toastLib.info('Form cleared')
+                  }
+                }}
+                className="text-[10px] font-bold text-red-400 hover:text-red-300 hover:underline cursor-pointer"
+              >
+                🗑️ Clear Form & Start Fresh
+              </button>
+            </div>
 
             {/* 📸 MEDIA & IMAGES */}
             <div className="p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
@@ -5905,7 +5948,7 @@ export default function Admin() {
                     <textarea
                       value={(newProduct as any).info_assistance || ''}
                       onChange={e => setNewProduct(p => ({ ...p, info_assistance: e.target.value }))}
-                      placeholder="Contact us on (+254) 755 699 898 or email support@..."
+                      placeholder="Contact us on (+254) 712293303 or Whatsapp (+254) 789783258, or email support@djflowerz.co.ke"
                       rows={2}
                       className={`${INPUT} text-[11px] resize-none`}
                       style={INPUT_STYLE}
