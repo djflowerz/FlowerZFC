@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { fetchAllProducts, verifyPaidReceipt } from '../services/supabaseClient'
 import { initiatePayment } from '../services/paymentService'
+import { getSiteSettings } from '../services/siteSettings'
 import type { ProductType } from './Shop'
 
 function StarRating({ rating, reviews }: { rating: number; reviews: number }) {
@@ -156,6 +157,7 @@ export default function Product() {
 
   const isDigital = product.type === 'digital'
   const isApparel = !isDigital
+  const siteSettings = getSiteSettings()
   const availableSizes = (product.sizes && product.sizes.length > 0) ? product.sizes : ['S', 'M', 'L', 'XL', 'XXL']
   const squadList = (product.playerList || '').split(',').map(s => s.trim()).filter(Boolean)
   const isPrintingAvailable = product.printing_enabled || Boolean(product.playerList) || (product.printing_price ? product.printing_price > 0 : false)
@@ -675,28 +677,28 @@ export default function Product() {
               <div>
                 <p className="text-sm font-black text-white mb-1.5">🚚 Shipping</p>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  {product.info_shipping || 'We offer countrywide (Kenya) shipping through G4S courier services at an additional cost of KSh. 350/-. International shipping available via DHL tracked — 14–21 business days.'}
+                  {product.info_shipping || siteSettings.shippingText}
                 </p>
               </div>
 
               <div>
                 <p className="text-sm font-black text-white mb-1.5">📐 Sizing</p>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  {product.info_sizing || 'Fits true to size. Refer to the size chart for chest and length measurements. For jerseys, we recommend sizing up if between sizes.'}
+                  {product.info_sizing || siteSettings.sizingText}
                 </p>
               </div>
 
               <div>
                 <p className="text-sm font-black text-white mb-1.5">🔄 Returns</p>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  {product.info_returns || 'Unopened / unworn items can be returned within 7 days of delivery. Customised or personalised items are final sale.'}
+                  {product.info_returns || siteSettings.returnsText}
                 </p>
               </div>
 
               <div>
                 <p className="text-sm font-black text-white mb-1.5">📞 Assistance</p>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  {product.info_assistance || 'Contact us on (+254) 755 699 898 or (+254) 737 308 510, or email support@djflowerz.co.ke for help with your order.'}
+                  {product.info_assistance || siteSettings.assistanceText}
                 </p>
               </div>
             </div>

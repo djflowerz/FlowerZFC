@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { initiatePayment } from '../services/paymentService'
 import { createOrder, fetchAllProducts, verifyPaidReceipt } from '../services/supabaseClient'
+import { getSiteSettings } from '../services/siteSettings'
 
 type Step = 'contact' | 'shipping' | 'payment' | 'verifying' | 'confirmation' | 'failed'
 type DeliveryMethod = 'home' | 'pickup'
@@ -73,6 +74,7 @@ export default function Checkout() {
   const isConfirmedDirectPay = searchParams.get('confirmed') === '1'
 
   const { cart, cartTotal, clearCart, user, t, formatPrice } = useApp()
+  const siteSettings = getSiteSettings()
   const [orderNum] = useState(generateOrderReference())
   const [errorMessage, setErrorMessage] = useState('')
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
@@ -427,8 +429,8 @@ export default function Checkout() {
               {/* Customer Care Contacts */}
               <div className="mt-6 p-4 rounded-xl border border-[#1e1e32] text-left text-xs text-gray-400 space-y-1" style={{ background: '#0c0c14' }}>
                 <p className="font-bold text-white mb-1">📞 Customer Care & Delivery Inquiries:</p>
-                <p>Hotlines: <strong className="text-white">(+254) 755 699 898 / (+254) 737 308 510</strong></p>
-                <p>Support Mail: <strong className="text-white">support@djflowerz.co.ke</strong></p>
+                <p>Hotlines: <strong className="text-white">{siteSettings.supportPhone1} / {siteSettings.supportPhone2}</strong></p>
+                <p>Support Mail: <strong className="text-white">{siteSettings.supportEmail}</strong></p>
               </div>
 
               <div className="mt-6">

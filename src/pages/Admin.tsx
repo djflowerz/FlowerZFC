@@ -14,6 +14,7 @@ import {
   type StoredArticle
 } from '../services/articleStore'
 import { getSubscribers, deleteSubscriber as nlDeleteSubscriber, subscribeEmail as nlSubscribeEmail, unsubscribeEmail, type NewsletterSubscriber } from '../services/newsletterService'
+import { getSiteSettings, saveSiteSettings, type SiteSettings, DEFAULT_SITE_SETTINGS } from '../services/siteSettings'
 
 // ─── SECURITY: No API keys, key prefixes, or secrets are rendered anywhere in this file.
 //               The admin gate is a client-side UX layer only. Production deployments
@@ -710,57 +711,7 @@ export default function Admin() {
   const [composeSent, setComposeSent] = useState(false)
 
   // Settings
-  const [settings, setSettings] = useState(() => {
-    try {
-      const raw = localStorage.getItem('flowerzfc_settings')
-      if (raw) return JSON.parse(raw)
-    } catch {}
-    return {
-      siteName:'FlowerZFC', tagline:'Your Global Football Home',
-      adminEmail:'ianmuriithiflowerz@gmail.com',
-      supportEmail:'support@flowerz.fc',
-      timezone:'Africa/Nairobi',
-      currency:'KES',
-      callbackUrl:'https://djflowerz.co.ke/account', minTipAmount:'2',
-      maxTipAmount:'5000',
-      tipsEnabled:true, shopEnabled:true, allowGuestCheckout:false,
-      maintenanceMode:false, commentsEnabled:true, predictionsEnabled:true, fantasyEnabled:true,
-      adsEnabled:true, pushEnabled:true, liveScoresEnabled:true, quizEnabled:true,
-      registrationOpen:true, emailVerificationRequired:true,
-      twoFactorRequired:false, autoBackup:true,
-      seoDescription:'The home of global football media, live scores, breaking news, merchandise, and fan engagement.',
-      ogImageUrl:'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1200&h=630&fit=crop',
-      twitterHandle:'@FlowerZFC',
-      gaMeasurementId:'G-FLOWERZ2026',
-      emailDriver:'Resend (Recommended)',
-      smtpHost:'smtp.resend.com',
-      smtpPort:'587',
-      emailFromName:'FlowerZFC Media',
-      mpesaShortcode:'600000',
-      mpesaEnv:'Sandbox',
-      mpesaMaxDailyPayout:'5000',
-      maintenanceMessage:'FlowerZFC is currently undergoing scheduled platform upgrades. We will be back live shortly!',
-      logoUrl:'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=100&h=100&fit=crop',
-      faviconUrl:'/favicon.ico',
-      primaryColor:'#00b341',
-      fontFamily:'Big Shoulders Display',
-      termsOfService:'Welcome to GlobalFootballMedia (FlowerZFC). By accessing our website, purchasing products, or using tips, you agree to our terms...',
-      privacyPolicy:'We respect your privacy. Data collected is strictly governed by the Kenya Data Protection Act 2019 and GDPR...',
-      refundPolicy:'Shop merchandise can be returned within 14 days of delivery if unused and in original packaging...',
-      cookiePolicy:'We use essential cookies to maintain session authorization and store user preferences...',
-      // Social Media Links
-      youtubeUrl:'https://youtube.com/@FlowerZFC',
-      instagramUrl:'https://instagram.com/FlowerZFC',
-      tiktokUrl:'https://tiktok.com/@FlowerZFC',
-      facebookUrl:'https://facebook.com/FlowerZFC',
-      whatsappChannelUrl:'https://whatsapp.com/channel/FlowerZFC',
-      discordUrl:'https://discord.gg/flowerzfc',
-      // Push VAPID & Webhooks
-      vapidPublicKey:'BEl62iUYgUivxIkv69yViEuiBIa-M9-pG9Q1Vb_P...',
-      fcmSenderId:'109284729104',
-      outgoingWebhookUrl:'https://api.djflowerz.co.ke/webhooks/events',
-    }
-  })
+  const [settings, setSettings] = useState<SiteSettings>(() => getSiteSettings())
   const [settingsSaved, setSettingsSaved] = useState(false)
   const [newAdminPass,  setNewAdminPass]  = useState('')
   const [confirmPass,   setConfirmPass]   = useState('')
@@ -939,20 +890,46 @@ export default function Admin() {
   const slugify = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 
   const generateAutoSKU = (item: { name?: string; team?: string; kitType?: string; season?: string; type?: string; category?: string }) => {
-    const rand = Math.floor(1000 + Math.random() * 9000)
+    const name = (item.name || item.team || '').trim().toLowerCase()
+    if (!name) return 'sku-01'
     if (item.type === 'digital') {
-      const cat = (item.category || 'DIGI').replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase() || 'DIGI'
-      return `DIGI-${cat}-${rand}`
+      const clean = name.replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/)
+      const p1 = clean[0]?.slice(0, 4) || 'digi'
+      const p2 = clean[1]?.slice(0, 3) || 'file'
+      return `${p1}-${p2}`
     }
-    const teamCode = (item.team || item.name || 'FZ')
-      .split(' ')
-      .map(w => w[0])
-      .join('')
-      .slice(0, 3)
-      .toUpperCase() || 'KIT'
-    const kitCode = (item.kitType || 'Home')[0].toUpperCase()
-    const seasonCode = (item.season || '26/27').replace(/[^0-9]/g, '').slice(-4) || '2627'
-    return `${teamCode}-${kitCode}${seasonCode}-${rand}`
+
+    // 1. Extract year/season (e.g. 2026/27 -> 26, 26/27 -> 26, 2026 -> 26, 2025/26 -> 25)
+    let yearCode = ''
+    const yearMatch = name.match(/(?:20)?(\d{2})(?:\/|-)?(?:\d{2,4})?/)
+    if (yearMatch && yearMatch[1]) {
+      yearCode = yearMatch[1]
+    } else if (item.season) {
+      const sMatch = item.season.match(/(?:20)?(\d{2})/)
+      if (sMatch) yearCode = sMatch[1]
+    }
+    if (!yearCode) yearCode = '26'
+
+    // 2. Remove year numbers from title for extracting word initials
+    const titleWithoutYear = name.replace(/\b20\d{2}(?:\/\d{2,4})?|\b\d{2}\/\d{2}\b|\b20\d{2}\b/g, '').trim()
+    const words = titleWithoutYear.replace(/[^a-z\s]/g, '').trim().split(/\s+/).filter(Boolean)
+
+    if (words.length === 0) return `kit-${yearCode}`
+
+    // 3. Team / first word: first 3 letters (e.g. "barcelona" -> "bar", "arsenal" -> "ars", "chelsea" -> "che")
+    const teamPart = words[0].length >= 3 ? words[0].slice(0, 3) : words[0]
+
+    // 4. Kit type / remaining words: initials (e.g. "home kit" -> "hk", "away kit" -> "ak", "third kit" -> "tk")
+    const remaining = words.slice(1)
+    let kitPart = ''
+    if (remaining.length > 0) {
+      kitPart = remaining.map(w => w[0]).join('')
+    } else if (item.kitType) {
+      kitPart = item.kitType.toLowerCase().slice(0, 2)
+    }
+
+    const parts = [teamPart, kitPart, yearCode].filter(Boolean)
+    return parts.join('-')
   }
 
   const getUserAvatarUrl = (u: { email: string; avatar?: string }) => {
@@ -4161,6 +4138,87 @@ export default function Admin() {
               </button>
             </Card>
 
+            {/* 📞 Customer Assistance & Support Contacts */}
+            <Card className="p-6 space-y-4">
+              <h3 className="text-sm font-black text-white uppercase tracking-wider border-b border-[#1e1e32] pb-3 flex items-center gap-2">
+                <span>📞 Customer Assistance & Support Contacts</span>
+                <span className="text-[10px] text-[#00b341] font-bold">Applied to Storefront & Checkout</span>
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Support Hotline 1</label>
+                  <input
+                    value={settings.supportPhone1 || ''}
+                    onChange={e => setSettings(p => ({ ...p, supportPhone1: e.target.value }))}
+                    placeholder="(+254) 755 699 898"
+                    className={INPUT}
+                    style={INPUT_STYLE}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Support Hotline 2</label>
+                  <input
+                    value={settings.supportPhone2 || ''}
+                    onChange={e => setSettings(p => ({ ...p, supportPhone2: e.target.value }))}
+                    placeholder="(+254) 737 308 510"
+                    className={INPUT}
+                    style={INPUT_STYLE}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Official Support Email</label>
+                  <input
+                    value={settings.supportEmail || ''}
+                    onChange={e => setSettings(p => ({ ...p, supportEmail: e.target.value }))}
+                    placeholder="support@djflowerz.co.ke"
+                    className={INPUT}
+                    style={INPUT_STYLE}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Product Page Default Assistance Text</label>
+                  <textarea
+                    value={settings.assistanceText || ''}
+                    onChange={e => setSettings(p => ({ ...p, assistanceText: e.target.value }))}
+                    placeholder="Contact us on (+254) 755 699 898 or (+254) 737 308 510, or email support@djflowerz.co.ke for help with your order."
+                    rows={2}
+                    className={`${INPUT} resize-none`}
+                    style={INPUT_STYLE}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Product Page Default Shipping Advice</label>
+                  <textarea
+                    value={settings.shippingText || ''}
+                    onChange={e => setSettings(p => ({ ...p, shippingText: e.target.value }))}
+                    rows={2}
+                    className={`${INPUT} resize-none`}
+                    style={INPUT_STYLE}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Product Page Default Sizing Advice</label>
+                  <textarea
+                    value={settings.sizingText || ''}
+                    onChange={e => setSettings(p => ({ ...p, sizingText: e.target.value }))}
+                    rows={2}
+                    className={`${INPUT} resize-none`}
+                    style={INPUT_STYLE}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-gray-500 mb-1">Product Page Default Returns Policy</label>
+                  <textarea
+                    value={settings.returnsText || ''}
+                    onChange={e => setSettings(p => ({ ...p, returnsText: e.target.value }))}
+                    rows={2}
+                    className={`${INPUT} resize-none`}
+                    style={INPUT_STYLE}
+                  />
+                </div>
+              </div>
+            </Card>
+
             <Card className="p-6 space-y-5">
               <h3 className="text-sm font-black text-white uppercase tracking-wider border-b border-[#1e1e32] pb-3">🌐 General</h3>
               <div className="grid grid-cols-2 gap-4">
@@ -4168,7 +4226,6 @@ export default function Admin() {
                   { label:'Site Name',             key:'siteName'     as const },
                   { label:'Tagline',               key:'tagline'      as const },
                   { label:'Admin Email',            key:'adminEmail'   as const },
-                  { label:'Support Email',          key:'supportEmail' as const },
                   { label:'Min Tip Amount (KES)',   key:'minTipAmount' as const },
                   { label:'Max Tip Amount (KES)',   key:'maxTipAmount' as const },
                   { label:'Paystack Callback URL',  key:'callbackUrl'  as const },
@@ -4261,7 +4318,7 @@ export default function Admin() {
 
             <button onClick={() => {
               try {
-                localStorage.setItem('flowerzfc_settings', JSON.stringify(settings))
+                saveSiteSettings(settings)
                 window.dispatchEvent(new Event('flowerzfc_config_updated'))
               } catch {}
               setSettingsSaved(true)
