@@ -683,32 +683,84 @@ export async function uploadMixCover(file: File): Promise<{ url: string | null; 
   }
 }
 
+export async function compressImageToDataUrl(file: File, maxWidth = 1000, quality = 0.75): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width)
+          width = maxWidth
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height)
+          resolve(canvas.toDataURL('image/jpeg', quality))
+        } else {
+          resolve(e.target?.result as string)
+        }
+      }
+      img.onerror = () => resolve(e.target?.result as string)
+      img.src = e.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
+export async function uploadProductImage(file: File): Promise<{ url: string | null; error: any }> {
+  try {
+    const ext = file.name.split('.').pop() || 'jpg'
+    const fileName = `prod_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`
+    const path = `products/${fileName}`
+
+    const { error: uploadError } = await supabase.storage.from('ad-creatives').upload(path, file, { upsert: true })
+    if (!uploadError) {
+      const { data } = supabase.storage.from('ad-creatives').getPublicUrl(path)
+      return { url: data.publicUrl, error: null }
+    }
+    return { url: null, error: uploadError }
+  } catch (error) {
+    return { url: null, error }
+  }
+}
 
 export async function createProduct(product: Record<string, any>): Promise<{ product: ProductRow | null; error: any }> {
   try {
     const sanitized = sanitizeProductPayload(product)
-    const { data, error } = await supabase.from('products').insert(sanitized).select().single()
-
-    // Always persist to local storage cache as well
-    const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
     const fullProduct = { ...product, ...sanitized, id: sanitized.id || product.id || `p-${Date.now()}` }
-    const updated = [fullProduct, ...localProducts.filter((x: any) => x.id !== fullProduct.id)]
-    localStorage.setItem('flowerzfc_custom_products', JSON.stringify(updated))
 
-    if (!error && data) {
-      return { product: { ...product, ...data } as ProductRow, error: null }
+    // Try Supabase first
+    try {
+      const { data, error } = await supabase.from('products').insert(sanitized).select().single()
+      if (!error && data) {
+        fullProduct.id = data.id
+      } else if (error) {
+        console.warn('Supabase product insert notice (saving locally):', error?.message || error)
+      }
+    } catch (dbErr) {
+      console.warn('Supabase product insert exception:', dbErr)
     }
 
-    if (error) {
-      console.warn('Supabase product insert notice:', error?.message || error)
+    // Safely persist to localStorage with quota protection
+    try {
+      const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
+      const updated = [fullProduct, ...localProducts.filter((x: any) => x.id !== fullProduct.id)]
+      localStorage.setItem('flowerzfc_custom_products', JSON.stringify(updated))
+    } catch (quotaErr) {
+      console.warn('localStorage quota limit reached for custom products:', quotaErr)
     }
+
     return { product: fullProduct as ProductRow, error: null }
   } catch (err) {
     console.warn('createProduct caught error:', err)
-    const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
-    const fullProduct = { ...product, id: product.id || `p-${Date.now()}` }
-    localStorage.setItem('flowerzfc_custom_products', JSON.stringify([fullProduct, ...localProducts.filter((x: any) => x.id !== fullProduct.id)]))
-    return { product: fullProduct as ProductRow, error: null }
+    const fallbackProduct = { ...product, id: product.id || `p-${Date.now()}` }
+    return { product: fallbackProduct as ProductRow, error: null }
   }
 }
 

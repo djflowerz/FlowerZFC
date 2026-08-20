@@ -184,9 +184,8 @@ export default function Product() {
   const isApparel = !isDigital
   const siteSettings = getSiteSettings()
   const availableSizes = (product.sizes && product.sizes.length > 0) ? product.sizes : ['S', 'M', 'L', 'XL', 'XXL']
-  const squadList = (product.playerList || '').split(',').map(s => s.trim()).filter(Boolean)
 
-  const isCustomPrintActive = Boolean(customPlayerName.trim() || customPlayerNumber.trim() || (customPlayerChoice === 'squad' && selectedSquadPlayer))
+  const isCustomPrintActive = Boolean(customPlayerName.trim() || customPlayerNumber.trim())
   const printingFeePerItem = isCustomPrintActive ? (product.printing_price || 200) : 0
 
   const leagueBadgeItem = LEAGUE_BADGES.find(b => b.id === selectedLeagueBadge)
@@ -203,9 +202,7 @@ export default function Product() {
 
   const buildCartPayload = () => {
     let customDetails = ''
-    if (customPlayerChoice === 'squad' && selectedSquadPlayer) {
-      customDetails += ` [Print: ${selectedSquadPlayer}]`
-    } else if (customPlayerName.trim() || customPlayerNumber.trim()) {
+    if (customPlayerName.trim() || customPlayerNumber.trim()) {
       const namePart = customPlayerName.toUpperCase().trim()
       const numPart = customPlayerNumber ? ` #${customPlayerNumber.trim()}` : ''
       customDetails += ` [Print: ${namePart}${numPart}]`
@@ -558,26 +555,7 @@ Please confirm order availability and payment details.`
 
                 {/* 2. Player Name & Number Customization Inputs */}
                 {isApparel && (
-                  <div className="space-y-2 pt-1">
-                    {squadList.length > 0 && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-gray-400">Squad Player Quick Select</span>
-                        <select
-                          value={selectedSquadPlayer}
-                          onChange={e => {
-                            setSelectedSquadPlayer(e.target.value)
-                            if (e.target.value) setCustomPlayerChoice('squad')
-                          }}
-                          className="px-2.5 py-1 text-xs text-white rounded-lg outline-none bg-[#131320] border border-[#1e1e32]"
-                        >
-                          <option value="">Select squad player...</option>
-                          {squadList.map(p => (
-                            <option key={p} value={p}>{p}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
+                  <div className="pt-1">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] font-bold text-gray-300 mb-1">
@@ -587,10 +565,7 @@ Please confirm order availability and payment details.`
                           type="text"
                           maxLength={12}
                           value={customPlayerName}
-                          onChange={e => {
-                            setCustomPlayerName(e.target.value.toUpperCase())
-                            if (customPlayerChoice === 'squad') setCustomPlayerChoice('custom')
-                          }}
+                          onChange={e => setCustomPlayerName(e.target.value.toUpperCase())}
                           placeholder="Enter your name here"
                           className="w-full px-3.5 py-2.5 text-xs text-white placeholder-gray-500 rounded-lg outline-none focus:ring-1 focus:ring-[#00b341] uppercase font-mono"
                           style={{ background: '#0c0c14', border: '1px solid #1e1e32' }}
@@ -605,10 +580,7 @@ Please confirm order availability and payment details.`
                           min={0}
                           max={99}
                           value={customPlayerNumber}
-                          onChange={e => {
-                            setCustomPlayerNumber(e.target.value)
-                            if (customPlayerChoice === 'squad') setCustomPlayerChoice('custom')
-                          }}
+                          onChange={e => setCustomPlayerNumber(e.target.value)}
                           placeholder="Enter your number here"
                           className="w-full px-3.5 py-2.5 text-xs text-white placeholder-gray-500 rounded-lg outline-none focus:ring-1 focus:ring-[#00b341] font-mono text-center"
                           style={{ background: '#0c0c14', border: '1px solid #1e1e32' }}
@@ -720,27 +692,26 @@ Please confirm order availability and payment details.`
                       onClick={handleAdd}
                       className="flex-1 h-12 px-4 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer hover:opacity-95"
                       style={{
-                        background: added ? '#22c55e' : '#d9777f',
-                        color: '#ffffff',
+                        background: added ? '#22c55e' : '#1e1e32',
+                        color: added ? '#ffffff' : '#e5e7eb',
+                        border: '1px solid #2e2e48',
                       }}
                     >
-                      {added ? '✓ Added to Cart' : 'Add to cart'}
+                      {added ? '✓ Added to Cart' : '🛒 Add to cart'}
                     </button>
 
-                    {/* Order via Whatsapp */}
+                    {/* Buy Now */}
                     <button
                       type="button"
-                      onClick={handleOrderWhatsApp}
-                      className="flex-1 h-12 px-4 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer hover:opacity-95 text-white"
-                      style={{ background: '#25D366' }}
+                      onClick={handleBuyNow}
+                      className="flex-1 h-12 px-4 rounded-lg font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer hover:opacity-95 text-white"
+                      style={{ background: '#00b341' }}
                     >
-                      <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.699c.971.53 1.77.781 2.796.781 3.182 0 5.768-2.587 5.769-5.766.001-3.182-2.585-5.767-5.769-5.767zm7.553 5.766c-.001 4.162-3.388 7.548-7.553 7.548-1.309 0-2.316-.328-3.323-.884l-4.708 1.235 1.259-4.595c-.628-1.077-.96-2.072-.96-3.304 0-4.163 3.387-7.549 7.552-7.549 4.164 0 7.551 3.386 7.551 7.549z"/>
-                      </svg>
-                      <span>Order via Whatsapp</span>
+                      ⚡ Buy Now
                     </button>
                   </div>
 
+                  {/* Add to Wishlist */}
                   {/* Add to Wishlist */}
                   <button
                     type="button"

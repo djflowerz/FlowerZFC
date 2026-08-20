@@ -2,11 +2,10 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { toast as toastLib } from 'react-toastify'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { getPaymentConfig } from '../services/paymentService'
 import { fetchLiveMatches, fetchLiveStandings, fetchLiveFixtures, getUserTimezoneInfo, fetchLiveCatalogStats, type LiveMatch, type LiveStanding, type LiveFixture, type LiveCatalogStats } from '../services/liveScoreApi'
 import { getIngestedPosts, fetchLiveIngestedPosts, transformContentContext, filterPostsByDate, downloadImageAsset, IngestedPost } from '../services/contentIngestion'
 import { getAuthUser, loginWithEmail, hasTabAccessRole, setAuthSession, SUPER_ADMIN_EMAIL, type UserRole, type AuthProfile } from '../services/authService'
-import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, updateProduct, createProduct, fetchAllAdSlots, saveAdSlotToDb, deleteAdSlotFromDb, uploadAdCreative, updateUserRoleAndStatus, uploadMixCover, type ArticleRow, type CommentRow, type TicketRow, type MixRow, type AdSlotRow } from '../services/supabaseClient'
+import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, updateProduct, createProduct, uploadProductImage, compressImageToDataUrl, fetchAllAdSlots, saveAdSlotToDb, deleteAdSlotFromDb, uploadAdCreative, updateUserRoleAndStatus, uploadMixCover, type ArticleRow, type CommentRow, type TicketRow, type MixRow, type AdSlotRow } from '../services/supabaseClient'
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
 import {
@@ -584,6 +583,7 @@ export default function Admin() {
   const [holdAllComments,   setHoldAllComments]   = useState(false)
   const [editCommentItem,setEditCommentItem]= useState<any>(null)
   const [subsSearch,     setSubsSearch]     = useState('')
+  const [isPublishingProduct, setIsPublishingProduct] = useState(false)
 
   // Detail/edit modal state
   const [detailOrder,    setDetailOrder]    = useState<Order | null>(null)
@@ -5254,28 +5254,16 @@ export default function Admin() {
                   </div>
                 </div>
                 {((editProduct as any).printing_enabled ?? editProduct.customizable) && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-3 rounded-lg border border-[#00b341]/30" style={{ background: 'rgba(0,179,65,0.06)' }}>
-                    <div>
-                      <label className="block text-[10px] font-bold text-[#00b341] mb-1">Printing Extra Fee (KES)</label>
-                      <input
-                        type="number"
-                        value={(editProduct as any).printing_price ?? 300}
-                        onChange={e => setEditProduct(p => p ? { ...p, printing_price: parseFloat(e.target.value) || 0 } : p)}
-                        placeholder="300"
-                        className={INPUT}
-                        style={INPUT_STYLE}
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-[10px] font-bold text-gray-400 mb-1">Pre-loaded Squad Players (auto-fills dropdown)</label>
-                      <input
-                        value={editProduct.playerList || ''}
-                        onChange={e => setEditProduct(p => p ? { ...p, playerList: e.target.value } : p)}
-                        placeholder="Cole Palmer #20, Enzo Fernández #8, Moises Caicedo #25"
-                        className={INPUT}
-                        style={INPUT_STYLE}
-                      />
-                    </div>
+                  <div className="p-3 rounded-lg border border-[#00b341]/30" style={{ background: 'rgba(0,179,65,0.06)' }}>
+                    <label className="block text-[10px] font-bold text-[#00b341] mb-1">Printing Extra Fee (KES)</label>
+                    <input
+                      type="number"
+                      value={(editProduct as any).printing_price ?? 200}
+                      onChange={e => setEditProduct(p => p ? { ...p, printing_price: parseFloat(e.target.value) || 0 } : p)}
+                      placeholder="200"
+                      className={INPUT}
+                      style={INPUT_STYLE}
+                    />
                   </div>
                 )}
               </div>
@@ -5425,77 +5413,96 @@ export default function Admin() {
         <Modal title={newProduct.type === 'digital' ? 'Upload New Digital File / Asset' : 'Add New Football Kit / Merch'} onClose={() => setShowAddProduct(false)}>
           <form onSubmit={async e => {
             e.preventDefault()
-            if (!newProduct.name || !newProduct.price) return
-            const mainImg = newProduct.images[0] || newProduct.imageUrl || (newProduct.type === 'digital' ? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&h=600&fit=crop' : 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=600&h=600&fit=crop')
-            const prod: any = {
-              id: `p-${Date.now()}`,
-              type: newProduct.type,
-              digital_file_url: newProduct.type === 'digital' ? (newProduct.digitalFileUrl || null) : null,
-              access_password: newProduct.type === 'digital' ? (newProduct.accessPassword || null) : null,
-              platforms: newProduct.type === 'digital' ? (newProduct.platforms || ['mac', 'windows', 'android']) : [],
-              mac_url: newProduct.type === 'digital' ? (newProduct.macUrl || null) : null,
-              windows_url: newProduct.type === 'digital' ? (newProduct.windowsUrl || null) : null,
-              android_url: newProduct.type === 'digital' ? (newProduct.androidUrl || null) : null,
-              ios_url: newProduct.type === 'digital' ? (newProduct.iosUrl || null) : null,
-              name: newProduct.name,
-              sku: newProduct.sku || `SKU-${Date.now().toString().slice(-6)}`,
-              description: newProduct.description,
-              category: newProduct.category || (newProduct.type === 'digital' ? 'E-Books & Tactical Guides' : 'Kits'),
-              team: newProduct.type === 'digital' ? '' : newProduct.team,
-              league: newProduct.type === 'digital' ? '' : newProduct.league,
-              season: newProduct.type === 'digital' ? '' : newProduct.season,
-              kitType: newProduct.type === 'digital' ? '' : newProduct.kitType,
-              version: newProduct.type === 'digital' ? (newProduct.version || 'Digital File') : newProduct.version,
-              price: parseFloat(newProduct.price) || 0,
-              comparePrice: parseFloat(newProduct.comparePrice) || 0,
-              costPerItem: parseFloat(newProduct.costPerItem) || 0,
-              stock: newProduct.type === 'digital' ? 9999 : (parseInt(newProduct.stock) || 50),
-              lowStockThreshold: parseInt(newProduct.lowStockThreshold) || 5,
-              sales: 0,
-              status: 'Active',
-              featured: false,
-              images: newProduct.images.length > 0 ? newProduct.images : [mainImg],
-              imageUrl: mainImg,
-              sizeChartUrl: newProduct.type === 'digital' ? '' : newProduct.sizeChartUrl,
-              sizes: newProduct.type === 'digital' ? ['Digital'] : newProduct.sizes,
-              gender: newProduct.type === 'digital' ? 'Unisex' : newProduct.gender,
-              customizable: newProduct.type === 'digital' ? false : newProduct.customizable,
-              playerList: newProduct.playerList,
-              customNameLimit: parseInt(newProduct.customNameLimit) || 12,
-              availablePatches: newProduct.availablePatches,
-              weight: newProduct.type === 'digital' ? '0' : (newProduct.weight || '0.35'),
-              dimensions: newProduct.dimensions,
-              slug: newProduct.slug || slugify(newProduct.name),
-              metaTitle: newProduct.metaTitle || newProduct.name,
-              metaDescription: newProduct.metaDescription || newProduct.description,
-              colors: newProduct.colors,
-              tags: newProduct.tags,
-              addons: (newProduct as any).addons || null,
-              info_shipping: (newProduct as any).info_shipping || null,
-              info_sizing: (newProduct as any).info_sizing || null,
-              info_returns: (newProduct as any).info_returns || null,
-              info_assistance: (newProduct as any).info_assistance || null,
-              spec_material: (newProduct as any).spec_material || null,
-              spec_fit: (newProduct as any).spec_fit || null,
-              spec_origin: (newProduct as any).spec_origin || null,
-              spec_care: (newProduct as any).spec_care || null,
-              printing_enabled: Boolean((newProduct as any).printing_enabled),
-              printing_price: parseFloat((newProduct as any).printing_price) || 0,
-            }
+            const trimmedName = newProduct.name ? newProduct.name.trim() : ''
+            const parsedPrice = parseFloat(newProduct.price)
 
-            const { product: savedProduct, error } = await createProduct(prod)
-            if (error || !savedProduct) {
-              toastLib.error('❌ Failed to save product. Please try again.')
-              console.error('Create product error:', error)
+            if (!trimmedName) {
+              toastLib.error('⚠️ Please enter a Product Name before publishing.')
               return
             }
+            if (!newProduct.price || isNaN(parsedPrice) || parsedPrice <= 0) {
+              toastLib.error('⚠️ Please enter a valid Price (greater than 0).')
+              return
+            }
+
+            setIsPublishingProduct(true)
             try {
-              localStorage.removeItem('flowerzfc_admin_product_draft')
-            } catch {}
-            setProducts(p => [savedProduct as any, ...p])
-            setShowAddProduct(false)
-            setNewProduct(BLANK_PRODUCT)
-            toastLib.success(newProduct.type === 'digital' ? '✅ Digital File published to store!' : '✅ Kit published to store!')
+              const mainImg = newProduct.images[0] || newProduct.imageUrl || (newProduct.type === 'digital' ? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&h=600&fit=crop' : 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=600&h=600&fit=crop')
+              const prod: any = {
+                id: `p-${Date.now()}`,
+                type: newProduct.type,
+                digital_file_url: newProduct.type === 'digital' ? (newProduct.digitalFileUrl || null) : null,
+                access_password: newProduct.type === 'digital' ? (newProduct.accessPassword || null) : null,
+                platforms: newProduct.type === 'digital' ? (newProduct.platforms || ['mac', 'windows', 'android']) : [],
+                mac_url: newProduct.type === 'digital' ? (newProduct.macUrl || null) : null,
+                windows_url: newProduct.type === 'digital' ? (newProduct.windowsUrl || null) : null,
+                android_url: newProduct.type === 'digital' ? (newProduct.androidUrl || null) : null,
+                ios_url: newProduct.type === 'digital' ? (newProduct.iosUrl || null) : null,
+                name: trimmedName,
+                sku: newProduct.sku || `SKU-${Date.now().toString().slice(-6)}`,
+                description: newProduct.description || trimmedName,
+                category: newProduct.category || (newProduct.type === 'digital' ? 'E-Books & Tactical Guides' : 'Kits'),
+                team: newProduct.type === 'digital' ? '' : newProduct.team,
+                league: newProduct.type === 'digital' ? '' : newProduct.league,
+                season: newProduct.type === 'digital' ? '' : newProduct.season,
+                kitType: newProduct.type === 'digital' ? '' : newProduct.kitType,
+                version: newProduct.type === 'digital' ? (newProduct.version || 'Digital File') : newProduct.version,
+                price: parsedPrice,
+                comparePrice: parseFloat(newProduct.comparePrice) || 0,
+                costPerItem: parseFloat(newProduct.costPerItem) || 0,
+                stock: newProduct.type === 'digital' ? 9999 : (parseInt(newProduct.stock) || 50),
+                lowStockThreshold: parseInt(newProduct.lowStockThreshold) || 5,
+                sales: 0,
+                status: 'Active',
+                featured: false,
+                images: newProduct.images.length > 0 ? newProduct.images : [mainImg],
+                imageUrl: mainImg,
+                sizeChartUrl: newProduct.type === 'digital' ? '' : newProduct.sizeChartUrl,
+                sizes: newProduct.type === 'digital' ? ['Digital'] : newProduct.sizes,
+                gender: newProduct.type === 'digital' ? 'Unisex' : newProduct.gender,
+                customizable: newProduct.type === 'digital' ? false : newProduct.customizable,
+                playerList: newProduct.playerList || '',
+                customNameLimit: parseInt(newProduct.customNameLimit) || 12,
+                availablePatches: newProduct.availablePatches,
+                weight: newProduct.type === 'digital' ? '0' : (newProduct.weight || '0.35'),
+                dimensions: newProduct.dimensions,
+                slug: newProduct.slug || slugify(trimmedName),
+                metaTitle: newProduct.metaTitle || trimmedName,
+                metaDescription: newProduct.metaDescription || newProduct.description || trimmedName,
+                colors: newProduct.colors,
+                tags: newProduct.tags,
+                addons: (newProduct as any).addons || null,
+                info_shipping: (newProduct as any).info_shipping || null,
+                info_sizing: (newProduct as any).info_sizing || null,
+                info_returns: (newProduct as any).info_returns || null,
+                info_assistance: (newProduct as any).info_assistance || null,
+                spec_material: (newProduct as any).spec_material || null,
+                spec_fit: (newProduct as any).spec_fit || null,
+                spec_origin: (newProduct as any).spec_origin || null,
+                spec_care: (newProduct as any).spec_care || null,
+                printing_enabled: Boolean((newProduct as any).printing_enabled),
+                printing_price: parseFloat((newProduct as any).printing_price) || 0,
+              }
+
+              const { product: savedProduct, error } = await createProduct(prod)
+              if (error || !savedProduct) {
+                toastLib.error('❌ Failed to save product. Please try again.')
+                console.error('Create product error:', error)
+                return
+              }
+              try {
+                localStorage.removeItem('flowerzfc_admin_product_draft')
+              } catch {}
+              setProducts(p => [savedProduct as any, ...p])
+              setShowAddProduct(false)
+              setNewProduct(BLANK_PRODUCT)
+              toastLib.success(newProduct.type === 'digital' ? '✅ Digital File published to store!' : '✅ Kit published to store!')
+            } catch (submitErr) {
+              console.error('Submit product error:', submitErr)
+              toastLib.error('❌ An error occurred while saving. Please check your inputs.')
+            } finally {
+              setIsPublishingProduct(false)
+            }
           }} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
 
             {/* Draft status bar & Reset button */}
@@ -5539,26 +5546,24 @@ export default function Admin() {
               <div
                 onDragOver={e => { e.preventDefault(); e.stopPropagation(); setIsDragOverProduct(true) }}
                 onDragLeave={e => { e.preventDefault(); e.stopPropagation(); setIsDragOverProduct(false) }}
-                onDrop={e => {
+                onDrop={async e => {
                   e.preventDefault(); e.stopPropagation(); setIsDragOverProduct(false)
                   const files = e.dataTransfer.files
                   if (!files || files.length === 0) return
-                  Array.from(files).forEach(file => {
-                    if (!file.type.startsWith('image/')) return
-                    const reader = new FileReader()
-                    reader.onload = ev => {
-                      const res = ev.target?.result as string
-                      if (res) {
-                        setNewProduct(prev => {
-                          const cur = prev.images || []
-                          if (cur.length >= 8) return prev
-                          const updated = [...cur, res]
-                          return { ...prev, images: updated, imageUrl: updated[0] }
-                        })
-                      }
+                  for (const file of Array.from(files)) {
+                    if (!file.type.startsWith('image/')) continue
+                    try {
+                      const compressed = await compressImageToDataUrl(file, 1000, 0.75)
+                      setNewProduct(prev => {
+                        const cur = prev.images || []
+                        if (cur.length >= 8) return prev
+                        const updated = [...cur, compressed]
+                        return { ...prev, images: updated, imageUrl: updated[0] }
+                      })
+                    } catch (err) {
+                      console.warn('Image compression error:', err)
                     }
-                    reader.readAsDataURL(file)
-                  })
+                  }
                 }}
                 className={`p-4 rounded-xl border-2 border-dashed transition-all text-center cursor-pointer mb-3 ${
                   isDragOverProduct ? 'border-[#00b341] bg-[#00b341]/10' : 'border-[#1e1e32] bg-[#131320] hover:border-[#00b341]/50'
@@ -5566,25 +5571,23 @@ export default function Admin() {
               >
                 <span className="text-2xl block mb-1">📁</span>
                 <p className="text-xs font-bold text-white mb-0.5">Drag & Drop cover artwork here, or <span className="text-[#00b341] underline">browse device</span></p>
-                <p className="text-[10px] text-gray-500">Supports JPG, PNG, WEBP</p>
-                <input type="file" multiple accept="image/*" className="hidden" id="add-product-files" onChange={e => {
+                <p className="text-[10px] text-gray-500">Supports JPG, PNG, WEBP (auto-optimized)</p>
+                <input type="file" multiple accept="image/*" className="hidden" id="add-product-files" onChange={async e => {
                   const files = e.target.files
                   if (!files || files.length === 0) return
-                  Array.from(files).forEach(file => {
-                    const reader = new FileReader()
-                    reader.onload = ev => {
-                      const res = ev.target?.result as string
-                      if (res) {
-                        setNewProduct(prev => {
-                          const cur = prev.images || []
-                          if (cur.length >= 8) return prev
-                          const updated = [...cur, res]
-                          return { ...prev, images: updated, imageUrl: updated[0] }
-                        })
-                      }
+                  for (const file of Array.from(files)) {
+                    try {
+                      const compressed = await compressImageToDataUrl(file, 1000, 0.75)
+                      setNewProduct(prev => {
+                        const cur = prev.images || []
+                        if (cur.length >= 8) return prev
+                        const updated = [...cur, compressed]
+                        return { ...prev, images: updated, imageUrl: updated[0] }
+                      })
+                    } catch (err) {
+                      console.warn('Image compression error:', err)
                     }
-                    reader.readAsDataURL(file)
-                  })
+                  }
                 }} />
                 <label htmlFor="add-product-files" className="inline-block mt-2 px-3 py-1 text-[10px] font-bold text-white bg-[#00b341] rounded-lg cursor-pointer hover:opacity-90">Select Files</label>
               </div>
@@ -5933,28 +5936,16 @@ export default function Admin() {
                   </div>
                 </div>
                 {((newProduct as any).printing_enabled ?? newProduct.customizable) && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-3 rounded-lg border border-[#00b341]/30" style={{ background: 'rgba(0,179,65,0.06)' }}>
-                    <div>
-                      <label className="block text-[10px] font-bold text-[#00b341] mb-1">Printing Extra Fee (KES)</label>
-                      <input
-                        type="number"
-                        value={(newProduct as any).printing_price ?? 300}
-                        onChange={e => setNewProduct(p => ({ ...p, printing_price: parseFloat(e.target.value) || 0 }))}
-                        placeholder="300"
-                        className={INPUT}
-                        style={INPUT_STYLE}
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-[10px] font-bold text-gray-400 mb-1">Pre-loaded Squad Players (auto-fills dropdown)</label>
-                      <input
-                        value={newProduct.playerList || ''}
-                        onChange={e => setNewProduct(p => ({ ...p, playerList: e.target.value }))}
-                        placeholder="Cole Palmer #20, Enzo Fernández #8, Moises Caicedo #25"
-                        className={INPUT}
-                        style={INPUT_STYLE}
-                      />
-                    </div>
+                  <div className="p-3 rounded-lg border border-[#00b341]/30" style={{ background: 'rgba(0,179,65,0.06)' }}>
+                    <label className="block text-[10px] font-bold text-[#00b341] mb-1">Printing Extra Fee (KES)</label>
+                    <input
+                      type="number"
+                      value={(newProduct as any).printing_price ?? 200}
+                      onChange={e => setNewProduct(p => ({ ...p, printing_price: parseFloat(e.target.value) || 0 }))}
+                      placeholder="200"
+                      className={INPUT}
+                      style={INPUT_STYLE}
+                    />
                   </div>
                 )}
               </div>
@@ -6149,8 +6140,20 @@ export default function Admin() {
               </div>
             )}
 
-            <button type="submit" className="w-full py-3.5 font-black text-white rounded-xl hover:opacity-90 sticky bottom-0" style={{ background: newProduct.type === 'digital' ? '#6366f1' : '#00b341' }}>
-              {newProduct.type === 'digital' ? '+ Publish Digital File to Store' : '+ Publish Product to Store'}
+            <button
+              type="submit"
+              disabled={isPublishingProduct}
+              className="w-full py-3.5 font-black text-white rounded-xl hover:opacity-90 sticky bottom-0 flex items-center justify-center gap-2 cursor-pointer shadow-lg disabled:opacity-50"
+              style={{ background: newProduct.type === 'digital' ? '#6366f1' : '#00b341' }}
+            >
+              {isPublishingProduct ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Publishing Product to Store...</span>
+                </>
+              ) : (
+                newProduct.type === 'digital' ? '+ Publish Digital File to Store' : '+ Publish Product to Store'
+              )}
             </button>
           </form>
         </Modal>
