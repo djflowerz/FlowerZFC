@@ -4635,9 +4635,58 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* ⚽ BASIC PRODUCT & FOOTBALL METADATA */}
+            {/* ⚽ PRODUCT TYPE & METADATA */}
             <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
-              <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">⚽ Basic Information & Football Metadata</label>
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">⚽ Product Type & Basic Information</label>
+                <div className="flex items-center gap-1 bg-[#131320] p-1 rounded-lg border border-[#1e1e32]">
+                  <button
+                    type="button"
+                    onClick={() => setEditProduct(p => p ? { ...p, type: 'physical' } : p)}
+                    className={`px-2.5 py-1 text-[10px] font-black rounded transition-all ${(editProduct.type || 'physical') !== 'digital' ? 'bg-[#00b341] text-white' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    📦 Physical
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditProduct(p => p ? { ...p, type: 'digital' } : p)}
+                    className={`px-2.5 py-1 text-[10px] font-black rounded transition-all ${editProduct.type === 'digital' ? 'bg-[#6366f1] text-white' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    💾 Digital
+                  </button>
+                </div>
+              </div>
+
+              {/* Digital Specific Config */}
+              {editProduct.type === 'digital' && (
+                <div className="p-3 rounded-xl border border-[#6366f1]/30 space-y-2.5" style={{ background: 'rgba(99,102,241,0.06)' }}>
+                  <div className="flex items-center gap-1.5 text-xs font-black text-[#a5b4fc]">
+                    <span>💾</span>
+                    <span>Digital Product Delivery Settings</span>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 mb-1">Direct Download File URL *</label>
+                    <input
+                      value={editProduct.digital_file_url || (editProduct as any).digitalFileUrl || ''}
+                      onChange={e => setEditProduct(p => p ? { ...p, digital_file_url: e.target.value, digitalFileUrl: e.target.value } : p)}
+                      placeholder="https://storage.flowerz.fc/downloads/file.zip"
+                      className={INPUT}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 mb-1">Access Password / Unlock Key</label>
+                    <input
+                      value={editProduct.access_password || (editProduct as any).accessPassword || ''}
+                      onChange={e => setEditProduct(p => p ? { ...p, access_password: e.target.value, accessPassword: e.target.value } : p)}
+                      placeholder="e.g. VIP-PASS-2026"
+                      className={INPUT}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block text-[10px] font-bold text-gray-500 mb-1">Product Title *</label>
                 <input value={editProduct.name} onChange={e => setEditProduct(p => p ? { ...p, name: e.target.value, slug: slugify(e.target.value) } : p)} placeholder="e.g. Arsenal FC Home Jersey 2026/27" className={INPUT} style={INPUT_STYLE} />
@@ -4650,7 +4699,7 @@ export default function Admin() {
                 <div>
                   <label className="block text-[10px] font-bold text-gray-500 mb-1">Category</label>
                   <select value={editProduct.category} onChange={e => setEditProduct(p => p ? { ...p, category: e.target.value } : p)} className={INPUT} style={INPUT_STYLE}>
-                    {['Kits','Training Gear','Accessories','Souvenirs'].map(c => <option key={c}>{c}</option>)}
+                    {['Kits','Training Gear','Accessories','Souvenirs','Digital Guides','E-Books','Wallpapers','Audio Passes'].map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
@@ -4939,11 +4988,61 @@ export default function Admin() {
               )}
             </div>
 
-            {/* ⚽ BASIC PRODUCT & FOOTBALL METADATA */}
+            {/* ⚽ PRODUCT TYPE & METADATA */}
             <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
-              <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">⚽ Basic Information & Football Metadata</label>
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">⚽ Product Type & Basic Information</label>
+                <div className="flex items-center gap-1 bg-[#131320] p-1 rounded-lg border border-[#1e1e32]">
+                  <button
+                    type="button"
+                    onClick={() => setNewProduct(p => ({ ...p, type: 'physical' }))}
+                    className={`px-2.5 py-1 text-[10px] font-black rounded transition-all ${newProduct.type !== 'digital' ? 'bg-[#00b341] text-white' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    📦 Physical Merch
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewProduct(p => ({ ...p, type: 'digital' }))}
+                    className={`px-2.5 py-1 text-[10px] font-black rounded transition-all ${newProduct.type === 'digital' ? 'bg-[#6366f1] text-white' : 'text-gray-400 hover:text-white'}`}
+                  >
+                    💾 Digital Download
+                  </button>
+                </div>
+              </div>
+
+              {/* Digital Specific Config */}
+              {newProduct.type === 'digital' && (
+                <div className="p-3 rounded-xl border border-[#6366f1]/30 space-y-2.5" style={{ background: 'rgba(99,102,241,0.06)' }}>
+                  <div className="flex items-center gap-1.5 text-xs font-black text-[#a5b4fc]">
+                    <span>💾</span>
+                    <span>Digital Product Delivery Settings</span>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 mb-1">Direct Download File URL (Dropbox, Google Drive, R2, S3, etc.) *</label>
+                    <input
+                      value={newProduct.digitalFileUrl}
+                      onChange={e => setNewProduct(p => ({ ...p, digitalFileUrl: e.target.value }))}
+                      placeholder="https://storage.flowerz.fc/downloads/sample.zip"
+                      className={INPUT}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 mb-1">Access Password / Unlock Key (optional)</label>
+                    <input
+                      value={newProduct.accessPassword}
+                      onChange={e => setNewProduct(p => ({ ...p, accessPassword: e.target.value }))}
+                      placeholder="e.g. VIP-2026-FLOWERZ"
+                      className={INPUT}
+                      style={INPUT_STYLE}
+                    />
+                    <p className="text-[9px] text-gray-500 mt-1">If set, customers will be shown this password upon successful checkout and can unlock direct downloads on the product page.</p>
+                  </div>
+                </div>
+              )}
+
               <div>
-                <label className="block text-[10px] font-bold text-gray-500 mb-1">Product Title * (e.g. "Arsenal FC Home Jersey 2026/27")</label>
+                <label className="block text-[10px] font-bold text-gray-500 mb-1">Product Title * (e.g. "Arsenal FC Home Jersey 2026/27" or "Tactics Playbook 2026 PDF")</label>
                 <input value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value, slug: slugify(e.target.value) }))} placeholder="Official name..." required className={INPUT} style={INPUT_STYLE} />
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -4954,7 +5053,7 @@ export default function Admin() {
                 <div>
                   <label className="block text-[10px] font-bold text-gray-500 mb-1">Category</label>
                   <select value={newProduct.category} onChange={e => setNewProduct(p => ({ ...p, category: e.target.value }))} className={INPUT} style={INPUT_STYLE}>
-                    {['Kits','Training Gear','Accessories','Souvenirs'].map(c => <option key={c}>{c}</option>)}
+                    {['Kits','Training Gear','Accessories','Souvenirs','Digital Guides','E-Books','Wallpapers','Audio Passes'].map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
               </div>

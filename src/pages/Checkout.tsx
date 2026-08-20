@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { initiatePayment } from '../services/paymentService'
 import { calculateShippingQuotes, getShippingConfig, type ShippingQuoteOption } from '../services/shippingService'
-import { createOrder } from '../services/supabaseClient'
+import { createOrder, fetchAllProducts } from '../services/supabaseClient'
 
-type Step = 'shipping' | 'payment' | 'verifying' | 'confirmation' | 'failed'
+type Step = 'contact' | 'shipping' | 'payment' | 'verifying' | 'confirmation' | 'failed'
 type PayMethod = 'card' | 'mpesa' | 'paypal'
 
 const inputCls = 'w-full px-4 py-3 text-sm text-white placeholder-gray-500 rounded-xl outline-none focus:ring-1 focus:ring-[#00b341] transition-all'
@@ -13,12 +13,44 @@ const inputStyle = { background: '#0c0c14', border: '1px solid #1e1e32' }
 
 export default function Checkout() {
   const { cart, cartTotal, clearCart, user, t } = useApp()
-  const [step, setStep] = useState<Step>('shipping')
   const [orderNum] = useState(`FZ${Date.now().toString().slice(-6)}`)
-
   const [errorMessage, setErrorMessage] = useState('')
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuoteOption[]>([])
   const [fetchingQuotes, setFetchingQuotes] = useState(false)
+
+  // Digital products detection — match cart items against DB products
+  const [cartProductTypes, setCartProductTypes] = useState<Record<string, 'physical' | 'digital'>>({})
+  const [cartDigitalFiles, setCartDigitalFiles] = useState<Record<string, string | null>>({})
+  const [cartDigitalPasswords, setCartDigitalPasswords] = useState<Record<string, string | null>>({})
+
+  useEffect(() => {
+    fetchAllProducts().then(({ products }) => {
+      if (!products) return
+      const types: Record<string, 'physical' | 'digital'> = {}
+      const files: Record<string, string | null> = {}
+      const passwords: Record<string, string | null> = {}
+      products.forEach((p: any) => {
+        types[String(p.id)] = p.type || 'physical'
+        files[String(p.id)] = p.digital_file_url || null
+        passwords[String(p.id)] = p.access_password || null
+      })
+      setCartProductTypes(types)
+      setCartDigitalFiles(files)
+      setCartDigitalPasswords(passwords)
+    })
+  }, [])
+
+  const isAllDigital = cart.length > 0 && cart.every(item => cartProductTypes[item.id] === 'digital')
+  const hasDigitalItems = cart.some(item => cartProductTypes[item.id] === 'digital')
+
+  // Start step: if all digital, skip shipping and start at contact; else start at shipping
+  const [step, setStep] = useState<Step>('shipping')
+
+  useEffect(() => {
+    if (isAllDigital && step === 'shipping') {
+      setStep('contact')
+    }
+  }, [isAllDigital])
 
   const [shipping, setShipping] = useState({
     name: user?.name || '',
@@ -39,17 +71,14 @@ export default function Checkout() {
   const [tip, setTip] = useState(0)
   const [customTip, setCustomTip] = useState('')
 
-  // Card & M-Pesa fields
   const [card, setCard] = useState({ number: '', expiry: '', cvv: '', name: '' })
   const [mpesaPhone, setMpesaPhone] = useState('')
   const [paypalEmail, setPaypalEmail] = useState('')
-
-  // Verification state & saved cart items for receipt
   const [countdown, setCountdown] = useState(6)
   const [savedCartItems] = useState<typeof cart>(cart)
 
-  // Fetch Easyship quotes whenever shipping location or cart changes
   useEffect(() => {
+    if (isAllDigital) return // No shipping needed for digital only carts
     if (!shipping.country) return
     setFetchingQuotes(true)
     const code = shipping.country.toLowerCase().includes('kenya') ? 'KE' : 'INT'
@@ -70,19 +99,18 @@ export default function Checkout() {
       const matched = res.quotes.find(q => q.tier === shippingMethod) || res.quotes[0]
       if (matched) setSelectedQuote(matched)
       setFetchingQuotes(false)
-    }).catch(() => {
-      setFetchingQuotes(false)
-    })
-  }, [cart, shipping.country, shipping.city, shippingMethod])
+    }).catch(() => setFetchingQuotes(false))
+  }, [cart, shipping.country, shipping.city, shippingMethod, isAllDigital])
 
-  const shippingCost = selectedQuote ? selectedQuote.price : (shippingMethod === 'express' ? 15 : shippingMethod === 'standard' ? 5 : 0)
+  const shippingCost = isAllDigital ? 0 : (selectedQuote ? selectedQuote.price : (shippingMethod === 'express' ? 15 : shippingMethod === 'standard' ? 5 : 0))
   const tipAmount = customTip !== '' ? parseFloat(customTip) || 0 : tip
   const grandTotal = cartTotal + shippingCost + tipAmount
 
   const tipOptions = [0, 1, 2, 5]
 
-  const canProceedShipping = shipping.name && shipping.email && shipping.phone
-  const canProceedPayment = true // Paystack inline will validate inputs
+  const canProceedContact = shipping.name && shipping.email && shipping.phone
+  const canProceedShipping = canProceedContact
+  const canProceedPayment = true
 
   const handleStartPayment = async () => {
     if (!canProceedPayment) return
@@ -186,7 +214,7 @@ export default function Checkout() {
         {step !== 'confirmation' && step !== 'failed' && (
           <div className="flex items-center gap-3 mb-8">
             {[
-              { s: 'shipping', label: 'Shipping' },
+              { s: isAllDigital ? 'contact' : 'shipping', label: isAllDigital ? 'Contact' : 'Shipping' },
               { s: 'payment', label: 'Payment' },
               { s: 'verifying', label: 'Verifying' },
             ].map((st, i) => (
@@ -195,7 +223,7 @@ export default function Checkout() {
                   className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all"
                   style={{
                     background: step === st.s || (i === 0 && (step === 'payment' || step === 'verifying')) || (i === 1 && step === 'verifying')
-                      ? '#00b341'
+                      ? (isAllDigital ? '#6366f1' : '#00b341')
                       : '#1e1e32',
                     color: '#fff',
                   }}
@@ -208,6 +236,7 @@ export default function Checkout() {
             ))}
           </div>
         )}
+
 
         {/* PAYMENT FAILED STATE */}
         {step === 'failed' && (
@@ -238,10 +267,10 @@ export default function Checkout() {
               </button>
 
               <button
-                onClick={() => setStep('shipping')}
+                onClick={() => setStep(isAllDigital ? 'contact' : 'shipping')}
                 className="w-full py-2.5 text-xs font-bold text-gray-400 hover:text-white rounded-xl border border-[#1e1e32]"
               >
-                ← Back to Shipping Details
+                ← Back to {isAllDigital ? 'Contact Info' : 'Shipping Details'}
               </button>
             </div>
           </div>
@@ -309,41 +338,113 @@ export default function Checkout() {
 
         {/* ORDER CONFIRMED STATE */}
         {step === 'confirmation' && (
-          <div className="text-center py-20 max-w-xl mx-auto rounded-2xl border border-[#00b341]" style={{ background: '#131320' }}>
-            <div className="text-7xl mb-4 animate-bounce">🎉</div>
-            <h2 className="text-4xl font-black text-white mb-2" style={{ fontFamily: 'Big Shoulders Display' }}>
-              Payment Received & Order Confirmed!
-            </h2>
-            <p className="text-gray-400 mb-1">Order <strong className="text-[#00b341]">#{orderNum}</strong> is paid and being processed.</p>
-            <p className="text-sm text-gray-500 mb-2">Confirmation receipt sent to {shipping.email || 'your email'}.</p>
-            <p className="text-xs text-gray-600 mb-8">Estimated delivery: 7–14 business days.</p>
+          <div className="max-w-xl mx-auto space-y-6">
+            <div className="text-center py-10 rounded-2xl border border-[#00b341]" style={{ background: '#131320' }}>
+              <div className="text-7xl mb-4 animate-bounce">{isAllDigital ? '💾' : '🎉'}</div>
+              <h2 className="text-4xl font-black text-white mb-2" style={{ fontFamily: 'Big Shoulders Display' }}>
+                {isAllDigital ? 'Purchase Complete! Download Ready.' : 'Payment Received & Order Confirmed!'}
+              </h2>
+              <p className="text-gray-400 mb-1">Order <strong className="text-[#00b341]">#{orderNum}</strong> is paid.</p>
+              <p className="text-sm text-gray-500 mb-2">Confirmation receipt sent to {shipping.email || 'your email'}.</p>
+              {!isAllDigital && <p className="text-xs text-gray-600 mb-4">Estimated delivery: 7–14 business days.</p>}
 
-            <div className="p-4 rounded-xl border border-[#1e1e32] text-xs text-left mb-8 max-w-md mx-auto" style={{ background: '#0d0d1e' }}>
-              <div className="flex justify-between font-bold text-white mb-2 pb-2 border-b border-[#1e1e32]">
-                <span>Payment Summary</span>
-                <span className="text-[#00b341]">${grandTotal.toFixed(2)} Paid</span>
+              <div className="p-4 rounded-xl border border-[#1e1e32] text-xs text-left mb-6 max-w-md mx-auto" style={{ background: '#0d0d1e' }}>
+                <div className="flex justify-between font-bold text-white mb-2 pb-2 border-b border-[#1e1e32]">
+                  <span>Payment Summary</span>
+                  <span className="text-[#00b341]">${grandTotal.toFixed(2)} Paid</span>
+                </div>
+                <div className="space-y-1 text-gray-400">
+                  <p>Method: <strong className="text-white capitalize">{payMethod}</strong></p>
+                  <p>Customer: <strong className="text-white">{shipping.name}</strong></p>
+                  {!isAllDigital && <p>Destination: <strong className="text-white">{shipping.city}, {shipping.country}</strong></p>}
+                </div>
               </div>
-              <div className="space-y-1 text-gray-400">
-                <p>Method: <strong className="text-white capitalize">{payMethod}</strong></p>
-                <p>Customer: <strong className="text-white">{shipping.name}</strong></p>
-                <p>Destination: <strong className="text-white">{shipping.city}, {shipping.country}</strong></p>
-              </div>
+
+              <Link to="/" className="inline-block px-8 py-3 text-sm font-bold text-white rounded-xl shadow-xl transition-all hover:opacity-90" style={{ background: '#00b341' }}>
+                Back to Home
+              </Link>
             </div>
 
-            <Link to="/" className="inline-block px-8 py-3 text-sm font-bold text-white rounded-xl shadow-xl transition-all hover:opacity-90" style={{ background: '#00b341' }}>
-              Back to Home
-            </Link>
+            {/* Digital Download Section */}
+            {hasDigitalItems && (
+              <div className="p-6 rounded-2xl border border-[#6366f1]/40 space-y-4" style={{ background: 'rgba(99,102,241,0.06)' }}>
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">💾</span>
+                  <div>
+                    <h3 className="font-black text-white text-lg" style={{ fontFamily: 'Big Shoulders Display' }}>Your Digital Downloads</h3>
+                    <p className="text-xs text-[#a5b4fc]">Click below to download your files. Links are also sent to your email.</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {savedCartItems.filter(item => cartProductTypes[item.id] === 'digital').map(item => (
+                    <div key={item.id} className="p-4 rounded-xl border border-[#6366f1]/30" style={{ background: '#131320' }}>
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-3">
+                          <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                          <div>
+                            <p className="text-sm font-bold text-white">{item.name}</p>
+                            <p className="text-[10px] text-[#a5b4fc]">💾 Digital Product</p>
+                          </div>
+                        </div>
+                      </div>
+                      {cartDigitalFiles[item.id] ? (
+                        <a
+                          href={cartDigitalFiles[item.id]!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download
+                          className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-black text-white rounded-lg transition-all hover:opacity-90"
+                          style={{ background: '#22c55e' }}
+                        >
+                          ⬇️ Download {item.name}
+                        </a>
+                      ) : (
+                        <div className="py-2.5 px-3 rounded-lg text-xs text-yellow-300 border border-yellow-500/30" style={{ background: 'rgba(234,179,8,0.06)' }}>
+                          📧 Download link sent to <strong>{shipping.email}</strong>. Check your inbox within 5 minutes.
+                          {cartDigitalPasswords[item.id] && (
+                            <p className="mt-1">🔑 Access Password: <strong className="font-mono text-white">{cartDigitalPasswords[item.id]}</strong></p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* FORM STEPS */}
-        {(step === 'shipping' || step === 'payment') && (
+        {(step === 'contact' || step === 'shipping' || step === 'payment') && (
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Left: Form */}
             <div className="lg:col-span-2 space-y-6">
 
-              {/* SHIPPING */}
+              {/* DIGITAL-ONLY CONTACT STEP */}
+              {step === 'contact' && (
+                <div className="p-6 rounded-2xl border border-[#6366f1]/40 space-y-4" style={{ background: '#131320' }}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-2xl">💾</span>
+                    <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>Digital Purchase — Contact Info</h2>
+                  </div>
+                  <p className="text-xs text-[#a5b4fc] mb-4">No shipping required. We just need your name and email to send download links & receipt.</p>
+                  <div className="space-y-3">
+                    <input value={shipping.name} onChange={e => setShipping(s => ({ ...s, name: e.target.value }))} placeholder="Full Name *" className={inputCls} style={inputStyle} />
+                    <input value={shipping.email} onChange={e => setShipping(s => ({ ...s, email: e.target.value }))} placeholder="Email Address * (download links sent here)" type="email" className={inputCls} style={inputStyle} />
+                    <input value={shipping.phone} onChange={e => setShipping(s => ({ ...s, phone: e.target.value }))} placeholder="Phone / WhatsApp *" className={inputCls} style={inputStyle} />
+                  </div>
+                  <div className="flex gap-3 pt-4 border-t border-[#1e1e32]">
+                    <Link to="/shop" className="px-5 py-3 text-xs font-bold text-gray-400 hover:text-white rounded-xl border border-[#1e1e32] transition-colors">Cancel</Link>
+                    <button onClick={() => canProceedContact && setStep('payment')} disabled={!canProceedContact} className="flex-1 py-3 text-sm font-black text-white rounded-xl transition-all disabled:opacity-40 hover:opacity-90" style={{ background: '#6366f1', fontFamily: 'Big Shoulders Display' }}>
+                      Continue to Payment →
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* PHYSICAL SHIPPING STEP */}
               {step === 'shipping' && (
+
                 <div className="p-6 rounded-2xl border border-[#1e1e32] space-y-4" style={{ background: '#131320' }}>
                   <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>
                     🚚 Shipping Details
@@ -574,9 +675,10 @@ export default function Checkout() {
                   </div>
 
                   <div className="flex gap-3 mt-6 pt-4 border-t border-[#1e1e32]">
-                    <button onClick={() => setStep('shipping')} className="px-5 py-3 text-xs font-bold text-gray-400 hover:text-white rounded-xl border border-[#1e1e32] transition-colors">
+                    <button onClick={() => setStep(isAllDigital ? 'contact' : 'shipping')} className="px-5 py-3 text-xs font-bold text-gray-400 hover:text-white rounded-xl border border-[#1e1e32] transition-colors">
                       ← Back
                     </button>
+
                     <button
                       onClick={handleStartPayment}
                       disabled={!canProceedPayment}

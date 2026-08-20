@@ -16,6 +16,9 @@ export interface ProductType {
   reviews: number
   images: string[]
   description: string
+  type?: 'physical' | 'digital'
+  digital_file_url?: string | null
+  access_password?: string | null
 }
 type SortOption = 'newest' | 'popular' | 'price-asc' | 'price-desc'
 
@@ -126,7 +129,11 @@ export default function Shop() {
             reviews: p.reviews || p.comments_count || 18,
             images: parsedImages,
             description: p.description || p.name,
+            type: p.type || 'physical',
+            digital_file_url: p.digital_file_url || null,
+            access_password: p.access_password || null,
           }
+
         })
         setProductList(formatted.length > 0 ? formatted : DEFAULT_SHOP_PRODUCTS)
       } else {
@@ -268,6 +275,12 @@ export default function Shop() {
                       {p.badge}
                     </span>
                   )}
+                  {/* Digital Product Badge */}
+                  {p.type === 'digital' && (
+                    <span className="absolute top-3 left-3 text-[9px] font-black px-2 py-0.5 rounded-full text-white flex items-center gap-1" style={{ background: '#6366f1', marginTop: p.badge ? '22px' : '0' }}>
+                      💾 DIGITAL
+                    </span>
+                  )}
                   {/* Sale tag */}
                   {p.originalPrice && (
                     <span className="absolute top-3 right-3 text-[9px] font-black px-2 py-0.5 rounded-full text-white bg-red-500">
@@ -275,15 +288,16 @@ export default function Shop() {
                     </span>
                   )}
 
-                  {/* Quick Add overlay */}
+                  {/* Quick Add / Quick Download overlay */}
                   <button
                     onClick={e => handleQuickAdd(e, p)}
                     className="absolute bottom-0 left-0 right-0 py-2.5 text-xs font-black text-white opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-full group-hover:translate-y-0"
-                    style={{ background: quickAdded === p.id ? '#22c55e' : '#00b341' }}
+                    style={{ background: quickAdded === p.id ? '#22c55e' : p.type === 'digital' ? '#6366f1' : '#00b341' }}
                   >
-                    {quickAdded === p.id ? '✓ Added to Cart!' : '+ Quick Add (Size M)'}
+                    {quickAdded === p.id ? '✓ Added!' : p.type === 'digital' ? '💾 Buy & Download' : '+ Quick Add (Size M)'}
                   </button>
                 </div>
+
 
                 {/* Info */}
                 <div className="p-4">
