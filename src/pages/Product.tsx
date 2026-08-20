@@ -221,103 +221,24 @@ export default function Product() {
                 </div>
 
                 <div className="flex gap-3">
-                  <button onClick={handleBuyNow} className="flex-1 py-4 text-sm font-black rounded-xl transition-all hover:opacity-90" style={{ background: '#6366f1', color: '#fff', fontFamily: 'Big Shoulders Display', fontSize: '15px' }}>
+                  <button onClick={handleBuyNow} className="flex-1 py-4 text-sm font-black rounded-xl transition-all hover:opacity-90 shadow-lg shadow-indigo-500/20" style={{ background: '#6366f1', color: '#fff', fontFamily: 'Big Shoulders Display', fontSize: '16px' }}>
                     💾 Buy & Download Now
                   </button>
                   <button onClick={handleAdd} className="py-4 px-5 text-sm font-black rounded-xl transition-all border hover:bg-[#6366f1]/10" style={{ color: added ? '#22c55e' : '#a5b4fc', borderColor: added ? '#22c55e' : '#6366f1', background: '#131320' }} title="Add to cart">
-                    {added ? '✓' : '🛒'}
+                    {added ? '✓ Added' : '🛒'}
                   </button>
                 </div>
 
-                <div className="p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#131320' }}>
-                  <p className="text-xs font-bold text-white mb-2">🔑 Already purchased? Access your download</p>
-                  {!showDownloadPanel ? (
-                    <div className="space-y-2">
-                      {product.access_password && (
-                        <div>
-                          <input type="text" value={passwordInput} onChange={e => { setPasswordInput(e.target.value); setPasswordError('') }} placeholder="Enter access password from your order email" className="w-full px-3 py-2 text-xs text-white placeholder-gray-500 rounded-lg outline-none focus:ring-1 focus:ring-[#6366f1]" style={{ background: '#0c0c14', border: '1px solid #1e1e32' }} />
-                          {passwordError && <p className="text-[10px] text-red-400 mt-1">{passwordError}</p>}
-                        </div>
-                      )}
-                      <button onClick={handleUnlockDownload} className="w-full py-2 text-xs font-bold text-white rounded-lg transition-all hover:opacity-90" style={{ background: '#6366f1' }}>Unlock Downloads →</button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 p-3 rounded-lg border border-[#6366f1]/40" style={{ background: 'rgba(99,102,241,0.1)' }}>
-                        <span className="text-xl">✅</span>
-                        <div>
-                          <p className="text-xs font-bold text-[#a5b4fc]">Downloads Ready!</p>
-                          <p className="text-[10px] text-gray-400">Choose your device or operating system below to download.</p>
-                        </div>
-                      </div>
-
-                      {/* Multi-OS Download Buttons */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {/* Mac */}
-                        {(product.mac_url || product.digital_file_url) && (
-                          <a
-                            href={product.mac_url || product.digital_file_url!}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            download
-                            className="flex items-center justify-center gap-2 py-3 px-4 text-xs font-black text-white rounded-xl transition-all hover:opacity-90 border border-white/20"
-                            style={{ background: '#1e1e38' }}
-                          >
-                            <span>🍏</span>
-                            <span>Download for macOS</span>
-                          </a>
-                        )}
-
-                        {/* Windows */}
-                        {(product.windows_url || product.digital_file_url) && (
-                          <a
-                            href={product.windows_url || product.digital_file_url!}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            download
-                            className="flex items-center justify-center gap-2 py-3 px-4 text-xs font-black text-white rounded-xl transition-all hover:opacity-90 border border-[#00a4ef]/30"
-                            style={{ background: 'rgba(0,164,239,0.12)', color: '#38bdf8' }}
-                          >
-                            <span>🪟</span>
-                            <span>Download for Windows</span>
-                          </a>
-                        )}
-
-                        {/* Android */}
-                        {(product.android_url || product.digital_file_url) && (
-                          <a
-                            href={product.android_url || product.digital_file_url!}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            download
-                            className="flex items-center justify-center gap-2 py-3 px-4 text-xs font-black text-white rounded-xl transition-all hover:opacity-90 border border-[#3ddc84]/30"
-                            style={{ background: 'rgba(61,220,132,0.12)', color: '#4ade80' }}
-                          >
-                            <span>🤖</span>
-                            <span>Download Android APK</span>
-                          </a>
-                        )}
-
-                        {/* Universal / Main */}
-                        {product.digital_file_url && (
-                          <a
-                            href={product.digital_file_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            download
-                            className="flex items-center justify-center gap-2 py-3 px-4 text-xs font-black text-white rounded-xl transition-all hover:opacity-90"
-                            style={{ background: '#22c55e' }}
-                          >
-                            <span>📦</span>
-                            <span>Universal Download (.ZIP)</span>
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                <div className="p-3.5 rounded-xl border border-[#1e1e32] flex items-center gap-3" style={{ background: '#131320' }}>
+                  <span className="text-xl">⚡</span>
+                  <div>
+                    <p className="text-xs font-bold text-white">Instant Automatic Delivery</p>
+                    <p className="text-[10px] text-gray-400">Download links and activation details are unlocked instantly on the confirmation screen & sent to your email.</p>
+                  </div>
                 </div>
               </div>
             ) : (
+
 
               <>
                 {isApparel && (

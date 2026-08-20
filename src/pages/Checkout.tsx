@@ -12,11 +12,12 @@ const inputCls = 'w-full px-4 py-3 text-sm text-white placeholder-gray-500 round
 const inputStyle = { background: '#0c0c14', border: '1px solid #1e1e32' }
 
 export default function Checkout() {
-  const { cart, cartTotal, clearCart, user, t } = useApp()
+  const { cart, cartTotal, clearCart, user, t, formatPrice } = useApp()
   const [orderNum] = useState(`FZ${Date.now().toString().slice(-6)}`)
   const [errorMessage, setErrorMessage] = useState('')
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuoteOption[]>([])
   const [fetchingQuotes, setFetchingQuotes] = useState(false)
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
 
   // Digital products detection — match cart items against DB products
   const [cartProductTypes, setCartProductTypes] = useState<Record<string, 'physical' | 'digital'>>({})
@@ -52,18 +53,25 @@ export default function Checkout() {
     })
   }, [])
 
-
   const isAllDigital = cart.length > 0 && cart.every(item => cartProductTypes[item.id] === 'digital')
   const hasDigitalItems = cart.some(item => cartProductTypes[item.id] === 'digital')
 
-  // Start step: if all digital, skip shipping and start at contact; else start at shipping
-  const [step, setStep] = useState<Step>('shipping')
+  const [step, setStep] = useState<Step>('contact')
+  const [savedCartItems, setSavedCartItems] = useState(cart)
 
+  // Keep savedCartItems updated before clearCart
+  useEffect(() => {
+    if (cart.length > 0) {
+      setSavedCartItems(cart)
+    }
+  }, [cart])
+
+  // Sync step for digital/physical products
   useEffect(() => {
     if (isAllDigital && step === 'shipping') {
-      setStep('contact')
+      setStep('payment')
     }
-  }, [isAllDigital])
+  }, [isAllDigital, step])
 
   const [shipping, setShipping] = useState({
     name: user?.name || '',
@@ -71,32 +79,41 @@ export default function Checkout() {
     phone: '',
     address1: '',
     address2: '',
-    city: 'Nairobi',
+    city: '',
     region: '',
     postal: '',
     country: 'Kenya',
-    countryCode: 'KE',
   })
 
-  const [shippingMethod, setShippingMethod] = useState<'standard' | 'express' | 'free'>('standard')
+  const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>('standard')
   const [selectedQuote, setSelectedQuote] = useState<ShippingQuoteOption | null>(null)
   const [payMethod, setPayMethod] = useState<PayMethod>('mpesa')
+  const [mpesaPhone, setMpesaPhone] = useState('')
   const [tip, setTip] = useState(0)
   const [customTip, setCustomTip] = useState('')
-
-  const [card, setCard] = useState({ number: '', expiry: '', cvv: '', name: '' })
-  const [mpesaPhone, setMpesaPhone] = useState('')
-  const [paypalEmail, setPaypalEmail] = useState('')
   const [countdown, setCountdown] = useState(6)
-  const [savedCartItems] = useState<typeof cart>(cart)
 
+  // Fetch real-time shipping quotes from Easyship
   useEffect(() => {
-    if (isAllDigital) return // No shipping needed for digital only carts
-    if (!shipping.country) return
+    if (isAllDigital) {
+      setShippingQuotes([])
+      return
+    }
+
+    if (!shipping.country || !shipping.city) return
+    const cfg = getShippingConfig()
+    const code = cfg.countryCodeMap[shipping.country] || 'KE'
+
     setFetchingQuotes(true)
-    const code = shipping.country.toLowerCase().includes('kenya') ? 'KE' : 'INT'
     calculateShippingQuotes(
-      cart,
+      cart.map(c => ({
+        id: c.id,
+        name: c.name,
+        price: c.price,
+        quantity: c.quantity,
+        weight: 0.35,
+        dimensions: { length: 30, width: 25, height: 3 },
+      })),
       {
         name: shipping.name,
         addressLine1: shipping.address1,
@@ -119,33 +136,47 @@ export default function Checkout() {
   const tipAmount = customTip !== '' ? parseFloat(customTip) || 0 : tip
   const grandTotal = cartTotal + shippingCost + tipAmount
 
-  const tipOptions = [0, 1, 2, 5]
+  const tipOptions = [0, 100, 200, 500]
 
-  const canProceedContact = shipping.name && shipping.email && shipping.phone
+  const canProceedContact = shipping.name && shipping.email && (shipping.phone || mpesaPhone)
   const canProceedShipping = canProceedContact
   const canProceedPayment = true
 
   const handleStartPayment = async () => {
-    if (!canProceedPayment) return
-    setStep('verifying')
-    setCountdown(6)
+    if (!canProceedPayment || isProcessingPayment) return
+    setIsProcessingPayment(true)
+    setErrorMessage('')
 
-    const res = await initiatePayment({
-      amount: grandTotal,
-      email: shipping.email || 'customer@flowerz.fc',
-      phone: mpesaPhone,
-      method: payMethod,
-      reference: orderNum,
-      metadata: {
-        customerName: shipping.name,
-        country: shipping.country,
-        city: shipping.city,
-      },
-    })
+    try {
+      const res = await initiatePayment({
+        amount: grandTotal,
+        currency: 'KES',
+        email: shipping.email || 'customer@flowerz.fc',
+        phone: mpesaPhone || shipping.phone,
+        method: payMethod,
+        reference: orderNum,
+        metadata: {
+          customerName: shipping.name,
+          country: shipping.country,
+          city: shipping.city,
+        },
+      })
 
-    if (!res.success) {
-      setErrorMessage(res.message || 'Payment popup was closed or declined.')
+      if (res.success) {
+        setStep('verifying')
+        setCountdown(3)
+        await saveOrderToSupabase()
+        clearCart()
+        setStep('confirmation')
+      } else {
+        setErrorMessage(res.message || 'Payment popup was closed or cancelled. Please try again.')
+        setStep('failed')
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Payment could not be processed. Please try again.')
       setStep('failed')
+    } finally {
+      setIsProcessingPayment(false)
     }
   }
 
@@ -155,9 +186,9 @@ export default function Checkout() {
         id: orderNum,
         customer_name: shipping.name || 'Customer',
         email: shipping.email || 'customer@flowerz.fc',
-        phone: shipping.phone || '',
-        shipping_address: `${shipping.address1 || ''}, ${shipping.city || ''}, ${shipping.country || ''}`,
-        items: JSON.stringify(cart.map(c => ({ name: c.name, price: c.price, qty: c.quantity, size: c.size }))),
+        phone: shipping.phone || mpesaPhone || '',
+        shipping_address: isAllDigital ? 'Digital Delivery (Email / Web)' : `${shipping.address1 || ''}, ${shipping.city || ''}, ${shipping.country || ''}`,
+        items: JSON.stringify((cart.length > 0 ? cart : savedCartItems).map(c => ({ name: c.name, price: c.price, qty: c.quantity, size: c.size }))),
         total: grandTotal,
         method: payMethod,
         status: 'paid',
@@ -172,34 +203,9 @@ export default function Checkout() {
   }
 
   const handleSimulateFailure = () => {
-    setErrorMessage('M-Pesa transaction failed: Insufficient funds or incorrect PIN entered.')
+    setErrorMessage('Transaction cancelled or declined.')
     setStep('failed')
   }
-
-  const handleConfirmImmediately = async () => {
-    await saveOrderToSupabase()
-    clearCart()
-    setStep('confirmation')
-  }
-
-  // Automatic countdown during verifying step
-  useEffect(() => {
-    if (step !== 'verifying') return
-
-    if (countdown <= 0) {
-      saveOrderToSupabase().then(() => {
-        clearCart()
-        setStep('confirmation')
-      })
-      return
-    }
-
-    const timer = setInterval(() => {
-      setCountdown(prev => prev - 1)
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [step, countdown, clearCart])
 
   if (cart.length === 0 && step !== 'confirmation' && step !== 'verifying' && step !== 'failed') {
     return (
@@ -716,98 +722,99 @@ export default function Checkout() {
                     </div>
                   )}
 
-                  {/* Tip / Gratuity */}
-                  <div className="mt-6 pt-5 border-t border-[#1e1e32]">
-                    <h3 className="text-sm font-black text-white mb-1">🙏 Leave a Tip (optional)</h3>
-                    <p className="text-xs text-gray-400 mb-3">Show some appreciation to our team. 100% goes to fulfilment staff.</p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {tipOptions.map(t => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => { setTip(t); setCustomTip('') }}
-                          className="px-4 py-2 text-xs font-bold rounded-xl border transition-all"
-                          style={{
-                            background: tip === t && customTip === '' ? '#00b341' : '#0d0d1e',
-                            color: tip === t && customTip === '' ? '#fff' : '#9ca3af',
-                            border: `1px solid ${tip === t && customTip === '' ? '#00b341' : '#1e1e32'}`,
-                          }}
-                        >
-                          {t === 0 ? 'No tip' : `$${t}`}
-                        </button>
-                      ))}
-                      <input
-                        value={customTip}
-                        onChange={e => { setCustomTip(e.target.value); setTip(0) }}
-                        placeholder="Custom $"
-                        className="w-24 px-3 py-2 text-xs text-white placeholder-gray-500 rounded-xl outline-none focus:ring-1 focus:ring-[#00b341]"
-                        style={inputStyle}
-                      />
+                    {/* Tip / Gratuity */}
+                    <div className="mt-6 pt-5 border-t border-[#1e1e32]">
+                      <h3 className="text-sm font-black text-white mb-1">🙏 Leave a Tip (optional)</h3>
+                      <p className="text-xs text-gray-400 mb-3">Show some appreciation to our team. 100% goes to fulfilment staff.</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {tipOptions.map(t => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => { setTip(t); setCustomTip('') }}
+                            className="px-4 py-2 text-xs font-bold rounded-xl border transition-all"
+                            style={{
+                              background: tip === t && customTip === '' ? '#00b341' : '#0d0d1e',
+                              color: tip === t && customTip === '' ? '#fff' : '#9ca3af',
+                              border: `1px solid ${tip === t && customTip === '' ? '#00b341' : '#1e1e32'}`,
+                            }}
+                          >
+                            {t === 0 ? 'No tip' : formatPrice(t)}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex gap-3 mt-6 pt-4 border-t border-[#1e1e32]">
-                    <button onClick={() => setStep(isAllDigital ? 'contact' : 'shipping')} className="px-5 py-3 text-xs font-bold text-gray-400 hover:text-white rounded-xl border border-[#1e1e32] transition-colors">
-                      ← Back
-                    </button>
+                    <div className="flex gap-3 mt-6 pt-4 border-t border-[#1e1e32]">
+                      <button onClick={() => setStep(isAllDigital ? 'contact' : 'shipping')} className="px-5 py-3 text-xs font-bold text-gray-400 hover:text-white rounded-xl border border-[#1e1e32] transition-colors">
+                        ← Back
+                      </button>
 
-                    <button
-                      onClick={handleStartPayment}
-                      disabled={!canProceedPayment}
-                      className="flex-1 py-3 text-sm font-black text-white rounded-xl transition-all disabled:opacity-40 hover:opacity-90"
-                      style={{ background: '#00b341', fontFamily: 'Big Shoulders Display' }}
-                    >
-                      {payMethod === 'mpesa' ? `Send STK Push · $${grandTotal.toFixed(2)}` :
-                       payMethod === 'paypal' ? `Pay via PayPal · $${grandTotal.toFixed(2)}` :
-                       `Place Order · $${grandTotal.toFixed(2)}`}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Right: Order Summary */}
-            <div className="p-5 rounded-2xl border border-[#1e1e32] h-fit" style={{ background: '#131320' }}>
-              <h3 className="font-black text-white text-lg mb-4" style={{ fontFamily: 'Big Shoulders Display' }}>
-                Order Summary
-              </h3>
-              <div className="space-y-3 mb-4 pb-4 border-b border-[#1e1e32]">
-                {(cart.length > 0 ? cart : savedCartItems).map(item => (
-                  <div key={`${item.id}-${item.size}`} className="flex items-center gap-3">
-                    <img src={item.image} alt={item.name} className="w-12 h-12 object-cover rounded-lg" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-white truncate">{item.name}</p>
-                      <p className="text-xs text-gray-500">Size: {item.size} × {item.quantity}</p>
+                      <button
+                        onClick={handleStartPayment}
+                        disabled={!canProceedPayment || isProcessingPayment}
+                        className="flex-1 py-3.5 text-sm font-black text-white rounded-xl transition-all disabled:opacity-40 hover:opacity-90 shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                        style={{ background: '#00b341', fontFamily: 'Big Shoulders Display', fontSize: '16px' }}
+                      >
+                        {isProcessingPayment ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>Opening Paystack...</span>
+                          </>
+                        ) : (
+                          payMethod === 'mpesa' ? `Send STK Push · ${formatPrice(grandTotal)}` :
+                          payMethod === 'paypal' ? `Pay via PayPal · ${formatPrice(grandTotal)}` :
+                          `Pay with Card · ${formatPrice(grandTotal)}`
+                        )}
+                      </button>
                     </div>
-                    <p className="text-sm font-bold text-white">${(item.price * item.quantity).toFixed(2)}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="space-y-2 text-xs mb-4">
-                <div className="flex justify-between text-gray-400">
-                  <span>Subtotal</span>
-                  <span>${cartTotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-400">
-                  <span>Shipping</span>
-                  <span>{shippingCost === 0 ? <span className="text-[#00b341] font-bold">Free</span> : `$${shippingCost.toFixed(2)}`}</span>
-                </div>
-                {tipAmount > 0 && (
-                  <div className="flex justify-between text-gray-400">
-                    <span>Tip 🙏</span>
-                    <span className="text-[#00b341]">+${tipAmount.toFixed(2)}</span>
                   </div>
                 )}
               </div>
-              <div className="flex justify-between font-black text-white text-lg pt-3 border-t border-[#1e1e32]">
-                <span>Total</span>
-                <span style={{ color: '#00b341' }}>${grandTotal.toFixed(2)}</span>
+
+              {/* Right: Order Summary */}
+              <div className="p-5 rounded-2xl border border-[#1e1e32] h-fit" style={{ background: '#131320' }}>
+                <h3 className="font-black text-white text-lg mb-4" style={{ fontFamily: 'Big Shoulders Display' }}>
+                  Order Summary
+                </h3>
+                <div className="space-y-3 mb-4 pb-4 border-b border-[#1e1e32]">
+                  {(cart.length > 0 ? cart : savedCartItems).map(item => (
+                    <div key={`${item.id}-${item.size}`} className="flex items-center gap-3">
+                      <img src={item.image} alt={item.name} className="w-12 h-12 object-cover rounded-lg" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-white truncate">{item.name}</p>
+                        <p className="text-xs text-gray-500">Size: {item.size} × {item.quantity}</p>
+                      </div>
+                      <p className="text-sm font-bold text-white">{formatPrice(item.price * item.quantity)}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2 text-xs mb-4">
+                  <div className="flex justify-between text-gray-400">
+                    <span>Subtotal</span>
+                    <span className="text-white font-bold">{formatPrice(cartTotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Shipping</span>
+                    <span>{shippingCost === 0 ? <span className="text-[#00b341] font-bold">Free</span> : <span className="text-white">{formatPrice(shippingCost)}</span>}</span>
+                  </div>
+                  {tipAmount > 0 && (
+                    <div className="flex justify-between text-gray-400">
+                      <span>Tip 🙏</span>
+                      <span className="text-[#00b341]">+{formatPrice(tipAmount)}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-between font-black text-white text-lg pt-3 border-t border-[#1e1e32]">
+                  <span>Total</span>
+                  <span style={{ color: '#00b341' }}>{formatPrice(grandTotal)}</span>
+                </div>
+                <p className="text-[10px] text-gray-600 mt-3 text-center">🔒 Secured checkout · SSL encrypted</p>
               </div>
-              <p className="text-[10px] text-gray-600 mt-3 text-center">🔒 Secured checkout · SSL encrypted</p>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
-  )
-}
+    )
+  }
+

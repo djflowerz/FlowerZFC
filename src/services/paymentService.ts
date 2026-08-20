@@ -52,45 +52,60 @@ export function initiatePaystackPopup(
   onSuccess: (ref: string) => void,
   onClose?: () => void
 ) {
-  const amountInCents = Math.round(payload.amount * 100)
-  const currency = payload.currency || 'USD'
+  const currency = payload.currency || 'KES'
+  const amountInSmallestUnit = Math.round(payload.amount * 100)
 
-  // Determine Paystack channels based on user choice
-  const channels = payload.method === 'mpesa'
-    ? ['mobile_money']
-    : payload.method === 'card'
-    ? ['card', 'bank']
-    : ['card', 'mobile_money', 'bank', 'ussd', 'qr']
+  const openPopup = () => {
+    if (typeof window === 'undefined' || !window.PaystackPop) {
+      if (onClose) onClose()
+      return
+    }
+
+    try {
+      const handler = window.PaystackPop.setup({
+        key: PUBLIC_KEY,
+        email: payload.email || 'customer@flowerz.fc',
+        amount: amountInSmallestUnit,
+        currency: currency,
+        ref: payload.reference,
+        channels: payload.method === 'mpesa' ? ['mobile_money', 'card'] : ['card', 'mobile_money', 'bank'],
+        metadata: {
+          custom_fields: [
+            { display_name: 'Payment Method', variable_name: 'payment_method', value: payload.method },
+            { display_name: 'Customer Phone', variable_name: 'customer_phone', value: payload.phone || '' },
+          ],
+          ...payload.metadata,
+        },
+        callback: (response) => {
+          onSuccess(response.reference)
+        },
+        onClose: () => {
+          if (onClose) onClose()
+        },
+      })
+
+      handler.openIframe()
+    } catch (e) {
+      console.error('Paystack popup error:', e)
+      if (onClose) onClose()
+    }
+  }
 
   if (typeof window !== 'undefined' && window.PaystackPop) {
-    const handler = window.PaystackPop.setup({
-      key: PUBLIC_KEY,
-      email: payload.email || 'customer@flowerz.fc',
-      amount: amountInCents,
-      currency: currency,
-      ref: payload.reference,
-      channels: channels,
-      metadata: {
-        custom_fields: [
-          { display_name: 'Payment Method', variable_name: 'payment_method', value: payload.method },
-          { display_name: 'Customer Phone', variable_name: 'customer_phone', value: payload.phone || '' },
-        ],
-        ...payload.metadata,
-      },
-      callback: (response) => {
-        onSuccess(response.reference)
-      },
-      onClose: () => {
-        if (onClose) onClose()
-      },
-    })
-
-    handler.openIframe()
+    openPopup()
   } else {
-    // SDK not yet loaded — treat as cancelled, never auto-succeed
-    if (onClose) onClose()
+    const script = document.createElement('script')
+    script.src = 'https://js.paystack.co/v1/inline.js'
+    script.async = true
+    script.onload = () => openPopup()
+    script.onerror = () => {
+      console.error('Failed to load Paystack inline JS SDK')
+      if (onClose) onClose()
+    }
+    document.head.appendChild(script)
   }
 }
+
 
 export async function initiatePayment(payload: PaymentPayload): Promise<PaymentResponse> {
   return new Promise((resolve) => {
