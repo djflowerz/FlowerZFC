@@ -325,10 +325,10 @@ export default function Advertise() {
             <h3 className="text-2xl font-black text-white mb-1" style={{ fontFamily: 'Big Shoulders Display' }}>
               💬 Prefer to Chat Directly?
             </h3>
-            <p className="text-sm text-gray-400">Message us on WhatsApp — we respond within 2 hours during business hours (EAT).</p>
+            <p className="text-sm text-gray-400">Message us on WhatsApp — we respond quickly during business hours (EAT).</p>
           </div>
           <a
-            href="https://wa.me/254700000000?text=Hi%2C%20I%27m%20interested%20in%20advertising%20on%20FlowerZFC"
+            href="https://wa.me/254789783258?text=Hi%2C%20I%27m%20interested%20in%20advertising%20on%20FlowerZFC"
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-2 px-6 py-3 text-sm font-bold text-white rounded-xl transition-all hover:opacity-90 hover:scale-105 shrink-0 shadow-lg"
@@ -350,7 +350,7 @@ export default function Advertise() {
             <div className="text-center py-16 rounded-2xl border border-[#00b341]" style={{ background: '#131320' }}>
               <span className="text-6xl mb-4 block">✅</span>
               <h3 className="text-3xl font-black text-white mb-2" style={{ fontFamily: 'Big Shoulders Display' }}>Inquiry Received!</h3>
-              <p className="text-sm text-gray-400">We'll get back to you within 2 business days at {form.email}.</p>
+              <p className="text-sm text-gray-400">We'll get back to you within 24 hours at {form.email}.</p>
             </div>
           ) : (
             <div className="grid md:grid-cols-2 gap-8 p-8 rounded-2xl border border-[#1e1e32]" style={{ background: '#131320' }}>
@@ -370,10 +370,10 @@ export default function Advertise() {
                 <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="Phone / WhatsApp" className={inputCls} style={inputStyle} />
                 <select value={form.budget} onChange={e => setForm(f => ({ ...f, budget: e.target.value }))} className={inputCls} style={inputStyle}>
                   <option value="">Monthly Budget Range</option>
-                  <option>Under $100/month</option>
-                  <option>$100–$500/month</option>
-                  <option>$500–$1,000/month</option>
-                  <option>$1,000+/month</option>
+                  <option>Under KES 10,000/month</option>
+                  <option>KES 10,000 – KES 50,000/month</option>
+                  <option>KES 50,000 – KES 100,000/month</option>
+                  <option>KES 100,000+/month</option>
                 </select>
                 <textarea
                   value={form.message}
@@ -398,13 +398,17 @@ export default function Advertise() {
                 <div>
                   <h3 className="text-lg font-black text-white mb-3" style={{ fontFamily: 'Big Shoulders Display' }}>Direct Contact</h3>
                   <div className="space-y-2">
-                    <a href="https://wa.me/254700000000" target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-colors" style={{ background: '#0c0c14' }}>
+                    <a href="https://wa.me/254789783258" target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3 rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-colors" style={{ background: '#0c0c14' }}>
                       <span className="text-xl">💬</span>
-                      <div><p className="text-xs font-bold text-white">WhatsApp</p><p className="text-[10px] text-gray-500">+254 700 000 000</p></div>
+                      <div><p className="text-xs font-bold text-white">WhatsApp</p><p className="text-[10px] text-gray-500">(+254) 789 783 258</p></div>
                     </a>
-                    <a href="mailto:ads@flowerz.fc" className="flex items-center gap-3 p-3 rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-colors" style={{ background: '#0c0c14' }}>
+                    <a href="tel:+254712293303" className="flex items-center gap-3 p-3 rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-colors" style={{ background: '#0c0c14' }}>
+                      <span className="text-xl">📞</span>
+                      <div><p className="text-xs font-bold text-white">Phone Support</p><p className="text-[10px] text-gray-500">(+254) 712 293 303</p></div>
+                    </a>
+                    <a href="mailto:support@djflowerz.co.ke" className="flex items-center gap-3 p-3 rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-colors" style={{ background: '#0c0c14' }}>
                       <span className="text-xl">✉️</span>
-                      <div><p className="text-xs font-bold text-white">Email</p><p className="text-[10px] text-gray-500">ads@flowerz.fc</p></div>
+                      <div><p className="text-xs font-bold text-white">Email</p><p className="text-[10px] text-gray-500">support@djflowerz.co.ke</p></div>
                     </a>
                   </div>
                 </div>
@@ -414,7 +418,7 @@ export default function Advertise() {
                   <h4 className="text-sm font-black text-white mb-1">📦 Download Media Kit</h4>
                   <p className="text-xs text-gray-400 mb-3">Full audience breakdown, rate card, ad specs, and case studies.</p>
                   <a
-                    href="mailto:ads@flowerz.fc?subject=Media Kit Request"
+                    href="mailto:support@djflowerz.co.ke?subject=Media Kit Request"
                     className="inline-block px-4 py-2 text-xs font-bold text-white rounded-lg border border-[#00b341] hover:bg-[#00b341] transition-colors"
                   >
                     Request Media Kit →
