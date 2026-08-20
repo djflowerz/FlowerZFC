@@ -22,7 +22,7 @@ function StarRating({ rating, reviews }: { rating: number; reviews: number }) {
 
 export default function Product() {
   const { id } = useParams()
-  const { t, addToCart, formatPrice } = useApp()
+  const { t, addToCart, formatPrice, user } = useApp()
   const navigate = useNavigate()
 
   const [product, setProduct] = useState<ProductType | null>(null)
@@ -36,6 +36,11 @@ export default function Product() {
   const [selectedAddons, setSelectedAddons] = useState<string[]>([])
   const [buyNowLoading, setBuyNowLoading] = useState(false)
   const [buyNowError, setBuyNowError] = useState('')
+
+  // Digital email prompt state
+  const [digitalEmailModal, setDigitalEmailModal] = useState(false)
+  const [digitalEmailInput, setDigitalEmailInput] = useState('')
+  const [digitalEmailError, setDigitalEmailError] = useState('')
 
   // Player Name & Number Customization state
   const [customPrintEnabled, setCustomPrintEnabled] = useState(false)
@@ -190,33 +195,51 @@ export default function Product() {
     setTimeout(() => setAdded(false), 2500)
   }
 
+  const executeDigitalPayment = async (targetEmail: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(targetEmail.trim())) {
+      setDigitalEmailError('Please enter a valid email address.')
+      return
+    }
+    setDigitalEmailModal(false)
+    setBuyNowLoading(true)
+    setBuyNowError('')
+    const orderRef = `FZ${Date.now().toString().slice(-6)}`
+    try {
+      const res = await initiatePayment({
+        amount: product.price * qty,
+        currency: 'KES',
+        email: targetEmail.trim(),
+        method: 'card',
+        reference: orderRef,
+        metadata: {
+          productId: product.id,
+          productName: product.name,
+          customerEmail: targetEmail.trim(),
+        },
+      })
+      if (res.success) {
+        navigate(`/checkout?confirmed=1&ref=${orderRef}&product=${encodeURIComponent(product.name)}`)
+      } else {
+        setBuyNowError('Payment was cancelled. Please try again.')
+      }
+    } catch {
+      setBuyNowError('Payment failed. Please try again.')
+    } finally {
+      setBuyNowLoading(false)
+    }
+  }
+
   const handleBuyNow = async () => {
     if (isApparel && !size) return
     const cartItem = buildCartPayload()
     addToCart(cartItem)
 
     if (isDigital) {
-      setBuyNowLoading(true)
-      setBuyNowError('')
-      const orderRef = `FZ${Date.now().toString().slice(-6)}`
-      try {
-        const res = await initiatePayment({
-          amount: product.price * qty,
-          currency: 'KES',
-          email: 'customer@flowerz.fc',
-          method: 'card',
-          reference: orderRef,
-          metadata: { productId: product.id, productName: product.name },
-        })
-        if (res.success) {
-          navigate(`/checkout?confirmed=1&ref=${orderRef}&product=${encodeURIComponent(product.name)}`)
-        } else {
-          setBuyNowError('Payment was cancelled. Please try again.')
-        }
-      } catch {
-        setBuyNowError('Payment failed. Please try again.')
-      } finally {
-        setBuyNowLoading(false)
+      if (user?.email) {
+        executeDigitalPayment(user.email)
+      } else {
+        setDigitalEmailModal(true)
       }
     } else {
       navigate('/checkout')
@@ -782,6 +805,55 @@ export default function Product() {
           </div>
         </div>
       </div>
+
+      {/* 💾 DIGITAL EMAIL PROMPT MODAL */}
+      {digitalEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="max-w-md w-full p-6 rounded-2xl border border-[#6366f1]/40 shadow-2xl space-y-4" style={{ background: '#131320' }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">💾</span>
+                <h3 className="text-xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>Instant Digital Download</h3>
+              </div>
+              <button onClick={() => setDigitalEmailModal(false)} className="text-gray-400 hover:text-white text-lg">✕</button>
+            </div>
+            <p className="text-xs text-gray-300 leading-relaxed">
+              Where should we send your download file access and receipt after payment?
+            </p>
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 mb-1">Email Address *</label>
+              <input
+                type="email"
+                value={digitalEmailInput}
+                onChange={e => { setDigitalEmailInput(e.target.value); setDigitalEmailError('') }}
+                onKeyDown={e => { if (e.key === 'Enter') executeDigitalPayment(digitalEmailInput) }}
+                placeholder="your.email@example.com"
+                className="w-full px-4 py-3 text-sm text-white placeholder-gray-500 rounded-xl outline-none focus:ring-1 focus:ring-[#6366f1]"
+                style={{ background: '#0c0c14', border: '1px solid #1e1e32' }}
+                autoFocus
+              />
+              {digitalEmailError && <p className="text-xs text-red-400 font-bold mt-1.5">{digitalEmailError}</p>}
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDigitalEmailModal(false)}
+                className="px-4 py-3 text-xs font-bold text-gray-400 hover:text-white rounded-xl border border-[#1e1e32]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => executeDigitalPayment(digitalEmailInput)}
+                className="flex-1 py-3 text-sm font-black text-white rounded-xl shadow-lg transition-all hover:opacity-90 flex items-center justify-center gap-2"
+                style={{ background: '#6366f1', fontFamily: 'Big Shoulders Display' }}
+              >
+                <span>Continue to Paystack →</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
