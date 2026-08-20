@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { fetchAllProducts } from '../services/supabaseClient'
+import { fetchAllProducts, verifyPaidReceipt } from '../services/supabaseClient'
 import type { ProductType } from './Shop'
 
 const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
@@ -36,9 +36,31 @@ export default function Product() {
   const [added, setAdded] = useState(false)
   const [activeTab, setActiveTab] = useState<'description' | 'sizing' | 'shipping'>('description')
 
-  const [passwordInput, setPasswordInput] = useState('')
-  const [passwordError, setPasswordError] = useState('')
-  const [showDownloadPanel, setShowDownloadPanel] = useState(false)
+  // Payment code receipt recovery state
+  const [showRecovery, setShowRecovery] = useState(false)
+  const [receiptInput, setReceiptInput] = useState('')
+  const [receiptError, setReceiptError] = useState('')
+  const [isVerifyingReceipt, setIsVerifyingReceipt] = useState(false)
+  const [verifiedPaidOrder, setVerifiedPaidOrder] = useState<any | null>(null)
+
+  const handleVerifyReceipt = async () => {
+    if (!receiptInput.trim()) return
+    setIsVerifyingReceipt(true)
+    setReceiptError('')
+    try {
+      const res = await verifyPaidReceipt(receiptInput)
+      if (res.valid) {
+        setVerifiedPaidOrder(res.order)
+      } else {
+        setReceiptError(res.message)
+      }
+    } catch {
+      setReceiptError('Could not verify payment code. Please try again.')
+    } finally {
+      setIsVerifyingReceipt(false)
+    }
+  }
+
 
   useEffect(() => {
     setLoading(true)
@@ -236,8 +258,126 @@ export default function Product() {
                     <p className="text-[10px] text-gray-400">Download links and activation details are unlocked instantly on the confirmation screen & sent to your email.</p>
                   </div>
                 </div>
+
+                {/* 🔑 Already Paid & Need Download Recovery */}
+                <div className="p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#131320' }}>
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between text-left"
+                    onClick={() => setShowRecovery(p => !p)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🔑</span>
+                      <span className="text-xs font-bold text-white">Already made payment? Retrieve download with receipt code</span>
+                    </div>
+                    <span className="text-xs text-gray-400 font-bold">{showRecovery ? '▲ Hide' : '▼ Enter Code'}</span>
+                  </button>
+
+                  {showRecovery && (
+                    <div className="mt-3 pt-3 border-t border-[#1e1e32] space-y-2 animate-fade-in">
+                      <p className="text-[10px] text-gray-400">
+                        If you paid and the download page did not open, enter your <strong>Order Ref (e.g. FZ123456) or M-Pesa / Paystack code</strong> below. The system will confirm payment and grant immediate access.
+                      </p>
+                      {!verifiedPaidOrder ? (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={receiptInput}
+                            onChange={e => { setReceiptInput(e.target.value); setReceiptError('') }}
+                            placeholder="e.g. FZ123456 or Paystack / M-Pesa Ref"
+                            className="w-full px-3 py-2 text-xs text-white placeholder-gray-500 rounded-lg outline-none focus:ring-1 focus:ring-[#6366f1]"
+                            style={{ background: '#0c0c14', border: '1px solid #1e1e32' }}
+                          />
+                          {receiptError && <p className="text-[10px] text-red-400 font-bold">{receiptError}</p>}
+                          <button
+                            onClick={handleVerifyReceipt}
+                            disabled={isVerifyingReceipt || !receiptInput.trim()}
+                            className="w-full py-2.5 text-xs font-bold text-white rounded-lg transition-all hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
+                            style={{ background: '#6366f1' }}
+                          >
+                            {isVerifyingReceipt ? '🔍 Verifying Payment Authenticity...' : '🔍 Verify Payment & Access Files →'}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3 pt-1">
+                          <div className="p-3 rounded-lg border border-emerald-500/40 flex items-center gap-2" style={{ background: 'rgba(34,197,94,0.1)' }}>
+                            <span className="text-xl">✅</span>
+                            <div>
+                              <p className="text-xs font-bold text-emerald-400">Payment Authenticated & Confirmed!</p>
+                              <p className="text-[10px] text-gray-300">Receipt Code: <strong className="font-mono text-white">{receiptInput.toUpperCase()}</strong></p>
+                            </div>
+                          </div>
+
+                          {/* Multi-OS Download Buttons for Verified Payer */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {(product.mac_url || product.digital_file_url) && (
+                              <a
+                                href={product.mac_url || product.digital_file_url!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download
+                                className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl transition-all hover:opacity-90 border border-white/20"
+                                style={{ background: '#1e1e38' }}
+                              >
+                                <span>🍏</span>
+                                <span>Download for macOS</span>
+                              </a>
+                            )}
+                            {(product.windows_url || product.digital_file_url) && (
+                              <a
+                                href={product.windows_url || product.digital_file_url!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download
+                                className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl transition-all hover:opacity-90 border border-[#00a4ef]/30"
+                                style={{ background: 'rgba(0,164,239,0.12)', color: '#38bdf8' }}
+                              >
+                                <span>🪟</span>
+                                <span>Download for Windows</span>
+                              </a>
+                            )}
+                            {(product.android_url || product.digital_file_url) && (
+                              <a
+                                href={product.android_url || product.digital_file_url!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download
+                                className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl transition-all hover:opacity-90 border border-[#3ddc84]/30"
+                                style={{ background: 'rgba(61,220,132,0.12)', color: '#4ade80' }}
+                              >
+                                <span>🤖</span>
+                                <span>Download Android APK</span>
+                              </a>
+                            )}
+                            {product.digital_file_url && (
+                              <a
+                                href={product.digital_file_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                download
+                                className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl transition-all hover:opacity-90"
+                                style={{ background: '#22c55e' }}
+                              >
+                                <span>📦</span>
+                                <span>Universal Download (.ZIP)</span>
+                              </a>
+                            )}
+                          </div>
+
+                          {product.access_password && (
+                            <div className="p-2 rounded-lg bg-black/40 border border-[#1e1e32] text-xs text-gray-400 flex items-center justify-between">
+                              <span>🔑 Access Password:</span>
+                              <strong className="font-mono text-[#a5b4fc] text-sm">{product.access_password}</strong>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
+
 
 
               <>

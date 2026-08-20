@@ -304,6 +304,40 @@ export async function fetchAllProducts(): Promise<{ products: ProductRow[]; erro
   return { products: dbProducts, error: null }
 }
 
+export async function verifyPaidReceipt(receiptCode: string): Promise<{ valid: boolean; order: any; message: string }> {
+  const cleanCode = receiptCode.trim().toUpperCase()
+  if (!cleanCode) return { valid: false, order: null, message: 'Please enter a valid Receipt / Payment Code.' }
+
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .or(`id.ilike.%${cleanCode}%,tracking.ilike.%${cleanCode}%`)
+      .limit(1)
+      .maybeSingle()
+
+    if (!error && data && (data.status === 'paid' || data.status === 'Fulfilled' || data.status === 'Processing')) {
+      return { valid: true, order: data, message: 'Payment confirmed!' }
+    }
+
+    // Check local orders cache
+    const localOrders = JSON.parse(localStorage.getItem('flowerzfc_orders') || '[]')
+    const foundLocal = localOrders.find((o: any) =>
+      (o.id && o.id.toUpperCase().includes(cleanCode)) ||
+      (o.tracking && o.tracking.toUpperCase().includes(cleanCode)) ||
+      (o.reference && o.reference.toUpperCase().includes(cleanCode))
+    )
+    if (foundLocal && (foundLocal.status === 'paid' || foundLocal.status === 'Fulfilled')) {
+      return { valid: true, order: foundLocal, message: 'Payment confirmed!' }
+    }
+
+    return { valid: false, order: null, message: `❌ No verified paid transaction found for code "${cleanCode}". Please check your payment SMS / email receipt.` }
+  } catch (err: any) {
+    return { valid: false, order: null, message: 'Could not verify receipt code at this time.' }
+  }
+}
+
+
 
 // ─── Order helpers ────────────────────────────────────────────────────────────
 
