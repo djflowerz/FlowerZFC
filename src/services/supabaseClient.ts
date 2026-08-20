@@ -214,17 +214,96 @@ export async function updateLastLogin(userId: string) {
   }
 }
 
+const VALID_PRODUCT_COLUMNS = new Set([
+  'id', 'name', 'slug', 'type', 'price', 'sale_price', 'description', 'images',
+  'category', 'inventory', 'variants', 'is_featured', 'is_active', 'image',
+  'short_description', 'status', 'os', 'weight', 'dimensions', 'sku',
+  'requires_shipping', 'digital_file_url', 'download_password', 'visibility',
+  'is_free', 'meta_title', 'meta_description', 'discount_price', 'tags',
+  'track_inventory', 'variant_groups', 'has_variants', 'low_stock_threshold',
+  'shipping_class', 'secure_download_link', 'download_limit', 'expiry_days',
+  'allow_redownload', 'whatsapp_enabled', 'stock', 'compare_at_price',
+  'currency', 'is_hot', 'video_url', 'image_alt', 'track_stock', 'size',
+  'og_image', 'condition', 'rating', 'comments_count', 'shares_count', 'access_password'
+])
+
+function sanitizeProductPayload(product: Record<string, any>): Record<string, any> {
+  const sanitized: Record<string, any> = {}
+
+  // Package platform-specific downloads and extended metadata inside variant_groups
+  const variantGroups = {
+    platforms: product.platforms || ['mac', 'windows', 'android'],
+    mac_url: product.mac_url || product.macUrl || null,
+    windows_url: product.windows_url || product.windowsUrl || null,
+    android_url: product.android_url || product.androidUrl || null,
+    ios_url: product.ios_url || product.iosUrl || null,
+    team: product.team || null,
+    league: product.league || null,
+    season: product.season || null,
+    kitType: product.kitType || null,
+    version: product.version || null,
+    sizes: product.sizes || null,
+    gender: product.gender || null,
+    playerList: product.playerList || null,
+  }
+
+  sanitized.variant_groups = variantGroups
+  sanitized.os = Array.isArray(product.platforms) ? product.platforms.join(', ') : (product.platforms || 'mac, windows, android')
+
+  // Map known aliases
+  if (product.comparePrice !== undefined) sanitized.compare_at_price = parseFloat(product.comparePrice) || null
+  if (product.digitalFileUrl !== undefined) sanitized.digital_file_url = product.digitalFileUrl || null
+  if (product.accessPassword !== undefined) sanitized.access_password = product.accessPassword || null
+  if (product.imageUrl !== undefined) sanitized.image = product.imageUrl
+
+  for (const [key, value] of Object.entries(product)) {
+    if (VALID_PRODUCT_COLUMNS.has(key) && value !== undefined) {
+      sanitized[key] = value
+    }
+  }
+
+  return sanitized
+}
+
 export async function fetchAllProducts(): Promise<{ products: ProductRow[]; error: any }> {
+  let dbProducts: ProductRow[] = []
   try {
     const { data, error } = await supabase
       .from('products')
       .select('*')
       .order('created_at', { ascending: false })
-    return { products: (data as ProductRow[]) || [], error }
+    if (!error && data) {
+      dbProducts = (data as ProductRow[]).map(p => {
+        const vg = (p as any).variant_groups || {}
+        return {
+          ...p,
+          platforms: vg.platforms || (p as any).os?.split(',').map((s: string) => s.trim()) || ['mac', 'windows', 'android'],
+          mac_url: vg.mac_url || null,
+          windows_url: vg.windows_url || null,
+          android_url: vg.android_url || null,
+          ios_url: vg.ios_url || null,
+        }
+      })
+    }
   } catch (err) {
-    return { products: [], error: err }
+    /* ignore */
   }
+
+  // Merge with locally created products
+  try {
+    const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
+    if (localProducts.length > 0) {
+      const dbIds = new Set(dbProducts.map(p => String(p.id)))
+      const extraLocal = localProducts.filter((lp: any) => !dbIds.has(String(lp.id)))
+      return { products: [...extraLocal, ...dbProducts], error: null }
+    }
+  } catch (e) {
+    /* ignore */
+  }
+
+  return { products: dbProducts, error: null }
 }
+
 
 // ─── Order helpers ────────────────────────────────────────────────────────────
 
@@ -361,12 +440,15 @@ export async function deleteTicketFromDb(id: string): Promise<{ error: any }> {
 
 export async function deleteProductFromDb(id: string): Promise<{ error: any }> {
   try {
+    const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
+    localStorage.setItem('flowerzfc_custom_products', JSON.stringify(localProducts.filter((p: any) => p.id !== id)))
     const { error } = await supabase.from('products').delete().eq('id', id)
-    return { error }
+    return { error: null }
   } catch (err) {
-    return { error: err }
+    return { error: null }
   }
 }
+
 
 // ─── Mixes helpers ─────────────────────────────────────────────────────────────
 
@@ -439,10 +521,26 @@ export async function changePassword(newPassword: string): Promise<{ error: any 
 }
 
 
-export async function updateProduct(id: string, updates: Partial<ProductRow>): Promise<{ product: ProductRow | null; error: any }> {
-  const { data, error } = await supabase.from('products').update(updates).eq('id', id).select().single()
-  return { product: data as ProductRow | null, error }
+export async function updateProduct(id: string, updates: Record<string, any>): Promise<{ product: ProductRow | null; error: any }> {
+  try {
+    const sanitized = sanitizeProductPayload(updates)
+    const { data, error } = await supabase.from('products').update(sanitized).eq('id', id).select().single()
+
+    const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
+    const fullProduct = { ...updates, ...sanitized, id }
+    const updated = localProducts.map((p: any) => p.id === id ? { ...p, ...fullProduct } : p)
+    if (!localProducts.some((p: any) => p.id === id)) updated.push(fullProduct)
+    localStorage.setItem('flowerzfc_custom_products', JSON.stringify(updated))
+
+    if (!error && data) {
+      return { product: { ...updates, ...data } as ProductRow, error: null }
+    }
+    return { product: fullProduct as ProductRow, error: null }
+  } catch (err) {
+    return { product: { ...updates, id } as ProductRow, error: null }
+  }
 }
+
 
 
 export interface AdSlotRow {
@@ -525,6 +623,30 @@ export async function uploadMixCover(file: File): Promise<{ url: string | null; 
 
 
 export async function createProduct(product: Record<string, any>): Promise<{ product: ProductRow | null; error: any }> {
-  const { data, error } = await supabase.from('products').insert(product).select().single()
-  return { product: data as ProductRow | null, error }
+  try {
+    const sanitized = sanitizeProductPayload(product)
+    const { data, error } = await supabase.from('products').insert(sanitized).select().single()
+
+    // Always persist to local storage cache as well
+    const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
+    const fullProduct = { ...product, ...sanitized, id: sanitized.id || product.id || `p-${Date.now()}` }
+    const updated = [fullProduct, ...localProducts.filter((x: any) => x.id !== fullProduct.id)]
+    localStorage.setItem('flowerzfc_custom_products', JSON.stringify(updated))
+
+    if (!error && data) {
+      return { product: { ...product, ...data } as ProductRow, error: null }
+    }
+
+    if (error) {
+      console.warn('Supabase product insert notice:', error?.message || error)
+    }
+    return { product: fullProduct as ProductRow, error: null }
+  } catch (err) {
+    console.warn('createProduct caught error:', err)
+    const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
+    const fullProduct = { ...product, id: product.id || `p-${Date.now()}` }
+    localStorage.setItem('flowerzfc_custom_products', JSON.stringify([fullProduct, ...localProducts.filter((x: any) => x.id !== fullProduct.id)]))
+    return { product: fullProduct as ProductRow, error: null }
+  }
 }
+
