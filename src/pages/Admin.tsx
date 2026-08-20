@@ -157,7 +157,22 @@ export type Product = {
   metaDescription: string
   colors: string
   tags: string
+  type?: 'physical' | 'digital'
+  digital_file_url?: string | null
+  digitalFileUrl?: string | null
+  access_password?: string | null
+  accessPassword?: string | null
+  platforms?: string[]
+  mac_url?: string | null
+  macUrl?: string | null
+  windows_url?: string | null
+  windowsUrl?: string | null
+  android_url?: string | null
+  androidUrl?: string | null
+  ios_url?: string | null
+  iosUrl?: string | null
 }
+
 
 export const INIT_PRODUCTS: Product[] = []
 
@@ -235,8 +250,9 @@ const SENT_EMAILS_INIT: { id:string; subject:string; sentTo:number; date:string;
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Admin() {
-  const { user, logout } = useApp()
+  const { user, logout, formatPrice } = useApp()
   const navigate = useNavigate()
+
   const [tab, setTab]         = useState<AdminTab>('overview')
   const [loginEmail, setLoginEmail] = useState(SUPER_ADMIN_EMAIL)
   const [loginPass, setLoginPass]   = useState('')
@@ -318,51 +334,80 @@ export default function Admin() {
       }
     })
 
-    // 2. Fetch 48 real products from Supabase products table
+    // 2. Fetch real products from Supabase products table
     fetchAllProducts().then(({ products: realProds, error }) => {
       if (!error && realProds && realProds.length > 0) {
         const mappedProds: Product[] = realProds.map((p: any) => {
-          const imgUrl = Array.isArray(p.images) ? p.images[0] : (typeof p.images === 'string' && p.images.startsWith('[') ? JSON.parse(p.images)[0] : p.images || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=200')
+          let parsedImages: string[] = []
+          if (Array.isArray(p.images)) {
+            parsedImages = p.images
+          } else if (typeof p.images === 'string' && p.images.startsWith('[')) {
+            try { parsedImages = JSON.parse(p.images) } catch { parsedImages = [p.images] }
+          } else if (p.images) {
+            parsedImages = [p.images]
+          } else if (p.imageUrl || p.image) {
+            parsedImages = [p.imageUrl || p.image]
+          } else {
+            parsedImages = ['https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=200']
+          }
+          const imgUrl = parsedImages[0] || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=200'
+          const vg = p.variant_groups || {}
+
           return {
             id: String(p.id),
             name: p.name || 'Product',
             sku: p.sku || `PROD-${p.id}`,
             description: p.description || p.name || '',
             category: p.category || 'Gear',
-            team: p.team || 'Global',
-            league: p.league || 'General',
-            season: p.season || '2026',
-            kitType: p.kitType || 'Merch',
-            version: p.version || 'Standard',
+            team: p.team || vg.team || '',
+            league: p.league || vg.league || '',
+            season: p.season || vg.season || '',
+            kitType: p.kitType || vg.kitType || '',
+            version: p.version || vg.version || (p.type === 'digital' ? 'Digital File' : 'Standard'),
             price: typeof p.price === 'number' ? p.price : parseFloat(p.price) || 0,
-            comparePrice: p.comparePrice || p.originalPrice || 0,
+            comparePrice: p.comparePrice || p.compare_at_price || p.originalPrice || 0,
             costPerItem: p.costPerItem || 0,
-            stock: p.stock || 50,
-            lowStockThreshold: p.lowStockThreshold || 5,
+            stock: p.stock !== undefined && p.stock !== null ? p.stock : (p.inventory !== undefined && p.inventory !== null ? p.inventory : (p.type === 'digital' ? 9999 : 50)),
+            lowStockThreshold: p.lowStockThreshold || p.low_stock_threshold || 5,
             sales: p.sales || 0,
             status: p.status || 'Active',
-            featured: Boolean(p.featured || p.badge),
-            images: [imgUrl],
+            featured: Boolean(p.featured || p.is_featured || p.badge),
+            images: parsedImages.length > 0 ? parsedImages : [imgUrl],
             imageUrl: imgUrl,
-            sizeChartUrl: '',
-            sizes: p.sizes || ['S', 'M', 'L', 'XL'],
-            gender: p.gender || 'Unisex',
+            sizeChartUrl: p.sizeChartUrl || '',
+            sizes: p.sizes || vg.sizes || (p.type === 'digital' ? ['Digital'] : ['S', 'M', 'L', 'XL']),
+            gender: p.gender || vg.gender || 'Unisex',
             customizable: Boolean(p.customizable),
-            playerList: '',
-            customNameLimit: 12,
-            availablePatches: [],
-            weight: '0.3 kg',
-            dimensions: { length: '30', width: '20', height: '5' },
-            slug: (p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-            metaTitle: p.name || '',
-            metaDescription: p.description || '',
+            playerList: p.playerList || vg.playerList || '',
+            customNameLimit: p.customNameLimit || 12,
+            availablePatches: p.availablePatches || [],
+            weight: p.weight || (p.type === 'digital' ? '0' : '0.35'),
+            dimensions: p.dimensions || { length: '30', width: '20', height: '5' },
+            slug: p.slug || (p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+            metaTitle: p.meta_title || p.metaTitle || p.name || '',
+            metaDescription: p.meta_description || p.metaDescription || p.description || '',
             colors: p.colors || 'Standard',
-            tags: p.category || '',
+            tags: p.tags || p.category || '',
+            type: p.type || (p.digital_file_url ? 'digital' : 'physical'),
+            digital_file_url: p.digital_file_url || null,
+            digitalFileUrl: p.digital_file_url || null,
+            access_password: p.access_password || p.download_password || null,
+            accessPassword: p.access_password || p.download_password || null,
+            platforms: p.platforms || vg.platforms || (p.os ? p.os.split(',').map((s: string) => s.trim()) : ['mac', 'windows', 'android']),
+            mac_url: p.mac_url || vg.mac_url || null,
+            macUrl: p.mac_url || vg.mac_url || null,
+            windows_url: p.windows_url || vg.windows_url || null,
+            windowsUrl: p.windows_url || vg.windows_url || null,
+            android_url: p.android_url || vg.android_url || null,
+            androidUrl: p.android_url || vg.android_url || null,
+            ios_url: p.ios_url || vg.ios_url || null,
+            iosUrl: p.ios_url || vg.ios_url || null,
           }
         })
         setProducts(mappedProds)
       }
     })
+
 
     // 3. Fetch real orders from Supabase orders table
     fetchAllOrders().then(({ orders: realOrders, error }) => {
@@ -1162,9 +1207,10 @@ export default function Admin() {
                       <img src={p.imageUrl || 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100'} alt="" className="w-12 h-12 object-cover rounded-lg shrink-0" />
                       <div className="flex-1 min-w-0">
                         <h4 className="text-xs font-bold text-white truncate">{p.name}</h4>
-                        <p className="text-[10px] text-gray-500">${p.price} · {p.stock} in stock</p>
+                        <p className="text-[10px] text-gray-500">{formatPrice(Number(p.price) || 0)} · {p.stock} in stock</p>
                       </div>
                       <span className="text-xs font-black text-emerald-400 shrink-0">{p.sales} sold</span>
+
                     </div>
                   ))}
                 </div>
@@ -1319,7 +1365,7 @@ export default function Admin() {
                             {o.shippingTier === 'free' ? 'FREE (Internal KES ' + (o.shippingCostKes || 400) + ')' : 'KES ' + (o.shippingCostKes || 400)}
                           </p>
                         </td>
-                        <td className="px-5 py-4 font-black text-[#00b341] text-base" style={{ fontFamily: 'Big Shoulders Display' }}>${o.total.toFixed(2)}</td>
+                        <td className="px-5 py-4 font-black text-[#00b341] text-base" style={{ fontFamily: 'Big Shoulders Display' }}>{formatPrice(o.total)}</td>
                         <td className="px-5 py-4" onClick={e => e.stopPropagation()}>
                           <select value={o.status} onChange={e => setOrders(prev => prev.map(x => x.id === o.id ? { ...x, status: e.target.value } : x))}
                             className="px-2 py-1 text-[10px] font-bold rounded-lg outline-none cursor-pointer"
@@ -1338,9 +1384,10 @@ export default function Admin() {
                           <a href={`mailto:${o.email}?subject=Your FlowerZFC Order ${o.id}`} className="text-[10px] font-bold text-blue-400 hover:underline">Email</a>
                           <button onClick={() => window.print()} className="text-[10px] font-bold text-gray-400 hover:text-white hover:underline">Print</button>
                           {o.status !== 'Refunded' && (
-                            <button onClick={() => { if (confirm(`Refund $${o.total} to ${o.customer}?`)) setOrders(prev => prev.map(x => x.id === o.id ? { ...x, status: 'Refunded' } : x)) }}
+                            <button onClick={() => { if (confirm(`Refund ${formatPrice(o.total)} to ${o.customer}?`)) setOrders(prev => prev.map(x => x.id === o.id ? { ...x, status: 'Refunded' } : x)) }}
                               className="text-[10px] font-bold text-red-400 hover:underline">Refund</button>
                           )}
+
                         </td>
                       </tr>
                     ))}
@@ -1401,18 +1448,21 @@ export default function Admin() {
                     <div className="h-32 flex items-center justify-center text-4xl" style={{ background: '#0d0d1e' }}>👕</div>
                   )}
                   <div className="p-4">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="text-[9px] font-black uppercase text-[#00b341] tracking-wider">{p.category}</span>
+
+                      {p.type === 'digital' && <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-[#6366f1] text-white">💾 DIGITAL</span>}
                       {p.team && <span className="text-[9px] text-gray-500 font-bold">· {p.team}</span>}
                       <Badge s={p.status} />
                     </div>
                     <h3 className="font-bold text-white text-sm mt-0.5 mb-1 line-clamp-1">{p.name}</h3>
                     {p.description && <p className="text-[10px] text-gray-500 mb-2 line-clamp-2">{p.description}</p>}
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-base font-black text-[#00b341]" style={{ fontFamily: 'Big Shoulders Display' }}>${p.price}</span>
-                      {p.comparePrice > 0 && <span className="text-xs text-gray-600 line-through">${p.comparePrice}</span>}
+                      <span className="text-base font-black text-[#00b341]" style={{ fontFamily: 'Big Shoulders Display' }}>{formatPrice(Number(p.price) || 0)}</span>
+                      {p.comparePrice > 0 && <span className="text-xs text-gray-600 line-through">{formatPrice(Number(p.comparePrice) || 0)}</span>}
                       {p.kitType && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#1e1e32] text-gray-400">{p.kitType}</span>}
                     </div>
+
                     <div className="grid grid-cols-3 gap-2 p-2 rounded-xl text-center mb-3" style={{ background: '#0d0d1e', border: '1px solid #1e1e32' }}>
                       <div><p className="text-[9px] text-gray-600 font-bold">Stock</p><p className="text-sm font-black" style={{ fontFamily: 'Big Shoulders Display', color: p.stock < (p.lowStockThreshold || 5) ? '#f59e0b' : '#fff' }}>{p.stock}</p></div>
                       <div><p className="text-[9px] text-gray-600 font-bold">Sold</p><p className="text-sm font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>{p.sales}</p></div>
