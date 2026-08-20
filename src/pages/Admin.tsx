@@ -938,6 +938,107 @@ export default function Admin() {
     return ''
   }
 
+  // ─── Smart auto-fill when admin types a product name ────────────────────────
+  // Maps common club names to their domestic league
+  const CLUB_LEAGUE_MAP: Record<string, string> = {
+    // Premier League
+    arsenal:'Premier League', chelsea:'Premier League', liverpool:'Premier League',
+    'manchester city':'Premier League', 'man city':'Premier League',
+    'manchester united':'Premier League', 'man united':'Premier League', 'man utd':'Premier League',
+    tottenham:'Premier League', spurs:'Premier League',
+    'newcastle':'Premier League', 'aston villa':'Premier League',
+    'west ham':'Premier League', everton:'Premier League', brighton:'Premier League',
+    wolves:'Premier League', brentford:'Premier League', 'crystal palace':'Premier League',
+    fulham:'Premier League', 'nottingham forest':'Premier League', burnley:'Premier League',
+    'sheffield united':'Premier League', luton:'Premier League', bournemouth:'Premier League',
+    // La Liga
+    barcelona:'La Liga', 'real madrid':'La Liga', 'atletico madrid':'La Liga',
+    sevilla:'La Liga', valencia:'La Liga', 'villarreal':'La Liga',
+    'real sociedad':'La Liga', 'athletic bilbao':'La Liga', betis:'La Liga',
+    // Bundesliga
+    'bayern munich':'Bundesliga', 'bayern':'Bundesliga', 'borussia dortmund':'Bundesliga',
+    dortmund:'Bundesliga', 'rb leipzig':'Bundesliga', leipzig:'Bundesliga',
+    'bayer leverkusen':'Bundesliga', leverkusen:'Bundesliga', 'eintracht frankfurt':'Bundesliga',
+    'wolfsburg':'Bundesliga', 'freiburg':'Bundesliga', 'borussia mönchengladbach':'Bundesliga',
+    // Serie A
+    juventus:'Serie A', 'ac milan':'Serie A', milan:'Serie A',
+    'inter milan':'Serie A', inter:'Serie A', roma:'Serie A',
+    napoli:'Serie A', lazio:'Serie A', atalanta:'Serie A', fiorentina:'Serie A',
+    // Ligue 1
+    psg:'Ligue 1', 'paris saint-germain':'Ligue 1', 'paris sg':'Ligue 1',
+    lyon:'Ligue 1', marseille:'Ligue 1', monaco:'Ligue 1', lens:'Ligue 1',
+    // Primeira Liga
+    porto:'Primeira Liga', benfica:'Primeira Liga', sporting:'Primeira Liga',
+    // Eredivisie
+    ajax:'Eredivisie', psv:'Eredivisie', feyenoord:'Eredivisie',
+    // Scottish Premiership
+    celtic:'Scottish Premiership', rangers:'Scottish Premiership',
+    // FKF Premier League
+    'gor mahia':'FKF Premier League', 'afc leopards':'FKF Premier League',
+    tusker:'FKF Premier League', sofapaka:'FKF Premier League',
+    'ulinzi stars':'FKF Premier League', kcb:'FKF Premier League',
+    // Champions League / national teams
+    'england':'International', 'france':'International', 'brazil':'International',
+    'argentina':'International', 'germany':'International', 'spain':'International',
+    'portugal':'International', 'italy':'International', 'netherlands':'International',
+    'kenya':'International', 'nigeria':'International', 'senegal':'International',
+    'egypt':'International', 'south africa':'International', 'morocco':'International',
+  }
+
+  const KIT_TYPE_KEYWORDS: Record<string, string> = {
+    home:'Home', away:'Away', third:'Third', fourth:'Fourth',
+    gk:'Goalkeeper', goalkeeper:'Goalkeeper', training:'Training',
+    'pre-match':'Pre-Match', prematch:'Pre-Match', pregame:'Pre-Match',
+    special:'Special Edition', retro:'Retro', classic:'Retro',
+    cup:'Cup Edition', 'long sleeve':'Long Sleeve',
+  }
+
+  const smartAutoFillFromName = (rawName: string) => {
+    const lower = rawName.toLowerCase()
+    const updates: Partial<typeof newProduct> = { name: rawName, slug: slugify(rawName) }
+
+    // 1. Extract season (e.g. 2026/27, 25/26, 2025-26)
+    const seasonMatch = lower.match(/\b((?:19|20)\d{2})[\/\-](\d{2,4})\b|\b(\d{2})[\/\-](\d{2})\b/)
+    let season = ''
+    if (seasonMatch) {
+      if (seasonMatch[1]) {
+        const y1 = seasonMatch[1]; const y2 = seasonMatch[2].length === 2 ? seasonMatch[2] : seasonMatch[2].slice(-2)
+        season = `${y1}/${y2}`
+      } else if (seasonMatch[3]) {
+        const y1 = `20${seasonMatch[3]}`; const y2 = seasonMatch[4]
+        season = `${y1}/${y2}`
+      }
+      if (season) updates.season = season
+    } else {
+      // single year: 2026
+      const yearOnly = lower.match(/\b(20\d{2})\b/)
+      if (yearOnly) { season = yearOnly[1]; updates.season = season }
+    }
+
+    // 2. Detect kit type
+    for (const [kw, label] of Object.entries(KIT_TYPE_KEYWORDS)) {
+      if (lower.includes(kw)) { updates.kitType = label; break }
+    }
+    if (!updates.kitType) updates.kitType = 'Home' // default
+
+    // 3. Detect team/club name — try longest match first
+    const sortedClubs = Object.keys(CLUB_LEAGUE_MAP).sort((a, b) => b.length - a.length)
+    for (const club of sortedClubs) {
+      if (lower.includes(club)) {
+        // Proper-case the club name
+        const properClub = club.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+        if (!updates.team) updates.team = properClub
+        if (!updates.league) updates.league = CLUB_LEAGUE_MAP[club]
+        break
+      }
+    }
+
+    // 4. Auto-generate SKU from the filled data
+    updates.sku = generateAutoSKU({ name: rawName, team: updates.team, kitType: updates.kitType, season: updates.season, type: newProduct.type })
+
+    return updates
+  }
+
   const SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'One Size']
 
   // ── Login Gate ──────────────────────────────────────────────────────────────
@@ -5580,11 +5681,28 @@ export default function Admin() {
               )}
 
 
-              <div>
+              <div className="relative">
                 <label className="block text-[10px] font-bold text-gray-500 mb-1">
                   {newProduct.type === 'digital' ? 'Digital File / Asset Title *' : 'Product / Kit Title *'}
                 </label>
-                <input value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value, slug: slugify(e.target.value) }))} placeholder={newProduct.type === 'digital' ? 'e.g. Premier League Tactical Analysis 2026 PDF' : 'Official name e.g. Arsenal FC Home Jersey 2026/27'} required className={INPUT} style={INPUT_STYLE} />
+                <input
+                  value={newProduct.name}
+                  onChange={e => {
+                    const val = e.target.value
+                    if (newProduct.type !== 'digital' && val.length > 4) {
+                      setNewProduct(p => ({ ...p, ...smartAutoFillFromName(val) }))
+                    } else {
+                      setNewProduct(p => ({ ...p, name: val, slug: slugify(val) }))
+                    }
+                  }}
+                  placeholder={newProduct.type === 'digital' ? 'e.g. Premier League Tactical Analysis 2026 PDF' : 'e.g. Barcelona Home Kit 2026/27 — fields auto-fill ⚡'}
+                  required
+                  className={INPUT}
+                  style={INPUT_STYLE}
+                />
+                {newProduct.type !== 'digital' && newProduct.name.length > 4 && (
+                  <p className="text-[9px] text-[#00b341] mt-1 font-semibold">⚡ Auto-filling team, league, season & SKU from title...</p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
