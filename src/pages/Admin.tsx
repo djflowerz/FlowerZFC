@@ -4638,195 +4638,219 @@ export default function Admin() {
             {/* ⚽ PRODUCT TYPE & METADATA */}
             <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
               <div className="flex items-center justify-between">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">⚽ Product Type & Basic Information</label>
+                <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">
+                  {editProduct.type === 'digital' ? '💾 Digital File Asset Details' : '⚽ Physical Kit & Merch Details'}
+                </label>
                 <div className="flex items-center gap-1 bg-[#131320] p-1 rounded-lg border border-[#1e1e32]">
                   <button
                     type="button"
                     onClick={() => setEditProduct(p => p ? { ...p, type: 'physical' } : p)}
                     className={`px-2.5 py-1 text-[10px] font-black rounded transition-all ${(editProduct.type || 'physical') !== 'digital' ? 'bg-[#00b341] text-white' : 'text-gray-400 hover:text-white'}`}
                   >
-                    📦 Physical
+                    📦 Physical Kit
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditProduct(p => p ? { ...p, type: 'digital' } : p)}
                     className={`px-2.5 py-1 text-[10px] font-black rounded transition-all ${editProduct.type === 'digital' ? 'bg-[#6366f1] text-white' : 'text-gray-400 hover:text-white'}`}
                   >
-                    💾 Digital
+                    💾 Digital File
                   </button>
                 </div>
               </div>
 
               {/* Digital Specific Config */}
-              {editProduct.type === 'digital' && (
-                <div className="p-3 rounded-xl border border-[#6366f1]/30 space-y-2.5" style={{ background: 'rgba(99,102,241,0.06)' }}>
+              {editProduct.type === 'digital' ? (
+                <div className="p-3.5 rounded-xl border border-[#6366f1]/40 space-y-3" style={{ background: 'rgba(99,102,241,0.06)' }}>
                   <div className="flex items-center gap-1.5 text-xs font-black text-[#a5b4fc]">
                     <span>💾</span>
-                    <span>Digital Product Delivery Settings</span>
+                    <span>Downloadable File Storage & Delivery</span>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-400 mb-1">Direct Download File URL *</label>
+                    <label className="block text-[10px] font-bold text-gray-400 mb-1">Direct Download File URL (Dropbox, Google Drive, R2, S3, etc.) *</label>
                     <input
                       value={editProduct.digital_file_url || (editProduct as any).digitalFileUrl || ''}
                       onChange={e => setEditProduct(p => p ? { ...p, digital_file_url: e.target.value, digitalFileUrl: e.target.value } : p)}
-                      placeholder="https://storage.flowerz.fc/downloads/file.zip"
+                      placeholder="https://storage.flowerz.fc/downloads/tactics-guide-2026.pdf"
                       className={INPUT}
                       style={INPUT_STYLE}
                     />
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-400 mb-1">Access Password / Unlock Key</label>
-                    <input
-                      value={editProduct.access_password || (editProduct as any).accessPassword || ''}
-                      onChange={e => setEditProduct(p => p ? { ...p, access_password: e.target.value, accessPassword: e.target.value } : p)}
-                      placeholder="e.g. VIP-PASS-2026"
-                      className={INPUT}
-                      style={INPUT_STYLE}
-                    />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 mb-1">Access Password / Key (optional)</label>
+                      <input
+                        value={editProduct.access_password || (editProduct as any).accessPassword || ''}
+                        onChange={e => setEditProduct(p => p ? { ...p, access_password: e.target.value, accessPassword: e.target.value } : p)}
+                        placeholder="e.g. VIP-FLOWERZ-2026"
+                        className={INPUT}
+                        style={INPUT_STYLE}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 mb-1">File Format / Format Note</label>
+                      <input
+                        value={editProduct.version || ''}
+                        onChange={e => setEditProduct(p => p ? { ...p, version: e.target.value } : p)}
+                        placeholder="e.g. PDF (35 MB) or ZIP Archive"
+                        className={INPUT}
+                        style={INPUT_STYLE}
+                      />
+                    </div>
                   </div>
                 </div>
-              )}
+              ) : null}
 
               <div>
-                <label className="block text-[10px] font-bold text-gray-500 mb-1">Product Title *</label>
-                <input value={editProduct.name} onChange={e => setEditProduct(p => p ? { ...p, name: e.target.value, slug: slugify(e.target.value) } : p)} placeholder="e.g. Arsenal FC Home Jersey 2026/27" className={INPUT} style={INPUT_STYLE} />
+                <label className="block text-[10px] font-bold text-gray-500 mb-1">
+                  {editProduct.type === 'digital' ? 'Digital File / Asset Title *' : 'Product / Kit Title *'}
+                </label>
+                <input value={editProduct.name} onChange={e => setEditProduct(p => p ? { ...p, name: e.target.value, slug: slugify(e.target.value) } : p)} placeholder={editProduct.type === 'digital' ? 'e.g. Premier League Tactical Analysis 2026 PDF' : 'e.g. Arsenal FC Home Jersey 2026/27'} className={INPUT} style={INPUT_STYLE} />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">SKU (Stock Keeping Unit)</label>
-                  <input value={editProduct.sku} onChange={e => setEditProduct(p => p ? { ...p, sku: e.target.value } : p)} placeholder="e.g. ARS-HJ-2026" className={INPUT} style={INPUT_STYLE} />
+                  <label className="block text-[10px] font-bold text-gray-500 mb-1">SKU / Asset Code</label>
+                  <input value={editProduct.sku} onChange={e => setEditProduct(p => p ? { ...p, sku: e.target.value } : p)} placeholder="e.g. DIGI-TAC-2026" className={INPUT} style={INPUT_STYLE} />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-gray-500 mb-1">Category</label>
                   <select value={editProduct.category} onChange={e => setEditProduct(p => p ? { ...p, category: e.target.value } : p)} className={INPUT} style={INPUT_STYLE}>
-                    {['Kits','Training Gear','Accessories','Souvenirs','Digital Guides','E-Books','Wallpapers','Audio Passes'].map(c => <option key={c}>{c}</option>)}
+                    {editProduct.type === 'digital' ? (
+                      ['E-Books & Tactical Guides','Match Audio & DJ Mixes','4K Wallpapers & Artwork','Video Masterclasses','Scouting Reports & Databases','Training & Coaching Plans','Graphics & Templates','General Digital File'].map(c => <option key={c}>{c}</option>)
+                    ) : (
+                      ['Kits','Training Gear','Accessories','Souvenirs'].map(c => <option key={c}>{c}</option>)
+                    )}
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Team / Club</label>
-                  <input value={editProduct.team || ''} onChange={e => setEditProduct(p => p ? { ...p, team: e.target.value } : p)} placeholder="e.g. Arsenal FC" className={INPUT} style={INPUT_STYLE} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">League / Tournament</label>
-                  <input value={editProduct.league || ''} onChange={e => setEditProduct(p => p ? { ...p, league: e.target.value } : p)} placeholder="e.g. Premier League" className={INPUT} style={INPUT_STYLE} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Season / Era</label>
-                  <input value={editProduct.season || ''} onChange={e => setEditProduct(p => p ? { ...p, season: e.target.value } : p)} placeholder="e.g. 2026/27" className={INPUT} style={INPUT_STYLE} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Kit Type</label>
-                  <select value={editProduct.kitType || 'Home'} onChange={e => setEditProduct(p => p ? { ...p, kitType: e.target.value } : p)} className={INPUT} style={INPUT_STYLE}>
-                    {['Home','Away','Third','Goalkeeper','N/A'].map(k => <option key={k}>{k}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Version</label>
-                  <select value={editProduct.version || 'Authentic / Player Version'} onChange={e => setEditProduct(p => p ? { ...p, version: e.target.value } : p)} className={INPUT} style={INPUT_STYLE}>
-                    {['Authentic / Player Version','Replica / Fan Version','N/A'].map(v => <option key={v}>{v}</option>)}
-                  </select>
-                </div>
-              </div>
+
+              {/* Physical Kit-only fields */}
+              {editProduct.type !== 'digital' && (
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-1">Team / Club</label>
+                      <input value={editProduct.team || ''} onChange={e => setEditProduct(p => p ? { ...p, team: e.target.value } : p)} placeholder="e.g. Arsenal FC" className={INPUT} style={INPUT_STYLE} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-1">League / Tournament</label>
+                      <input value={editProduct.league || ''} onChange={e => setEditProduct(p => p ? { ...p, league: e.target.value } : p)} placeholder="e.g. Premier League" className={INPUT} style={INPUT_STYLE} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-1">Season / Era</label>
+                      <input value={editProduct.season || ''} onChange={e => setEditProduct(p => p ? { ...p, season: e.target.value } : p)} placeholder="e.g. 2026/27" className={INPUT} style={INPUT_STYLE} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-1">Kit Type</label>
+                      <select value={editProduct.kitType || 'Home'} onChange={e => setEditProduct(p => p ? { ...p, kitType: e.target.value } : p)} className={INPUT} style={INPUT_STYLE}>
+                        {['Home','Away','Third','Goalkeeper','N/A'].map(k => <option key={k}>{k}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-1">Version</label>
+                      <select value={editProduct.version || 'Authentic / Player Version'} onChange={e => setEditProduct(p => p ? { ...p, version: e.target.value } : p)} className={INPUT} style={INPUT_STYLE}>
+                        {['Authentic / Player Version','Replica / Fan Version','N/A'].map(v => <option key={v}>{v}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div>
-                <label className="block text-[10px] font-bold text-gray-500 mb-1">Description (Fabric, Technology & Care instructions)</label>
-                <textarea value={editProduct.description} onChange={e => setEditProduct(p => p ? { ...p, description: e.target.value } : p)} rows={3} placeholder="Fabric details, Dri-FIT technology, wash care..." className={`${INPUT} resize-none`} style={INPUT_STYLE} />
+                <label className="block text-[10px] font-bold text-gray-500 mb-1">
+                  {editProduct.type === 'digital' ? 'File Content Description & Overview' : 'Description (Fabric, Technology & Care)'}
+                </label>
+                <textarea value={editProduct.description} onChange={e => setEditProduct(p => p ? { ...p, description: e.target.value } : p)} rows={3} placeholder={editProduct.type === 'digital' ? 'What is included in this digital download file...' : 'Fabric details, Dri-FIT technology, wash care...'} className={`${INPUT} resize-none`} style={INPUT_STYLE} />
               </div>
             </div>
 
             {/* 🏷️ PRICING, MARGINS & INVENTORY */}
             <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
               <div className="flex items-center justify-between">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">🏷️ Pricing, Profit Margin & Stock</label>
+                <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">🏷️ Pricing & Access</label>
                 {editProduct.price > 0 && editProduct.costPerItem > 0 && (
                   <span className="text-[10px] font-black text-emerald-400">
                     Profit Margin: ${ (editProduct.price - editProduct.costPerItem).toFixed(2) } ({ Math.round(((editProduct.price - editProduct.costPerItem) / editProduct.price) * 100) }%)
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Base Price ($) *</label>
+                  <label className="block text-[10px] font-bold text-gray-500 mb-1">
+                    {editProduct.type === 'digital' ? 'Download Price ($) *' : 'Base Price ($) *'}
+                  </label>
                   <input type="number" step="0.01" value={editProduct.price} onChange={e => setEditProduct(p => p ? { ...p, price: parseFloat(e.target.value) || 0 } : p)} className={INPUT} style={INPUT_STYLE} />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Sale / Discount ($)</label>
+                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Sale / Compare Price ($)</label>
                   <input type="number" step="0.01" value={editProduct.comparePrice || ''} onChange={e => setEditProduct(p => p ? { ...p, comparePrice: parseFloat(e.target.value) || 0 } : p)} className={INPUT} style={INPUT_STYLE} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Cost per Item ($)</label>
-                  <input type="number" step="0.01" value={editProduct.costPerItem || ''} onChange={e => setEditProduct(p => p ? { ...p, costPerItem: parseFloat(e.target.value) || 0 } : p)} placeholder="Internal cost" className={INPUT} style={INPUT_STYLE} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Stock Quantity</label>
-                  <input type="number" value={editProduct.stock} onChange={e => setEditProduct(p => p ? { ...p, stock: parseInt(e.target.value) || 0 } : p)} className={INPUT} style={INPUT_STYLE} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Low Stock Alert Threshold</label>
-                  <input type="number" value={editProduct.lowStockThreshold || 5} onChange={e => setEditProduct(p => p ? { ...p, lowStockThreshold: parseInt(e.target.value) || 5 } : p)} className={INPUT} style={INPUT_STYLE} />
                 </div>
               </div>
             </div>
 
-            {/* 🎨 VARIANTS, CUSTOMIZATION & BADGES */}
-            <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
-              <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">🎨 Customization, Badges & Variants</label>
-              <div>
-                <label className="block text-[10px] font-bold text-gray-500 mb-2">Available Sizes</label>
-                <div className="flex gap-2 flex-wrap">
-                  {['XS','S','M','L','XL','XXL','Kids','Infant','One Size'].map(s => {
-                    const active = (editProduct.sizes || []).includes(s)
-                    return (
-                      <button type="button" key={s} onClick={() => {
-                        const cur = editProduct.sizes || []
-                        const updated = active ? cur.filter(x => x !== s) : [...cur, s]
-                        setEditProduct(p => p ? { ...p, sizes: updated } : p)
-                      }} className="px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all"
-                        style={{ background: active ? '#00b341' : '#131320', color: active ? '#fff' : '#6b7280', borderColor: active ? '#00b341' : '#1e1e32' }}>{s}</button>
-                    )
-                  })}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+            {/* 🎨 PHYSICAL APPAREL VARIANTS & CUSTOMIZATION (HIDDEN FOR DIGITAL) */}
+            {editProduct.type !== 'digital' && (
+              <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
+                <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">🎨 Customization, Badges & Variants</label>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Gender / Age Segment</label>
-                  <select value={editProduct.gender || 'Men'} onChange={e => setEditProduct(p => p ? { ...p, gender: e.target.value } : p)} className={INPUT} style={INPUT_STYLE}>
-                    {['Men','Women','Kids','Infant','Unisex'].map(g => <option key={g}>{g}</option>)}
-                  </select>
+                  <label className="block text-[10px] font-bold text-gray-500 mb-2">Available Sizes</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {['XS','S','M','L','XL','XXL','Kids','Infant','One Size'].map(s => {
+                      const active = (editProduct.sizes || []).includes(s)
+                      return (
+                        <button type="button" key={s} onClick={() => {
+                          const cur = editProduct.sizes || []
+                          const updated = active ? cur.filter(x => x !== s) : [...cur, s]
+                          setEditProduct(p => p ? { ...p, sizes: updated } : p)
+                        }} className="px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all"
+                          style={{ background: active ? '#00b341' : '#131320', color: active ? '#fff' : '#6b7280', borderColor: active ? '#00b341' : '#1e1e32' }}>{s}</button>
+                      )
+                    })}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 pt-5">
-                  <input type="checkbox" id="edit-custom" checked={editProduct.customizable} onChange={e => setEditProduct(p => p ? { ...p, customizable: e.target.checked } : p)} className="w-4 h-4 accent-[#00b341]" />
-                  <label htmlFor="edit-custom" className="text-xs font-bold text-white cursor-pointer">Enable Player Name & Number Printing</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 mb-1">Gender / Age Segment</label>
+                    <select value={editProduct.gender || 'Men'} onChange={e => setEditProduct(p => p ? { ...p, gender: e.target.value } : p)} className={INPUT} style={INPUT_STYLE}>
+                      {['Men','Women','Kids','Infant','Unisex'].map(g => <option key={g}>{g}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2 pt-5">
+                    <input type="checkbox" id="edit-custom" checked={editProduct.customizable} onChange={e => setEditProduct(p => p ? { ...p, customizable: e.target.checked } : p)} className="w-4 h-4 accent-[#00b341]" />
+                    <label htmlFor="edit-custom" className="text-xs font-bold text-white cursor-pointer">Enable Player Name & Number Printing</label>
+                  </div>
                 </div>
+                {editProduct.customizable && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 mb-1">Pre-loaded Squad Players (comma separated)</label>
+                    <input value={editProduct.playerList || ''} onChange={e => setEditProduct(p => p ? { ...p, playerList: e.target.value } : p)} placeholder="Bukayo Saka #7, Martin Ødegaard #8" className={INPUT} style={INPUT_STYLE} />
+                  </div>
+                )}
               </div>
-              {editProduct.customizable && (
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Pre-loaded Squad Players (comma separated)</label>
-                  <input value={editProduct.playerList || ''} onChange={e => setEditProduct(p => p ? { ...p, playerList: e.target.value } : p)} placeholder="Bukayo Saka #7, Martin Ødegaard #8" className={INPUT} style={INPUT_STYLE} />
-                </div>
-              )}
-            </div>
+            )}
 
             {/* 📦 SHIPPING & SEO */}
             <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
-              <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">📦 Shipping & SEO</label>
+              <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">
+                {editProduct.type === 'digital' ? '🔍 SEO & Discovery' : '📦 Shipping & SEO'}
+              </label>
               <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Weight (kg)</label>
-                  <input value={editProduct.weight} onChange={e => setEditProduct(p => p ? { ...p, weight: e.target.value } : p)} placeholder="0.35" className={INPUT} style={INPUT_STYLE} />
-                </div>
-                <div>
+                {editProduct.type !== 'digital' && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 mb-1">Weight (kg)</label>
+                    <input value={editProduct.weight} onChange={e => setEditProduct(p => p ? { ...p, weight: e.target.value } : p)} placeholder="0.35" className={INPUT} style={INPUT_STYLE} />
+                  </div>
+                )}
+                <div className={editProduct.type === 'digital' ? 'col-span-2' : ''}>
                   <label className="block text-[10px] font-bold text-gray-500 mb-1">URL Slug</label>
                   <input value={editProduct.slug || ''} onChange={e => setEditProduct(p => p ? { ...p, slug: e.target.value } : p)} className={`${INPUT} font-mono`} style={INPUT_STYLE} />
                 </div>
               </div>
               <input value={editProduct.tags} onChange={e => setEditProduct(p => p ? { ...p, tags: e.target.value } : p)} placeholder="Tags (comma-separated)" className={INPUT} style={INPUT_STYLE} />
             </div>
+
 
           </div>
           <button onClick={async () => {
@@ -4843,11 +4867,11 @@ export default function Admin() {
 
       {/* Add Product */}
       {showAddProduct && (
-        <Modal title="Add New Football Kit / Product" onClose={() => setShowAddProduct(false)}>
+        <Modal title={newProduct.type === 'digital' ? 'Upload New Digital File / Asset' : 'Add New Football Kit / Merch'} onClose={() => setShowAddProduct(false)}>
           <form onSubmit={async e => {
             e.preventDefault()
             if (!newProduct.name || !newProduct.price) return
-            const mainImg = newProduct.images[0] || newProduct.imageUrl || 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=600&h=600&fit=crop'
+            const mainImg = newProduct.images[0] || newProduct.imageUrl || (newProduct.type === 'digital' ? 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&h=600&fit=crop' : 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=600&h=600&fit=crop')
             const prod: any = {
               id: `p-${Date.now()}`,
               type: newProduct.type,
@@ -4856,30 +4880,30 @@ export default function Admin() {
               name: newProduct.name,
               sku: newProduct.sku || `SKU-${Date.now().toString().slice(-6)}`,
               description: newProduct.description,
-              category: newProduct.category,
-              team: newProduct.team,
-              league: newProduct.league,
-              season: newProduct.season,
-              kitType: newProduct.kitType,
-              version: newProduct.version,
+              category: newProduct.category || (newProduct.type === 'digital' ? 'E-Books & Tactical Guides' : 'Kits'),
+              team: newProduct.type === 'digital' ? '' : newProduct.team,
+              league: newProduct.type === 'digital' ? '' : newProduct.league,
+              season: newProduct.type === 'digital' ? '' : newProduct.season,
+              kitType: newProduct.type === 'digital' ? '' : newProduct.kitType,
+              version: newProduct.type === 'digital' ? (newProduct.version || 'Digital File') : newProduct.version,
               price: parseFloat(newProduct.price) || 0,
               comparePrice: parseFloat(newProduct.comparePrice) || 0,
               costPerItem: parseFloat(newProduct.costPerItem) || 0,
-              stock: parseInt(newProduct.stock) || 50,
+              stock: newProduct.type === 'digital' ? 9999 : (parseInt(newProduct.stock) || 50),
               lowStockThreshold: parseInt(newProduct.lowStockThreshold) || 5,
               sales: 0,
               status: 'Active',
               featured: false,
               images: newProduct.images.length > 0 ? newProduct.images : [mainImg],
               imageUrl: mainImg,
-              sizeChartUrl: newProduct.sizeChartUrl,
-              sizes: newProduct.sizes,
-              gender: newProduct.gender,
-              customizable: newProduct.customizable,
+              sizeChartUrl: newProduct.type === 'digital' ? '' : newProduct.sizeChartUrl,
+              sizes: newProduct.type === 'digital' ? ['Digital'] : newProduct.sizes,
+              gender: newProduct.type === 'digital' ? 'Unisex' : newProduct.gender,
+              customizable: newProduct.type === 'digital' ? false : newProduct.customizable,
               playerList: newProduct.playerList,
               customNameLimit: parseInt(newProduct.customNameLimit) || 12,
               availablePatches: newProduct.availablePatches,
-              weight: newProduct.weight || '0.35',
+              weight: newProduct.type === 'digital' ? '0' : (newProduct.weight || '0.35'),
               dimensions: newProduct.dimensions,
               slug: newProduct.slug || slugify(newProduct.name),
               metaTitle: newProduct.metaTitle || newProduct.name,
@@ -4896,16 +4920,22 @@ export default function Admin() {
             setProducts(p => [savedProduct as any, ...p])
             setShowAddProduct(false)
             setNewProduct(BLANK_PRODUCT)
-            toastLib.success('✅ Product created!')
+            toastLib.success(newProduct.type === 'digital' ? '✅ Digital File published to store!' : '✅ Kit published to store!')
           }} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
 
             {/* 📸 MEDIA & IMAGES */}
             <div className="p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">📸 Product Images (Drag & Drop or Device Upload · Max 8)</label>
+                <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">
+                  {newProduct.type === 'digital' ? '📸 Cover Art / Preview Thumbnail' : '📸 Product Images (Drag & Drop or Upload)'}
+                </label>
                 <span className="text-[10px] text-gray-500 font-bold">{newProduct.images.length} / 8 uploaded</span>
               </div>
-              <p className="text-[10px] text-gray-400 mb-3">Upload front, back, close-ups, and lifestyle photos directly from your computer/phone.</p>
+              <p className="text-[10px] text-gray-400 mb-3">
+                {newProduct.type === 'digital'
+                  ? 'Upload cover artwork, book cover, wallpaper preview or teaser banner.'
+                  : 'Upload front, back, close-ups, and lifestyle photos directly from your computer/phone.'}
+              </p>
               
               {/* Drag and drop zone */}
               <div
@@ -4937,8 +4967,8 @@ export default function Admin() {
                 }`}
               >
                 <span className="text-2xl block mb-1">📁</span>
-                <p className="text-xs font-bold text-white mb-0.5">Drag & Drop product images here, or <span className="text-[#00b341] underline">browse device</span></p>
-                <p className="text-[10px] text-gray-500">Supports JPG, PNG, WEBP up to 8 images</p>
+                <p className="text-xs font-bold text-white mb-0.5">Drag & Drop cover artwork here, or <span className="text-[#00b341] underline">browse device</span></p>
+                <p className="text-[10px] text-gray-500">Supports JPG, PNG, WEBP</p>
                 <input type="file" multiple accept="image/*" className="hidden" id="add-product-files" onChange={e => {
                   const files = e.target.files
                   if (!files || files.length === 0) return
@@ -4991,197 +5021,225 @@ export default function Admin() {
             {/* ⚽ PRODUCT TYPE & METADATA */}
             <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
               <div className="flex items-center justify-between">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">⚽ Product Type & Basic Information</label>
+                <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">
+                  {newProduct.type === 'digital' ? '💾 Digital File & Delivery Config' : '⚽ Physical Kit & Merch Config'}
+                </label>
                 <div className="flex items-center gap-1 bg-[#131320] p-1 rounded-lg border border-[#1e1e32]">
                   <button
                     type="button"
-                    onClick={() => setNewProduct(p => ({ ...p, type: 'physical' }))}
+                    onClick={() => setNewProduct(p => ({ ...p, type: 'physical', category: 'Kits' }))}
                     className={`px-2.5 py-1 text-[10px] font-black rounded transition-all ${newProduct.type !== 'digital' ? 'bg-[#00b341] text-white' : 'text-gray-400 hover:text-white'}`}
                   >
-                    📦 Physical Merch
+                    📦 Physical Kit
                   </button>
                   <button
                     type="button"
-                    onClick={() => setNewProduct(p => ({ ...p, type: 'digital' }))}
+                    onClick={() => setNewProduct(p => ({ ...p, type: 'digital', category: 'E-Books & Tactical Guides' }))}
                     className={`px-2.5 py-1 text-[10px] font-black rounded transition-all ${newProduct.type === 'digital' ? 'bg-[#6366f1] text-white' : 'text-gray-400 hover:text-white'}`}
                   >
-                    💾 Digital Download
+                    💾 Digital File
                   </button>
                 </div>
               </div>
 
               {/* Digital Specific Config */}
               {newProduct.type === 'digital' && (
-                <div className="p-3 rounded-xl border border-[#6366f1]/30 space-y-2.5" style={{ background: 'rgba(99,102,241,0.06)' }}>
+                <div className="p-3.5 rounded-xl border border-[#6366f1]/40 space-y-3" style={{ background: 'rgba(99,102,241,0.06)' }}>
                   <div className="flex items-center gap-1.5 text-xs font-black text-[#a5b4fc]">
                     <span>💾</span>
-                    <span>Digital Product Delivery Settings</span>
+                    <span>Downloadable File Storage & Delivery</span>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-400 mb-1">Direct Download File URL (Dropbox, Google Drive, R2, S3, etc.) *</label>
+                    <label className="block text-[10px] font-bold text-gray-400 mb-1">Direct Download File URL (Dropbox, Google Drive, R2, S3, Cloudflare, etc.) *</label>
                     <input
                       value={newProduct.digitalFileUrl}
                       onChange={e => setNewProduct(p => ({ ...p, digitalFileUrl: e.target.value }))}
-                      placeholder="https://storage.flowerz.fc/downloads/sample.zip"
+                      placeholder="https://storage.flowerz.fc/downloads/tactics-guide-2026.pdf"
+                      required
                       className={INPUT}
                       style={INPUT_STYLE}
                     />
+                    <p className="text-[9px] text-gray-500 mt-1">Buyers get instant one-click access to download this file after completing checkout.</p>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-400 mb-1">Access Password / Unlock Key (optional)</label>
-                    <input
-                      value={newProduct.accessPassword}
-                      onChange={e => setNewProduct(p => ({ ...p, accessPassword: e.target.value }))}
-                      placeholder="e.g. VIP-2026-FLOWERZ"
-                      className={INPUT}
-                      style={INPUT_STYLE}
-                    />
-                    <p className="text-[9px] text-gray-500 mt-1">If set, customers will be shown this password upon successful checkout and can unlock direct downloads on the product page.</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 mb-1">Access Password / Unlock Key (optional)</label>
+                      <input
+                        value={newProduct.accessPassword}
+                        onChange={e => setNewProduct(p => ({ ...p, accessPassword: e.target.value }))}
+                        placeholder="e.g. VIP-FLOWERZ-2026"
+                        className={INPUT}
+                        style={INPUT_STYLE}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 mb-1">File Format / Format Note</label>
+                      <input
+                        value={newProduct.version}
+                        onChange={e => setNewProduct(p => ({ ...p, version: e.target.value }))}
+                        placeholder="e.g. PDF (35 MB) or ZIP (450 MB)"
+                        className={INPUT}
+                        style={INPUT_STYLE}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="block text-[10px] font-bold text-gray-500 mb-1">Product Title * (e.g. "Arsenal FC Home Jersey 2026/27" or "Tactics Playbook 2026 PDF")</label>
-                <input value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value, slug: slugify(e.target.value) }))} placeholder="Official name..." required className={INPUT} style={INPUT_STYLE} />
+                <label className="block text-[10px] font-bold text-gray-500 mb-1">
+                  {newProduct.type === 'digital' ? 'Digital File / Asset Title *' : 'Product / Kit Title *'}
+                </label>
+                <input value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value, slug: slugify(e.target.value) }))} placeholder={newProduct.type === 'digital' ? 'e.g. Premier League Tactical Analysis 2026 PDF' : 'Official name e.g. Arsenal FC Home Jersey 2026/27'} required className={INPUT} style={INPUT_STYLE} />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">SKU Code</label>
-                  <input value={newProduct.sku} onChange={e => setNewProduct(p => ({ ...p, sku: e.target.value }))} placeholder="e.g. ARS-HJ-2026" className={INPUT} style={INPUT_STYLE} />
+                  <label className="block text-[10px] font-bold text-gray-500 mb-1">SKU / Asset Code</label>
+                  <input value={newProduct.sku} onChange={e => setNewProduct(p => ({ ...p, sku: e.target.value }))} placeholder={newProduct.type === 'digital' ? 'DIGI-TAC-2026' : 'ARS-HJ-2026'} className={INPUT} style={INPUT_STYLE} />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-gray-500 mb-1">Category</label>
                   <select value={newProduct.category} onChange={e => setNewProduct(p => ({ ...p, category: e.target.value }))} className={INPUT} style={INPUT_STYLE}>
-                    {['Kits','Training Gear','Accessories','Souvenirs','Digital Guides','E-Books','Wallpapers','Audio Passes'].map(c => <option key={c}>{c}</option>)}
+                    {newProduct.type === 'digital' ? (
+                      ['E-Books & Tactical Guides','Match Audio & DJ Mixes','4K Wallpapers & Artwork','Video Masterclasses','Scouting Reports & Databases','Training & Coaching Plans','Graphics & Templates','General Digital File'].map(c => <option key={c}>{c}</option>)
+                    ) : (
+                      ['Kits','Training Gear','Accessories','Souvenirs'].map(c => <option key={c}>{c}</option>)
+                    )}
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Team / Club</label>
-                  <input value={newProduct.team} onChange={e => setNewProduct(p => ({ ...p, team: e.target.value }))} placeholder="e.g. Arsenal FC" className={INPUT} style={INPUT_STYLE} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">League / Tournament</label>
-                  <input value={newProduct.league} onChange={e => setNewProduct(p => ({ ...p, league: e.target.value }))} placeholder="e.g. Premier League" className={INPUT} style={INPUT_STYLE} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Season / Era</label>
-                  <input value={newProduct.season} onChange={e => setNewProduct(p => ({ ...p, season: e.target.value }))} placeholder="e.g. 2026/27" className={INPUT} style={INPUT_STYLE} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Kit Type</label>
-                  <select value={newProduct.kitType} onChange={e => setNewProduct(p => ({ ...p, kitType: e.target.value }))} className={INPUT} style={INPUT_STYLE}>
-                    {['Home','Away','Third','Goalkeeper','N/A'].map(k => <option key={k}>{k}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Version</label>
-                  <select value={newProduct.version} onChange={e => setNewProduct(p => ({ ...p, version: e.target.value }))} className={INPUT} style={INPUT_STYLE}>
-                    {['Authentic / Player Version','Replica / Fan Version','N/A'].map(v => <option key={v}>{v}</option>)}
-                  </select>
-                </div>
-              </div>
+
+              {/* Physical Kit-only fields */}
+              {newProduct.type !== 'digital' && (
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-1">Team / Club</label>
+                      <input value={newProduct.team} onChange={e => setNewProduct(p => ({ ...p, team: e.target.value }))} placeholder="e.g. Arsenal FC" className={INPUT} style={INPUT_STYLE} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-1">League / Tournament</label>
+                      <input value={newProduct.league} onChange={e => setNewProduct(p => ({ ...p, league: e.target.value }))} placeholder="e.g. Premier League" className={INPUT} style={INPUT_STYLE} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-1">Season / Era</label>
+                      <input value={newProduct.season} onChange={e => setNewProduct(p => ({ ...p, season: e.target.value }))} placeholder="e.g. 2026/27" className={INPUT} style={INPUT_STYLE} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-1">Kit Type</label>
+                      <select value={newProduct.kitType} onChange={e => setNewProduct(p => ({ ...p, kitType: e.target.value }))} className={INPUT} style={INPUT_STYLE}>
+                        {['Home','Away','Third','Goalkeeper','N/A'].map(k => <option key={k}>{k}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-500 mb-1">Version</label>
+                      <select value={newProduct.version} onChange={e => setNewProduct(p => ({ ...p, version: e.target.value }))} className={INPUT} style={INPUT_STYLE}>
+                        {['Authentic / Player Version','Replica / Fan Version','N/A'].map(v => <option key={v}>{v}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div>
-                <label className="block text-[10px] font-bold text-gray-500 mb-1">Description (Fabric, Tech e.g. Dri-FIT, Care)</label>
-                <textarea value={newProduct.description} onChange={e => setNewProduct(p => ({ ...p, description: e.target.value }))} rows={3} placeholder="Fabric details, technologies, care instructions..." className={`${INPUT} resize-none`} style={INPUT_STYLE} />
+                <label className="block text-[10px] font-bold text-gray-500 mb-1">
+                  {newProduct.type === 'digital' ? 'File Content Description & Overview' : 'Description (Fabric, Tech e.g. Dri-FIT, Care)'}
+                </label>
+                <textarea value={newProduct.description} onChange={e => setNewProduct(p => ({ ...p, description: e.target.value }))} rows={3} placeholder={newProduct.type === 'digital' ? 'Explain what chapters, tracklists, or graphic files are included...' : 'Fabric details, technologies, care instructions...'} className={`${INPUT} resize-none`} style={INPUT_STYLE} />
               </div>
             </div>
 
             {/* 🏷️ PRICING & INVENTORY */}
             <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
               <div className="flex items-center justify-between">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">🏷️ Pricing, Margin & Inventory</label>
+                <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">
+                  {newProduct.type === 'digital' ? '🏷️ Pricing & Download Access' : '🏷️ Pricing, Margin & Inventory'}
+                </label>
                 {parseFloat(newProduct.price) > 0 && parseFloat(newProduct.costPerItem) > 0 && (
                   <span className="text-[10px] font-black text-emerald-400">
                     Est. Margin: ${ (parseFloat(newProduct.price) - parseFloat(newProduct.costPerItem)).toFixed(2) } ({ Math.round(((parseFloat(newProduct.price) - parseFloat(newProduct.costPerItem)) / parseFloat(newProduct.price)) * 100) }%)
                   </span>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Base Price ($) *</label>
+                  <label className="block text-[10px] font-bold text-gray-500 mb-1">
+                    {newProduct.type === 'digital' ? 'Download Price ($) *' : 'Base Price ($) *'}
+                  </label>
                   <input type="number" step="0.01" value={newProduct.price} onChange={e => setNewProduct(p => ({ ...p, price: e.target.value }))} required className={INPUT} style={INPUT_STYLE} />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Sale / Discount ($)</label>
+                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Sale / Compare Price ($)</label>
                   <input type="number" step="0.01" value={newProduct.comparePrice} onChange={e => setNewProduct(p => ({ ...p, comparePrice: e.target.value }))} className={INPUT} style={INPUT_STYLE} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Cost per Item ($)</label>
-                  <input type="number" step="0.01" value={newProduct.costPerItem} onChange={e => setNewProduct(p => ({ ...p, costPerItem: e.target.value }))} placeholder="Internal cost" className={INPUT} style={INPUT_STYLE} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Stock Quantity</label>
-                  <input type="number" value={newProduct.stock} onChange={e => setNewProduct(p => ({ ...p, stock: e.target.value }))} className={INPUT} style={INPUT_STYLE} />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Low Stock Alert Threshold</label>
-                  <input type="number" value={newProduct.lowStockThreshold} onChange={e => setNewProduct(p => ({ ...p, lowStockThreshold: e.target.value }))} className={INPUT} style={INPUT_STYLE} />
                 </div>
               </div>
             </div>
 
-            {/* 🎨 VARIANTS, CUSTOMIZATION & BADGES */}
-            <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
-              <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">🎨 Customization, Badges & Sizes</label>
-              <div>
-                <label className="block text-[10px] font-bold text-gray-500 mb-2">Available Sizes</label>
-                <div className="flex gap-2 flex-wrap">
-                  {['XS','S','M','L','XL','XXL','Kids','Infant','One Size'].map(s => {
-                    const active = newProduct.sizes.includes(s)
-                    return (
-                      <button type="button" key={s} onClick={() => {
-                        const updated = active ? newProduct.sizes.filter(x => x !== s) : [...newProduct.sizes, s]
-                        setNewProduct(p => ({ ...p, sizes: updated }))
-                      }} className="px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all"
-                        style={{ background: active ? '#00b341' : '#131320', color: active ? '#fff' : '#6b7280', borderColor: active ? '#00b341' : '#1e1e32' }}>{s}</button>
-                    )
-                  })}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+            {/* 🎨 PHYSICAL APPAREL VARIANTS & CUSTOMIZATION (HIDDEN FOR DIGITAL) */}
+            {newProduct.type !== 'digital' && (
+              <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
+                <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">🎨 Customization, Badges & Sizes</label>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Gender / Age Segment</label>
-                  <select value={newProduct.gender} onChange={e => setNewProduct(p => ({ ...p, gender: e.target.value }))} className={INPUT} style={INPUT_STYLE}>
-                    {['Men','Women','Kids','Infant','Unisex'].map(g => <option key={g}>{g}</option>)}
-                  </select>
+                  <label className="block text-[10px] font-bold text-gray-500 mb-2">Available Sizes</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {['XS','S','M','L','XL','XXL','Kids','Infant','One Size'].map(s => {
+                      const active = newProduct.sizes.includes(s)
+                      return (
+                        <button type="button" key={s} onClick={() => {
+                          const updated = active ? newProduct.sizes.filter(x => x !== s) : [...newProduct.sizes, s]
+                          setNewProduct(p => ({ ...p, sizes: updated }))
+                        }} className="px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all"
+                          style={{ background: active ? '#00b341' : '#131320', color: active ? '#fff' : '#6b7280', borderColor: active ? '#00b341' : '#1e1e32' }}>{s}</button>
+                      )
+                    })}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 pt-5">
-                  <input type="checkbox" id="add-custom" checked={newProduct.customizable} onChange={e => setNewProduct(p => ({ ...p, customizable: e.target.checked }))} className="w-4 h-4 accent-[#00b341]" />
-                  <label htmlFor="add-custom" className="text-xs font-bold text-white cursor-pointer">Enable Player Name & Number Printing</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 mb-1">Gender / Age Segment</label>
+                    <select value={newProduct.gender} onChange={e => setNewProduct(p => ({ ...p, gender: e.target.value }))} className={INPUT} style={INPUT_STYLE}>
+                      {['Men','Women','Kids','Infant','Unisex'].map(g => <option key={g}>{g}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-2 pt-5">
+                    <input type="checkbox" id="add-custom" checked={newProduct.customizable} onChange={e => setNewProduct(p => ({ ...p, customizable: e.target.checked }))} className="w-4 h-4 accent-[#00b341]" />
+                    <label htmlFor="add-custom" className="text-xs font-bold text-white cursor-pointer">Enable Player Name & Number Printing</label>
+                  </div>
                 </div>
+                {newProduct.customizable && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 mb-1">Squad Players List (auto-fills printing selection)</label>
+                    <input value={newProduct.playerList} onChange={e => setNewProduct(p => ({ ...p, playerList: e.target.value }))} placeholder="Bukayo Saka #7, Martin Ødegaard #8" className={INPUT} style={INPUT_STYLE} />
+                  </div>
+                )}
               </div>
-              {newProduct.customizable && (
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Squad Players List (auto-fills printing selection)</label>
-                  <input value={newProduct.playerList} onChange={e => setNewProduct(p => ({ ...p, playerList: e.target.value }))} placeholder="Bukayo Saka #7, Martin Ødegaard #8" className={INPUT} style={INPUT_STYLE} />
-                </div>
-              )}
-            </div>
+            )}
 
             {/* 📦 SHIPPING & SEO */}
             <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
-              <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">📦 Shipping & SEO</label>
+              <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">
+                {newProduct.type === 'digital' ? '🔍 SEO & Discovery' : '📦 Shipping & SEO'}
+              </label>
               <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-1">Weight (kg)</label>
-                  <input value={newProduct.weight} onChange={e => setNewProduct(p => ({ ...p, weight: e.target.value }))} placeholder="0.35" className={INPUT} style={INPUT_STYLE} />
-                </div>
-                <div>
+                {newProduct.type !== 'digital' && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 mb-1">Weight (kg)</label>
+                    <input value={newProduct.weight} onChange={e => setNewProduct(p => ({ ...p, weight: e.target.value }))} placeholder="0.35" className={INPUT} style={INPUT_STYLE} />
+                  </div>
+                )}
+                <div className={newProduct.type === 'digital' ? 'col-span-2' : ''}>
                   <label className="block text-[10px] font-bold text-gray-500 mb-1">URL Slug</label>
-                  <input value={newProduct.slug} onChange={e => setNewProduct(p => ({ ...p, slug: e.target.value }))} placeholder="arsenal-home-jersey-2026" className={`${INPUT} font-mono`} style={INPUT_STYLE} />
+                  <input value={newProduct.slug} onChange={e => setNewProduct(p => ({ ...p, slug: e.target.value }))} placeholder="tactics-playbook-2026" className={`${INPUT} font-mono`} style={INPUT_STYLE} />
                 </div>
               </div>
               <input value={newProduct.tags} onChange={e => setNewProduct(p => ({ ...p, tags: e.target.value }))} placeholder="Tags (comma-separated)" className={INPUT} style={INPUT_STYLE} />
             </div>
 
-            <button type="submit" className="w-full py-3.5 font-black text-white rounded-xl hover:opacity-90 sticky bottom-0" style={{ background: '#00b341' }}>+ Publish Product to Store</button>
+            <button type="submit" className="w-full py-3.5 font-black text-white rounded-xl hover:opacity-90 sticky bottom-0" style={{ background: newProduct.type === 'digital' ? '#6366f1' : '#00b341' }}>
+              {newProduct.type === 'digital' ? '+ Publish Digital File to Store' : '+ Publish Product to Store'}
+            </button>
           </form>
         </Modal>
       )}
