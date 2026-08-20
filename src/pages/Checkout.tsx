@@ -1,15 +1,71 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { initiatePayment } from '../services/paymentService'
-import { calculateShippingQuotes, getShippingConfig, type ShippingQuoteOption } from '../services/shippingService'
-import { createOrder, fetchAllProducts } from '../services/supabaseClient'
+import { createOrder, fetchAllProducts, verifyPaidReceipt } from '../services/supabaseClient'
 
 type Step = 'contact' | 'shipping' | 'payment' | 'verifying' | 'confirmation' | 'failed'
-type PayMethod = 'card' | 'mpesa' | 'paypal'
+type DeliveryMethod = 'home' | 'pickup'
+
+const COUNTRIES = [
+  { code: 'KE', name: 'Kenya', dial: '+254', flag: '🇰🇪' },
+  { code: 'US', name: 'United States', dial: '+1', flag: '🇺🇸' },
+  { code: 'GB', name: 'United Kingdom', dial: '+44', flag: '🇬🇧' },
+  { code: 'CA', name: 'Canada', dial: '+1', flag: '🇨🇦' },
+  { code: 'NG', name: 'Nigeria', dial: '+234', flag: '🇳🇬' },
+  { code: 'ZA', name: 'South Africa', dial: '+27', flag: '🇿🇦' },
+  { code: 'GH', name: 'Ghana', dial: '+233', flag: '🇬🇭' },
+  { code: 'TZ', name: 'Tanzania', dial: '+255', flag: '🇹🇿' },
+  { code: 'UG', name: 'Uganda', dial: '+256', flag: '🇺🇬' },
+  { code: 'RW', name: 'Rwanda', dial: '+250', flag: '🇷🇼' },
+  { code: 'AE', name: 'United Arab Emirates', dial: '+971', flag: '🇦🇪' },
+  { code: 'DE', name: 'Germany', dial: '+49', flag: '🇩🇪' },
+  { code: 'FR', name: 'France', dial: '+33', flag: '🇫🇷' },
+  { code: 'AU', name: 'Australia', dial: '+61', flag: '🇦🇺' },
+]
+
+const KENYA_COUNTIES = [
+  'Nairobi', 'Mombasa', 'Kiambu', 'Nakuru', 'Machakos', 'Uasin Gishu', 'Kisumu', 'Kilifi',
+  'Kajiado', 'Nyeri', 'Meru', 'Murang\'a', 'Kakamega', 'Bungoma', 'Kisii', 'Kericho',
+  'Garissa', 'Embu', 'Kitui', 'Laikipia', 'Makueni', 'Trans Nzoia', 'Baringo', 'Bomet',
+  'Busia', 'Elgeyo Marakwet', 'Homa Bay', 'Isiolo', 'Kirinyaga', 'Kwale', 'Lamu', 'Mandera',
+  'Marsabit', 'Migori', 'Nandi', 'Narok', 'Nyamira', 'Nyandarua', 'Samburu', 'Siaya',
+  'Taita Taveta', 'Tana River', 'Tharaka Nithi', 'Turkana', 'Vihiga', 'Wajir', 'West Pokot'
+]
+
+const KENYA_CITY_SUGGESTIONS = [
+  'Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret', 'Thika', 'Malindi', 'Naivasha', 'Kitale', 'Machakos'
+]
+
+const US_STATES = [
+  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware',
+  'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky',
+  'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi',
+  'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico',
+  'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania',
+  'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
+  'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
+]
+
+const PICKUP_HUBS = [
+  { id: 'hub_nairobi_cbd', name: 'CBD Nairobi Hub (Moi Avenue Office)', hours: 'Mon–Sat: 8:30 AM – 6:30 PM', phone: '+254 755 699 898' },
+  { id: 'hub_mombasa', name: 'Mombasa Pickup Center (Nyali Mall)', hours: 'Mon–Sat: 9:00 AM – 6:00 PM', phone: '+254 737 308 510' },
+  { id: 'hub_kisumu', name: 'Kisumu Hub (Mega Plaza Ground Floor)', hours: 'Mon–Sat: 9:00 AM – 5:30 PM', phone: '+254 755 699 898' },
+]
+
+const KES_TO_USD_RATE = 130 // 1 USD = 130 KES
 
 const inputCls = 'w-full px-4 py-3 text-sm text-white placeholder-gray-500 rounded-xl outline-none focus:ring-1 focus:ring-[#00b341] transition-all'
 const inputStyle = { background: '#0c0c14', border: '1px solid #1e1e32' }
+
+function generateOrderReference(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let result = ''
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return `FZ-${result}`
+}
 
 export default function Checkout() {
   const [searchParams] = useSearchParams()
@@ -17,19 +73,27 @@ export default function Checkout() {
   const isConfirmedDirectPay = searchParams.get('confirmed') === '1'
 
   const { cart, cartTotal, clearCart, user, t, formatPrice } = useApp()
-  const [orderNum] = useState(`FZ${Date.now().toString().slice(-6)}`)
+  const [orderNum] = useState(generateOrderReference())
   const [errorMessage, setErrorMessage] = useState('')
-  const [shippingQuotes, setShippingQuotes] = useState<ShippingQuoteOption[]>([])
-  const [fetchingQuotes, setFetchingQuotes] = useState(false)
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
 
-  // Digital products detection — match cart items against DB products
+  // Digital products detection
   const [cartProductTypes, setCartProductTypes] = useState<Record<string, 'physical' | 'digital'>>({})
   const [cartDigitalFiles, setCartDigitalFiles] = useState<Record<string, string | null>>({})
   const [cartDigitalPasswords, setCartDigitalPasswords] = useState<Record<string, string | null>>({})
   const [cartMacFiles, setCartMacFiles] = useState<Record<string, string | null>>({})
   const [cartWindowsFiles, setCartWindowsFiles] = useState<Record<string, string | null>>({})
   const [cartAndroidFiles, setCartAndroidFiles] = useState<Record<string, string | null>>({})
+
+  // Masked passwords visible state per item
+  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({})
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+
+  // Recovery utility state
+  const [recoveryQuery, setRecoveryQuery] = useState('')
+  const [recoveryError, setRecoveryError] = useState('')
+  const [recoveryOrder, setRecoveryOrder] = useState<any | null>(null)
+  const [isSearchingRecovery, setIsSearchingRecovery] = useState(false)
 
   useEffect(() => {
     fetchAllProducts().then(({ products }) => {
@@ -59,18 +123,15 @@ export default function Checkout() {
 
   const isAllDigital = cart.length > 0 && cart.every(item => cartProductTypes[item.id] === 'digital')
   const hasDigitalItems = cart.some(item => cartProductTypes[item.id] === 'digital')
+  const hasPhysicalItems = cart.some(item => cartProductTypes[item.id] !== 'digital')
 
   const [step, setStep] = useState<Step>(isAllDigital ? 'payment' : 'contact')
   const [savedCartItems, setSavedCartItems] = useState(cart)
 
-  // Keep savedCartItems updated before clearCart
   useEffect(() => {
-    if (cart.length > 0) {
-      setSavedCartItems(cart)
-    }
+    if (cart.length > 0) setSavedCartItems(cart)
   }, [cart])
 
-  // Sync step for digital/physical products
   useEffect(() => {
     if (isAllDigital && (step === 'contact' || step === 'shipping')) {
       setStep('payment')
@@ -83,6 +144,10 @@ export default function Checkout() {
     }
   }, [isConfirmedDirectPay])
 
+  // Form states
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('home')
+  const [selectedPickupHub, setSelectedPickupHub] = useState(PICKUP_HUBS[0].id)
+
   const [shipping, setShipping] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -90,91 +155,92 @@ export default function Checkout() {
     address1: '',
     address2: '',
     city: '',
-    region: '',
+    region: 'Nairobi',
     postal: '',
     country: 'Kenya',
   })
 
-  const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>('standard')
-  const [selectedQuote, setSelectedQuote] = useState<ShippingQuoteOption | null>(null)
-  const [payMethod, setPayMethod] = useState<PayMethod>('mpesa')
-  const [mpesaPhone, setMpesaPhone] = useState('')
-  const [tip, setTip] = useState(0)
-  const [customTip, setCustomTip] = useState('')
-  const [countdown, setCountdown] = useState(6)
+  const isKenya = shipping.country === 'Kenya'
+  const activeCurrency = isKenya ? 'KES' : 'USD'
+  const currencySymbol = isKenya ? 'KSh' : '$'
 
-  // Fetch real-time shipping quotes from Easyship
-  useEffect(() => {
-    if (isAllDigital) {
-      setShippingQuotes([])
+  const [tip, setTip] = useState(0)
+
+  // City suggestions filter
+  const citySuggestions = useMemo(() => {
+    if (!shipping.city || !isKenya) return []
+    return KENYA_CITY_SUGGESTIONS.filter(c => c.toLowerCase().startsWith(shipping.city.toLowerCase()) && c.toLowerCase() !== shipping.city.toLowerCase())
+  }, [shipping.city, isKenya])
+
+  // Free shipping threshold calculations
+  const FREE_SHIPPING_THRESHOLD_KES = 8000
+  const isFreeShippingUnlocked = cartTotal >= FREE_SHIPPING_THRESHOLD_KES
+
+  // Logistics fee
+  const shippingFee = useMemo(() => {
+    if (isAllDigital) return 0
+    if (isKenya) {
+      if (deliveryMethod === 'pickup') return 0
+      return isFreeShippingUnlocked ? 0 : 350
+    }
+    // Global DHL flat export
+    return 3500 // ~27.00 USD
+  }, [isAllDigital, isKenya, deliveryMethod, isFreeShippingUnlocked])
+
+  const grandTotalKes = cartTotal + shippingFee + tip
+  const grandTotalUsd = Number((grandTotalKes / KES_TO_USD_RATE).toFixed(2))
+  const displayTotal = isKenya ? grandTotalKes : grandTotalUsd
+
+  const tipOptions = isKenya ? [0, 200, 500, 1000] : [0, 2, 5, 10]
+
+  // Validations
+  const isNameValid = shipping.name.trim().split(/\s+/).length >= 2
+  const isEmailValid = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(shipping.email.trim())
+  const isPhoneValid = shipping.phone.trim().length >= 9
+
+  const canProceedContact = isAllDigital ? (shipping.name.trim() !== '' && isEmailValid) : (isNameValid && isEmailValid && isPhoneValid)
+  const canProceedShipping = deliveryMethod === 'pickup' || (shipping.address1.trim() !== '' && shipping.city.trim() !== '')
+
+  const handleStartPayment = async () => {
+    if (isProcessingPayment) return
+    if (!isEmailValid) {
+      setErrorMessage('Please enter a valid email address.')
+      return
+    }
+    if (!isAllDigital && !canProceedShipping) {
+      setErrorMessage('Please complete all required shipping fields.')
       return
     }
 
-    if (!shipping.country || !shipping.city) return
-    const cfg = getShippingConfig()
-    const code = cfg.countryCodeMap[shipping.country] || 'KE'
-
-    setFetchingQuotes(true)
-    calculateShippingQuotes(
-      cart.map(c => ({
-        id: c.id,
-        name: c.name,
-        price: c.price,
-        quantity: c.quantity,
-        weight: 0.35,
-        dimensions: { length: 30, width: 25, height: 3 },
-      })),
-      {
-        name: shipping.name,
-        addressLine1: shipping.address1,
-        addressLine2: shipping.address2,
-        city: shipping.city,
-        region: shipping.region,
-        postalCode: shipping.postal,
-        country: shipping.country,
-        countryCode: code,
-      }
-    ).then(res => {
-      setShippingQuotes(res.quotes)
-      const matched = res.quotes.find(q => q.tier === shippingMethod) || res.quotes[0]
-      if (matched) setSelectedQuote(matched)
-      setFetchingQuotes(false)
-    }).catch(() => setFetchingQuotes(false))
-  }, [cart, shipping.country, shipping.city, shippingMethod, isAllDigital])
-
-  const shippingCost = isAllDigital ? 0 : (selectedQuote ? selectedQuote.price : (shippingMethod === 'express' ? 15 : shippingMethod === 'standard' ? 5 : 0))
-  const tipAmount = customTip !== '' ? parseFloat(customTip) || 0 : tip
-  const grandTotal = cartTotal + shippingCost + tipAmount
-
-  const tipOptions = [0, 100, 200, 500]
-
-  const canProceedContact = shipping.name && shipping.email && (shipping.phone || mpesaPhone)
-  const canProceedShipping = canProceedContact
-  const canProceedPayment = true
-
-  const handleStartPayment = async () => {
-    if (!canProceedPayment || isProcessingPayment) return
     setIsProcessingPayment(true)
     setErrorMessage('')
 
+    // Prepare amount in lowest currency unit
+    // KES amount for Paystack is in KES standard integer/kobo; for USD in cents
+    const finalAmount = isKenya ? Math.round(grandTotalKes) : Math.round(grandTotalUsd * 100)
+
     try {
       const res = await initiatePayment({
-        amount: grandTotal,
-        currency: 'KES',
-        email: shipping.email || 'customer@flowerz.fc',
-        phone: mpesaPhone || shipping.phone,
-        method: payMethod,
+        amount: finalAmount,
+        currency: activeCurrency,
+        email: shipping.email.trim(),
+        phone: shipping.phone.trim(),
+        method: 'card',
         reference: orderNum,
         metadata: {
-          customerName: shipping.name,
-          country: shipping.country,
-          city: shipping.city,
+          customer_name: shipping.name,
+          customer_phone: shipping.phone,
+          shipping_address: isAllDigital
+            ? 'Digital Delivery (Email)'
+            : deliveryMethod === 'pickup'
+            ? `Pickup: ${PICKUP_HUBS.find(h => h.id === selectedPickupHub)?.name}`
+            : `${shipping.address1} ${shipping.address2 ? `(${shipping.address2})` : ''}, ${shipping.city}, ${shipping.region}, ${shipping.country}`,
+          cart_items: (cart.length > 0 ? cart : savedCartItems).map(c => ({ name: c.name, size: c.size, qty: c.quantity })),
         },
       })
 
       if (res.success) {
         setStep('verifying')
-        setCountdown(3)
         await saveOrderToSupabase()
         clearCart()
         setStep('confirmation')
@@ -192,29 +258,48 @@ export default function Checkout() {
 
   const saveOrderToSupabase = async () => {
     try {
+      const chosenHub = PICKUP_HUBS.find(h => h.id === selectedPickupHub)
+      const addressString = isAllDigital
+        ? 'Digital Delivery (Instant Web / Email)'
+        : deliveryMethod === 'pickup'
+        ? `🏪 Store Pickup Hub: ${chosenHub?.name}`
+        : `${shipping.address1}, ${shipping.address2 ? `${shipping.address2}, ` : ''}${shipping.city}, ${shipping.region}, ${shipping.country}`
+
       await createOrder({
         id: orderNum,
         customer_name: shipping.name || 'Customer',
         email: shipping.email || 'customer@flowerz.fc',
-        phone: shipping.phone || mpesaPhone || '',
-        shipping_address: isAllDigital ? 'Digital Delivery (Email / Web)' : `${shipping.address1 || ''}, ${shipping.city || ''}, ${shipping.country || ''}`,
+        phone: shipping.phone || '',
+        shipping_address: addressString,
         items: JSON.stringify((cart.length > 0 ? cart : savedCartItems).map(c => ({ name: c.name, price: c.price, qty: c.quantity, size: c.size }))),
-        total: grandTotal,
-        method: payMethod,
+        total: grandTotalKes,
+        method: isKenya ? 'paystack_kes' : 'paystack_usd',
         status: 'paid',
         tracking: `TRK-${Math.floor(100000 + Math.random() * 900000)}`,
-        shippingCourier: selectedQuote?.courierName || 'Standard Ground',
-        shippingCostKes: shippingCost,
-        shippingTier: selectedQuote?.tier || 'standard',
+        shippingCourier: isAllDigital ? 'Digital' : deliveryMethod === 'pickup' ? 'Store Pickup' : isKenya ? 'G4S Kenya Tracked' : 'DHL Express Worldwide',
+        shippingCostKes: shippingFee,
       } as any)
     } catch (e) {
       console.error('Failed to write order to Supabase:', e)
     }
   }
 
-  const handleSimulateFailure = () => {
-    setErrorMessage('Transaction cancelled or declined.')
-    setStep('failed')
+  const handleExecuteRecovery = async () => {
+    if (!recoveryQuery.trim()) return
+    setIsSearchingRecovery(true)
+    setRecoveryError('')
+    try {
+      const res = await verifyPaidReceipt(recoveryQuery)
+      if (res.valid) {
+        setRecoveryOrder(res.order)
+      } else {
+        setRecoveryError(res.message)
+      }
+    } catch {
+      setRecoveryError('Could not verify reference code. Please check and try again.')
+    } finally {
+      setIsSearchingRecovery(false)
+    }
   }
 
   if (cart.length === 0 && step !== 'confirmation' && step !== 'verifying' && step !== 'failed') {
@@ -243,15 +328,14 @@ export default function Checkout() {
         {step !== 'confirmation' && step !== 'failed' && (
           <div className="flex items-center gap-3 mb-8">
             {[
-              { s: isAllDigital ? 'contact' : 'shipping', label: isAllDigital ? 'Contact' : 'Shipping' },
-              { s: 'payment', label: 'Payment' },
-              { s: 'verifying', label: 'Verifying' },
+              { s: isAllDigital ? 'contact' : 'shipping', label: isAllDigital ? '1. Contact Info' : '1. Delivery & Address' },
+              { s: 'payment', label: '2. Review & Pay' },
             ].map((st, i) => (
               <div key={st.s} className="flex items-center gap-2">
                 <div
                   className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all"
                   style={{
-                    background: step === st.s || (i === 0 && (step === 'payment' || step === 'verifying')) || (i === 1 && step === 'verifying')
+                    background: step === st.s || (i === 0 && step === 'payment')
                       ? (isAllDigital ? '#6366f1' : '#00b341')
                       : '#1e1e32',
                     color: '#fff',
@@ -260,589 +344,721 @@ export default function Checkout() {
                   {i + 1}
                 </div>
                 <span className={`text-sm font-semibold capitalize ${step === st.s ? 'text-white' : 'text-gray-500'}`}>{st.label}</span>
-                {i < 2 && <div className="w-8 h-px mx-1" style={{ background: '#1e1e32' }} />}
+                {i < 1 && <div className="w-8 h-px mx-1" style={{ background: '#1e1e32' }} />}
               </div>
             ))}
           </div>
         )}
 
-
-        {/* PAYMENT FAILED STATE */}
+        {/* ══ PAYMENT FAILED STATE ══════════════════════════════════════════ */}
         {step === 'failed' && (
           <div className="max-w-md mx-auto py-12 px-6 rounded-2xl border border-red-500/50 text-center shadow-2xl space-y-6" style={{ background: '#131320' }}>
             <div className="w-20 h-20 mx-auto rounded-full bg-red-500/20 border-2 border-red-500 flex items-center justify-center text-4xl">
               ❌
             </div>
-
             <div>
               <span className="text-xs font-black uppercase text-red-400 tracking-widest block mb-1">TRANSACTION DECLINED</span>
-              <h2 className="text-3xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>
-                Payment Failed
-              </h2>
+              <h2 className="text-3xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>Payment Failed</h2>
             </div>
-
             <div className="p-4 rounded-xl border border-red-500/30 text-xs text-red-200 text-left space-y-1" style={{ background: 'rgba(239, 68, 68, 0.08)' }}>
-              <p className="font-bold text-white mb-1">Reason for failure:</p>
-              <p>{errorMessage || 'The payment gateway reported a failure or timeout. No funds were deducted.'}</p>
+              <p className="font-bold text-white mb-1">Reason:</p>
+              <p>{errorMessage || 'The transaction was cancelled or the payment gateway timed out.'}</p>
             </div>
-
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={() => setStep('payment')}
-                className="w-full py-3.5 text-xs font-bold text-white rounded-xl shadow-xl transition-all hover:opacity-90"
-                style={{ background: '#00b341', fontFamily: 'Big Shoulders Display', fontSize: '15px' }}
-              >
-                🔄 Try Payment Again →
-              </button>
-
-              <button
-                onClick={() => setStep(isAllDigital ? 'contact' : 'shipping')}
-                className="w-full py-2.5 text-xs font-bold text-gray-400 hover:text-white rounded-xl border border-[#1e1e32]"
-              >
-                ← Back to {isAllDigital ? 'Contact Info' : 'Shipping Details'}
-              </button>
-            </div>
+            <button
+              onClick={() => setStep('payment')}
+              className="w-full py-3.5 text-xs font-bold text-white rounded-xl shadow-xl transition-all hover:opacity-90"
+              style={{ background: '#00b341', fontFamily: 'Big Shoulders Display', fontSize: '16px' }}
+            >
+              🔄 Try Payment Again →
+            </button>
           </div>
         )}
 
-        {/* VERIFYING PAYMENT STATE */}
-        {step === 'verifying' && (
-          <div className="max-w-xl mx-auto py-12 px-6 rounded-2xl border border-[#00b341]/40 text-center shadow-2xl space-y-6" style={{ background: '#131320' }}>
-            <div className="relative w-24 h-24 mx-auto flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full border-4 border-[#00b341] border-t-transparent animate-spin" />
-              <span className="text-3xl">{payMethod === 'mpesa' ? '📱' : payMethod === 'card' ? '💳' : '®️'}</span>
-            </div>
-
-            <div>
-              <span className="text-xs font-black uppercase text-[#00b341] tracking-widest block mb-1">PAYMENT IN PROGRESS</span>
-              <h2 className="text-3xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>
-                {payMethod === 'mpesa'
-                  ? 'Waiting for M-Pesa PIN Confirmation...'
-                  : payMethod === 'card'
-                  ? 'Authorizing Card Payment...'
-                  : 'Connecting to Gateway...'}
-              </h2>
-            </div>
-
-            <div className="p-4 rounded-xl border border-[#1e1e32] text-xs text-gray-300 space-y-2 text-left" style={{ background: '#0d0d1e' }}>
-              {payMethod === 'mpesa' && (
-                <>
-                  <p className="font-bold text-[#00b341]">📲 STK Push Sent to: <span className="text-white">{mpesaPhone}</span></p>
-                  <p className="text-gray-400">1. Check your mobile phone for an STK popup menu.</p>
-                  <p className="text-gray-400">2. Enter your M-Pesa PIN and press OK.</p>
-                  <p className="text-gray-400">3. This page will automatically update once confirmed.</p>
-                </>
-              )}
-              {payMethod === 'card' && (
-                <>
-                  <p className="font-bold text-white">Contacting card issuer bank...</p>
-                  <p className="text-gray-400">Securing 3D-Secure transaction for ${grandTotal.toFixed(2)}.</p>
-                </>
-              )}
-            </div>
-
-            <div className="flex flex-col items-center gap-3">
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <span className="w-2 h-2 rounded-full bg-[#00b341] animate-ping" />
-                <span>Auto-verifying in <strong className="text-white font-mono text-sm">{countdown}s</strong>...</span>
-              </div>
-
-              <div className="flex gap-2 w-full max-w-sm">
-                <button
-                  onClick={handleConfirmImmediately}
-                  className="flex-1 py-2.5 text-xs font-bold text-white rounded-xl border border-[#00b341] hover:bg-[#00b341] transition-all"
-                >
-                  ✓ Confirm Success
-                </button>
-                <button
-                  onClick={handleSimulateFailure}
-                  className="py-2.5 px-4 text-xs font-bold text-red-400 border border-red-500/40 rounded-xl hover:bg-red-500/10 transition-all"
-                >
-                  Simulate Failure
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ORDER CONFIRMED STATE */}
+        {/* ══ ORDER CONFIRMED STATE (STEP 4) ════════════════════════════════ */}
         {step === 'confirmation' && (
-          <div className="max-w-xl mx-auto space-y-6">
-            <div className="text-center py-10 rounded-2xl border border-[#00b341]" style={{ background: '#131320' }}>
+          <div className="max-w-2xl mx-auto space-y-6">
+            <div className="text-center py-10 px-6 rounded-2xl border border-[#00b341]" style={{ background: '#131320' }}>
               <div className="text-7xl mb-4 animate-bounce">{isAllDigital ? '💾' : '🎉'}</div>
               <h2 className="text-4xl font-black text-white mb-2" style={{ fontFamily: 'Big Shoulders Display' }}>
                 {isAllDigital ? 'Purchase Complete! Download Ready.' : 'Payment Received & Order Confirmed!'}
               </h2>
-              <p className="text-gray-400 mb-1">Order <strong className="text-[#00b341]">#{orderNum}</strong> is paid.</p>
+              <p className="text-gray-400 mb-1">
+                Order Tracking Code: <strong className="text-[#00b341] font-mono text-lg">{orderNum}</strong>
+              </p>
               {confirmedRef && (
                 <p className="text-xs text-gray-400">Payment Reference: <strong className="font-mono text-white">{confirmedRef}</strong></p>
               )}
-              <p className="text-sm text-gray-500 mb-2">Confirmation receipt sent to {shipping.email || 'your email'}.</p>
-              {!isAllDigital && <p className="text-xs text-gray-600 mb-4">Estimated delivery: 7–14 business days.</p>}
+              <p className="text-xs text-gray-400 mt-2">A full receipt has been emailed to <strong className="text-white">{shipping.email || 'your email'}</strong>.</p>
 
-              <div className="p-4 rounded-xl border border-[#1e1e32] text-xs text-left mb-6 max-w-md mx-auto" style={{ background: '#0d0d1e' }}>
-                <div className="flex justify-between font-bold text-white mb-2 pb-2 border-b border-[#1e1e32]">
-                  <span>Payment Summary</span>
-                  <span className="text-[#00b341]">${grandTotal.toFixed(2)} Paid</span>
+              {/* Order Status Roadmap for Physical */}
+              {!isAllDigital && (
+                <div className="mt-6 p-4 rounded-xl border border-[#1e1e32] text-left" style={{ background: '#0c0c14' }}>
+                  <p className="text-[10px] font-black uppercase text-gray-400 tracking-wider mb-3">Order Status Roadmap</p>
+                  <div className="flex items-center justify-between text-xs font-bold gap-2">
+                    <div className="flex items-center gap-1.5 text-emerald-400">
+                      <span>✅</span>
+                      <span>Payment Received</span>
+                    </div>
+                    <span className="text-gray-600">➔</span>
+                    <div className="flex items-center gap-1.5 text-[#00b341]">
+                      <span className="w-2 h-2 rounded-full bg-[#00b341] animate-ping" />
+                      <span>Order Processing</span>
+                    </div>
+                    <span className="text-gray-600">➔</span>
+                    <div className="flex items-center gap-1.5 text-gray-500">
+                      <span>📦</span>
+                      <span>{deliveryMethod === 'pickup' ? 'Ready for Pickup' : 'Dispatched'}</span>
+                    </div>
+                  </div>
+                  {deliveryMethod === 'pickup' ? (
+                    <div className="mt-4 pt-3 border-t border-[#1e1e32] text-xs text-gray-300">
+                      <p className="font-bold text-white mb-1">📍 Designated Collection Hub:</p>
+                      <p className="text-emerald-400 font-semibold">{PICKUP_HUBS.find(h => h.id === selectedPickupHub)?.name}</p>
+                      <p className="text-gray-400 text-[11px] mt-0.5">{PICKUP_HUBS.find(h => h.id === selectedPickupHub)?.hours}</p>
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-gray-400">
+                      Courier: <strong>{isKenya ? 'G4S Kenya Tracked (1–3 business days)' : 'DHL Express Worldwide (14–21 business days)'}</strong>
+                    </p>
+                  )}
                 </div>
-                <div className="space-y-1 text-gray-400">
-                  <p>Method: <strong className="text-white capitalize">{payMethod}</strong></p>
-                  <p>Customer: <strong className="text-white">{shipping.name}</strong></p>
-                  {!isAllDigital && <p>Destination: <strong className="text-white">{shipping.city}, {shipping.country}</strong></p>}
-                </div>
+              )}
+
+              {/* Customer Care Contacts */}
+              <div className="mt-6 p-4 rounded-xl border border-[#1e1e32] text-left text-xs text-gray-400 space-y-1" style={{ background: '#0c0c14' }}>
+                <p className="font-bold text-white mb-1">📞 Customer Care & Delivery Inquiries:</p>
+                <p>Hotlines: <strong className="text-white">(+254) 755 699 898 / (+254) 737 308 510</strong></p>
+                <p>Support Mail: <strong className="text-white">support@djflowerz.co.ke</strong></p>
               </div>
 
-              <Link to="/" className="inline-block px-8 py-3 text-sm font-bold text-white rounded-xl shadow-xl transition-all hover:opacity-90" style={{ background: '#00b341' }}>
-                Back to Home
-              </Link>
+              <div className="mt-6">
+                <Link to="/" className="inline-block px-8 py-3 text-sm font-bold text-white rounded-xl shadow-xl transition-all hover:opacity-90" style={{ background: '#00b341' }}>
+                  Back to Store Home
+                </Link>
+              </div>
             </div>
 
-            {/* Digital Download Section */}
+            {/* 💾 DIGITAL INSTANT DOWNLOAD CENTER */}
             {hasDigitalItems && (
               <div className="p-6 rounded-2xl border border-[#6366f1]/40 space-y-4" style={{ background: 'rgba(99,102,241,0.06)' }}>
                 <div className="flex items-center gap-3">
                   <span className="text-3xl">💾</span>
                   <div>
-                    <h3 className="font-black text-white text-lg" style={{ fontFamily: 'Big Shoulders Display' }}>Your Digital Downloads</h3>
-                    <p className="text-xs text-[#a5b4fc]">Click below to download your files. Links are also sent to your email.</p>
+                    <h3 className="font-black text-white text-xl" style={{ fontFamily: 'Big Shoulders Display' }}>Instant Download Center</h3>
+                    <p className="text-xs text-[#a5b4fc]">Click the button matching your operating system to download your files immediately.</p>
                   </div>
                 </div>
-                <div className="space-y-3">
+
+                <div className="space-y-4">
                   {savedCartItems.filter(item => cartProductTypes[item.id] === 'digital').map(item => (
-                    <div key={item.id} className="p-4 rounded-xl border border-[#6366f1]/30" style={{ background: '#131320' }}>
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="flex items-center gap-3">
-                          <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover shrink-0" />
-                          <div>
-                            <p className="text-sm font-bold text-white">{item.name}</p>
-                            <p className="text-[10px] text-[#a5b4fc]">💾 Digital Product</p>
-                          </div>
+                    <div key={item.id} className="p-4 rounded-xl border border-[#6366f1]/30 space-y-3" style={{ background: '#131320' }}>
+                      <div className="flex items-center gap-3">
+                        <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-contain bg-[#0c0c14] p-1 shrink-0" />
+                        <div>
+                          <p className="text-sm font-bold text-white">{item.name}</p>
+                          <p className="text-[10px] text-[#a5b4fc]">Official Digital File & Assets</p>
                         </div>
                       </div>
-                      {/* Download Buttons / Multi-OS */}
-                      <div className="space-y-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {/* Mac */}
-                          {(cartMacFiles[item.id] || cartDigitalFiles[item.id]) && (
-                            <a
-                              href={cartMacFiles[item.id] || cartDigitalFiles[item.id]!}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              download
-                              className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-lg transition-all hover:opacity-90 border border-white/20"
-                              style={{ background: '#1e1e38' }}
-                            >
-                              <span>🍏</span>
-                              <span>Mac (.dmg / .zip)</span>
-                            </a>
-                          )}
 
-                          {/* Windows */}
-                          {(cartWindowsFiles[item.id] || cartDigitalFiles[item.id]) && (
-                            <a
-                              href={cartWindowsFiles[item.id] || cartDigitalFiles[item.id]!}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              download
-                              className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-lg transition-all hover:opacity-90 border border-[#00a4ef]/30"
-                              style={{ background: 'rgba(0,164,239,0.12)', color: '#38bdf8' }}
-                            >
-                              <span>🪟</span>
-                              <span>Windows (.exe / .zip)</span>
-                            </a>
-                          )}
-
-                          {/* Android */}
-                          {(cartAndroidFiles[item.id] || cartDigitalFiles[item.id]) && (
-                            <a
-                              href={cartAndroidFiles[item.id] || cartDigitalFiles[item.id]!}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              download
-                              className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-lg transition-all hover:opacity-90 border border-[#3ddc84]/30"
-                              style={{ background: 'rgba(61,220,132,0.12)', color: '#4ade80' }}
-                            >
-                              <span>🤖</span>
-                              <span>Android APK</span>
-                            </a>
-                          )}
-
-                          {/* Universal Package */}
-                          {cartDigitalFiles[item.id] && (
-                            <a
-                              href={cartDigitalFiles[item.id]!}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              download
-                              className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-lg transition-all hover:opacity-90"
-                              style={{ background: '#22c55e' }}
-                            >
-                              <span>📦</span>
-                              <span>Universal File (.ZIP)</span>
-                            </a>
-                          )}
-                        </div>
-
-                        {!cartDigitalFiles[item.id] && !cartMacFiles[item.id] && !cartWindowsFiles[item.id] && !cartAndroidFiles[item.id] && (
-                          <div className="py-2.5 px-3 rounded-lg text-xs text-yellow-300 border border-yellow-500/30" style={{ background: 'rgba(234,179,8,0.06)' }}>
-                            📧 Download link sent to <strong>{shipping.email}</strong>. Check your inbox within 5 minutes.
-                          </div>
+                      {/* Multi-OS Platform Direct Download Targets */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {(cartMacFiles[item.id] || cartDigitalFiles[item.id]) && (
+                          <a
+                            href={cartMacFiles[item.id] || cartDigitalFiles[item.id]!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download
+                            className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl border border-white/20 hover:opacity-90 transition-all"
+                            style={{ background: '#1e1e38' }}
+                          >
+                            <span>🍏</span>
+                            <span>Download for macOS (.dmg / .zip)</span>
+                          </a>
                         )}
 
-                        {cartDigitalPasswords[item.id] && (
-                          <div className="p-2 rounded-lg bg-black/40 border border-[#1e1e32] text-xs text-gray-400 flex items-center justify-between">
-                            <span>🔑 Access Password:</span>
-                            <strong className="font-mono text-[#a5b4fc] text-sm">{cartDigitalPasswords[item.id]}</strong>
-                          </div>
+                        {(cartWindowsFiles[item.id] || cartDigitalFiles[item.id]) && (
+                          <a
+                            href={cartWindowsFiles[item.id] || cartDigitalFiles[item.id]!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download
+                            className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl border border-[#00a4ef]/30 hover:opacity-90 transition-all"
+                            style={{ background: 'rgba(0,164,239,0.12)', color: '#38bdf8' }}
+                          >
+                            <span>🪟</span>
+                            <span>Download for Windows (.exe / .zip)</span>
+                          </a>
+                        )}
+
+                        {(cartAndroidFiles[item.id] || cartDigitalFiles[item.id]) && (
+                          <a
+                            href={cartAndroidFiles[item.id] || cartDigitalFiles[item.id]!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download
+                            className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl border border-[#3ddc84]/30 hover:opacity-90 transition-all"
+                            style={{ background: 'rgba(61,220,132,0.12)', color: '#4ade80' }}
+                          >
+                            <span>🤖</span>
+                            <span>Download Android APK (.apk)</span>
+                          </a>
+                        )}
+
+                        {cartDigitalFiles[item.id] && (
+                          <a
+                            href={cartDigitalFiles[item.id]!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download
+                            className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl hover:opacity-90 transition-all"
+                            style={{ background: '#22c55e' }}
+                          >
+                            <span>📦</span>
+                            <span>Universal Download (.ZIP)</span>
+                          </a>
                         )}
                       </div>
+
+                      {/* Decryption / Access Password with Eye Icon Toggle & 1-Click Copy */}
+                      {cartDigitalPasswords[item.id] && (
+                        <div className="p-3 rounded-lg bg-black/40 border border-[#1e1e32] flex items-center justify-between gap-3 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span>🔑</span>
+                            <span className="text-gray-400">Unlock Password:</span>
+                            <span className="font-mono text-white font-bold tracking-wider">
+                              {revealedPasswords[item.id] ? cartDigitalPasswords[item.id] : '••••••••'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setRevealedPasswords(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
+                              className="text-gray-400 hover:text-white text-sm p-1"
+                              title="Toggle Visibility"
+                            >
+                              {revealedPasswords[item.id] ? '🙈' : '👁️'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(cartDigitalPasswords[item.id] || '')
+                                setCopiedKey(item.id)
+                                setTimeout(() => setCopiedKey(null), 2000)
+                              }}
+                              className="px-2.5 py-1 text-[10px] font-bold text-white rounded-md bg-[#1e1e32] hover:bg-[#6366f1] transition-all"
+                            >
+                              {copiedKey === item.id ? '✓ Copied!' : 'Copy'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
+            {/* 🔄 SELF-SERVICE DIGITAL ITEM RECOVERY UTILITY */}
+            <div className="p-5 rounded-2xl border border-[#1e1e32] space-y-3" style={{ background: '#131320' }}>
+              <div className="flex items-center gap-2">
+                <span>🔄</span>
+                <h4 className="text-xs font-bold text-white">Self-Service Digital File Recovery Tool</h4>
+              </div>
+              <p className="text-[11px] text-gray-400">
+                Already paid previously? Enter your <strong>Order Ref (e.g. FZ-XXXXXX)</strong> or <strong>M-Pesa / Paystack code</strong> to re-access your download links instantly:
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={recoveryQuery}
+                  onChange={e => { setRecoveryQuery(e.target.value); setRecoveryError('') }}
+                  placeholder="e.g. FZ-ABC123 or M-Pesa Code"
+                  className={`flex-1 ${inputCls} text-xs py-2`}
+                  style={inputStyle}
+                />
+                <button
+                  type="button"
+                  onClick={handleExecuteRecovery}
+                  disabled={isSearchingRecovery || !recoveryQuery.trim()}
+                  className="px-4 py-2 text-xs font-bold text-white rounded-xl hover:opacity-90 disabled:opacity-40"
+                  style={{ background: '#6366f1' }}
+                >
+                  {isSearchingRecovery ? 'Searching...' : 'Retrieve →'}
+                </button>
+              </div>
+              {recoveryError && <p className="text-[10px] text-red-400 font-bold">{recoveryError}</p>}
+              {recoveryOrder && (
+                <div className="p-3 rounded-lg border border-emerald-500/40 text-xs text-emerald-300 space-y-1" style={{ background: 'rgba(34,197,94,0.1)' }}>
+                  <p className="font-bold">✅ Order Verified: {recoveryOrder.id}</p>
+                  <p className="text-gray-300">Items: {recoveryOrder.items}</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        {/* FORM STEPS */}
+        {/* ══ ACTIVE CHECKOUT FORM ══════════════════════════════════════════ */}
         {(step === 'contact' || step === 'shipping' || step === 'payment') && (
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Left: Form */}
+            {/* Left 2 Cols: Step Form Fields */}
             <div className="lg:col-span-2 space-y-6">
 
-              {/* DIGITAL-ONLY CONTACT STEP */}
-              {step === 'contact' && (
-                <div className="p-6 rounded-2xl border border-[#6366f1]/40 space-y-4" style={{ background: '#131320' }}>
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-2xl">💾</span>
-                    <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>Digital Purchase — Contact Info</h2>
+              {/* ── STEP 1: CONTACT & DELIVERY MATRIX (Physical / Mixed) ── */}
+              {!isAllDigital && step !== 'payment' && (
+                <div className="p-6 rounded-2xl border border-[#1e1e32] space-y-5" style={{ background: '#131320' }}>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>
+                      📦 1. Delivery & Customer Details
+                    </h2>
+                    <span className="text-xs text-emerald-400 font-bold">{isKenya ? '🇰🇪 Kenya Store' : '🌐 International Store'}</span>
                   </div>
-                  <p className="text-xs text-[#a5b4fc] mb-4">No shipping required. We just need your name and email to send download links & receipt.</p>
+
+                  {/* Customer Authentication / Contact */}
                   <div className="space-y-3">
-                    <input value={shipping.name} onChange={e => setShipping(s => ({ ...s, name: e.target.value }))} placeholder="Full Name *" className={inputCls} style={inputStyle} />
-                    <input value={shipping.email} onChange={e => setShipping(s => ({ ...s, email: e.target.value }))} placeholder="Email Address * (download links sent here)" type="email" className={inputCls} style={inputStyle} />
-                    <input value={shipping.phone} onChange={e => setShipping(s => ({ ...s, phone: e.target.value }))} placeholder="Phone / WhatsApp *" className={inputCls} style={inputStyle} />
-                  </div>
-                  <div className="flex gap-3 pt-4 border-t border-[#1e1e32]">
-                    <Link to="/shop" className="px-5 py-3 text-xs font-bold text-gray-400 hover:text-white rounded-xl border border-[#1e1e32] transition-colors">Cancel</Link>
-                    <button onClick={() => canProceedContact && setStep('payment')} disabled={!canProceedContact} className="flex-1 py-3 text-sm font-black text-white rounded-xl transition-all disabled:opacity-40 hover:opacity-90" style={{ background: '#6366f1', fontFamily: 'Big Shoulders Display' }}>
-                      Continue to Payment →
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* PHYSICAL SHIPPING STEP */}
-              {step === 'shipping' && (
-
-                <div className="p-6 rounded-2xl border border-[#1e1e32] space-y-4" style={{ background: '#131320' }}>
-                  <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>
-                    🚚 Shipping Details
-                  </h2>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <input
-                      value={shipping.name} onChange={e => setShipping(s => ({ ...s, name: e.target.value }))}
-                      placeholder="Full Name *" className={`col-span-2 ${inputCls}`} style={inputStyle}
-                    />
-                    <input
-                      value={shipping.email} onChange={e => setShipping(s => ({ ...s, email: e.target.value }))}
-                      placeholder="Email Address *" type="email" className={inputCls} style={inputStyle}
-                    />
-                    <input
-                      value={shipping.phone} onChange={e => setShipping(s => ({ ...s, phone: e.target.value }))}
-                      placeholder="Phone / WhatsApp *" className={inputCls} style={inputStyle}
-                    />
-                    <input
-                      value={shipping.address1} onChange={e => setShipping(s => ({ ...s, address1: e.target.value }))}
-                      placeholder="Address Line 1 *" className={`col-span-2 ${inputCls}`} style={inputStyle}
-                    />
-                    <input
-                      value={shipping.address2} onChange={e => setShipping(s => ({ ...s, address2: e.target.value }))}
-                      placeholder="Address Line 2 (optional)" className={`col-span-2 ${inputCls}`} style={inputStyle}
-                    />
-                    <input
-                      value={shipping.city} onChange={e => setShipping(s => ({ ...s, city: e.target.value }))}
-                      placeholder="City *" className={inputCls} style={inputStyle}
-                    />
-                    <input
-                      value={shipping.region} onChange={e => setShipping(s => ({ ...s, region: e.target.value }))}
-                      placeholder="Region / County" className={inputCls} style={inputStyle}
-                    />
-                    <input
-                      value={shipping.postal} onChange={e => setShipping(s => ({ ...s, postal: e.target.value }))}
-                      placeholder="Postal Code" className={inputCls} style={inputStyle}
-                    />
-                    <select
-                      value={shipping.country} onChange={e => setShipping(s => ({ ...s, country: e.target.value }))}
-                      className={inputCls} style={inputStyle}
-                    >
-                      <option>Kenya</option>
-                      <option>Tanzania</option>
-                      <option>Uganda</option>
-                      <option>Rwanda</option>
-                      <option>Ethiopia</option>
-                      <option>UK</option>
-                      <option>USA</option>
-                    </select>
-                  </div>
-
-                  {/* Shipping Method */}
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-300 mb-1">Delivery Method (Live Easyship Calculation)</h3>
-                    <p className="text-[11px] text-gray-500 mb-3">Rates calculated in real-time based on delivery destination and total package weight.</p>
-                    {fetchingQuotes ? (
-                      <div className="p-4 rounded-xl border border-[#1e1e32] bg-[#0c0c14] text-xs text-gray-400 animate-pulse">
-                        🔄 Fetching live Easyship rates for {shipping.city}, {shipping.country}...
-                      </div>
-                    ) : (
-                      (shippingQuotes.length > 0 ? shippingQuotes : [
-                        { id: 'standard', tier: 'standard' as const, courierName: 'Fargo Courier Kenya', price: 5, currency: 'USD', estimatedDays: '7–14 business days', realCostInternal: 500 },
-                        { id: 'express', tier: 'express' as const, courierName: 'SpeedAF Express', price: 15, currency: 'USD', estimatedDays: '3–5 business days', realCostInternal: 1500 },
-                      ]).map(opt => (
-                        <label
-                          key={opt.id}
-                          className="flex items-center gap-3 p-3 rounded-xl cursor-pointer mb-2 transition-all"
-                          style={{
-                            background: shippingMethod === opt.tier ? 'rgba(0,179,65,0.1)' : '#0c0c14',
-                            border: `1px solid ${shippingMethod === opt.tier ? '#00b341' : '#1e1e32'}`,
-                          }}
-                        >
-                          <input
-                            type="radio"
-                            name="shipping_tier"
-                            value={opt.tier}
-                            checked={shippingMethod === opt.tier}
-                            onChange={() => {
-                              setShippingMethod(opt.tier)
-                              setSelectedQuote(opt)
-                            }}
-                            className="accent-[#00b341]"
-                          />
-                          <div className="flex-1">
-                            <p className="text-sm font-bold text-white flex items-center gap-2">
-                              <span>{opt.tier === 'free' ? '🎁 Free Shipping' : opt.tier === 'express' ? '⚡ Express Shipping' : '🚚 Standard Shipping'}</span>
-                              <span className="text-[10px] text-emerald-400 font-normal">({opt.courierName})</span>
-                            </p>
-                            <p className="text-xs text-gray-500">{opt.estimatedDays}</p>
-                          </div>
-                          <span className="text-sm font-bold" style={{ color: opt.price === 0 ? '#00b341' : '#fff' }}>
-                            {opt.price === 0 ? 'FREE' : `$${opt.price.toFixed(2)}`}
-                          </span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="flex gap-3 pt-4 border-t border-[#1e1e32]">
-                    <Link to="/shop" className="px-5 py-3 text-xs font-bold text-gray-400 hover:text-white rounded-xl border border-[#1e1e32] transition-colors">
-                      Cancel
-                    </Link>
-                    <button
-                      onClick={() => canProceedShipping && setStep('payment')}
-                      disabled={!canProceedShipping}
-                      className="flex-1 py-3 text-sm font-black text-white rounded-xl transition-all disabled:opacity-40 hover:opacity-90"
-                      style={{ background: '#00b341', fontFamily: 'Big Shoulders Display' }}
-                    >
-                      Continue to Payment →
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* PAYMENT */}
-              {step === 'payment' && (
-                <div className="p-6 rounded-2xl border border-[#1e1e32]" style={{ background: '#131320' }}>
-                  <h2 className="text-2xl font-black text-white mb-5" style={{ fontFamily: 'Big Shoulders Display' }}>
-                    💳 Payment Method
-                  </h2>
-
-                  {/* Payment Method Tabs */}
-                  <div className="grid grid-cols-3 gap-2 mb-6">
-                    {([
-                      { id: 'mpesa', label: '📱 M-Pesa', sub: 'Safaricom / Airtel' },
-                      { id: 'card',  label: '💳 Card',   sub: 'Visa / Mastercard' },
-                      { id: 'paypal', label: '🅿️ PayPal', sub: 'Pay securely' },
-                    ] as { id: PayMethod; label: string; sub: string }[]).map(m => (
-                      <button
-                        key={m.id}
-                        onClick={() => setPayMethod(m.id)}
-                        className="p-3 rounded-xl border text-left transition-all"
-                        style={{
-                          background: payMethod === m.id ? 'rgba(0,179,65,0.12)' : '#0d0d1e',
-                          border: `1px solid ${payMethod === m.id ? '#00b341' : '#1e1e32'}`,
-                        }}
-                      >
-                        <span className="text-sm font-black text-white block">{m.label}</span>
-                        <span className="text-[10px] text-gray-400">{m.sub}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* M-Pesa Fields */}
-                  {payMethod === 'mpesa' && (
-                    <div className="space-y-3">
-                      <div className="p-4 rounded-xl border border-[#00b341]/30" style={{ background: 'rgba(0,179,65,0.06)' }}>
-                        <p className="text-xs text-gray-300 mb-1 font-bold">How M-Pesa works:</p>
-                        <p className="text-xs text-gray-400">1. Enter your M-Pesa number → 2. An STK push will be sent to your phone → 3. Enter your M-Pesa PIN to confirm.</p>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Contact Information</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 mb-1">Full Name (First & Last Name) *</label>
+                        <input
+                          value={shipping.name}
+                          onChange={e => setShipping(s => ({ ...s, name: e.target.value }))}
+                          placeholder="e.g. John Kamau"
+                          className={inputCls}
+                          style={inputStyle}
+                        />
+                        {shipping.name && !isNameValid && (
+                          <p className="text-[10px] text-amber-400 mt-1">Please enter both first and last name.</p>
+                        )}
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-400 mb-1">M-Pesa Phone Number *</label>
+                        <label className="block text-[10px] font-bold text-gray-400 mb-1">Email Address (Order Receipt & Updates) *</label>
                         <input
-                          value={mpesaPhone} onChange={e => setMpesaPhone(e.target.value)}
-                          placeholder="+254 7XX XXX XXX" className={inputCls} style={inputStyle}
+                          type="email"
+                          value={shipping.email}
+                          onChange={e => setShipping(s => ({ ...s, email: e.target.value }))}
+                          placeholder="john@example.com"
+                          className={inputCls}
+                          style={inputStyle}
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-[10px] font-bold text-gray-400 mb-1">Phone Number (For Courier SMS & Dispatch) *</label>
+                        <div className="flex gap-2">
+                          <span className="px-3 py-3 rounded-xl border border-[#1e1e32] text-sm text-gray-300 font-mono flex items-center shrink-0" style={{ background: '#0c0c14' }}>
+                            {COUNTRIES.find(c => c.name === shipping.country)?.dial || '+254'}
+                          </span>
+                          <input
+                            type="tel"
+                            value={shipping.phone}
+                            onChange={e => setShipping(s => ({ ...s, phone: e.target.value }))}
+                            placeholder={isKenya ? '712 345 678' : 'Phone Number'}
+                            className={inputCls}
+                            style={inputStyle}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fulfillment Method Toggle */}
+                  <div className="pt-3 border-t border-[#1e1e32]">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Fulfillment Method</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setDeliveryMethod('home')}
+                        className="p-3.5 rounded-xl border text-left transition-all"
+                        style={{
+                          background: deliveryMethod === 'home' ? 'rgba(0,179,65,0.12)' : '#0c0c14',
+                          borderColor: deliveryMethod === 'home' ? '#00b341' : '#1e1e32',
+                        }}
+                      >
+                        <p className="text-sm font-black text-white flex items-center gap-1.5">
+                          <span>🚚</span>
+                          <span>Home / Office Delivery</span>
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-0.5">Doorstep delivery via tracked courier</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setDeliveryMethod('pickup')}
+                        className="p-3.5 rounded-xl border text-left transition-all"
+                        style={{
+                          background: deliveryMethod === 'pickup' ? 'rgba(0,179,65,0.12)' : '#0c0c14',
+                          borderColor: deliveryMethod === 'pickup' ? '#00b341' : '#1e1e32',
+                        }}
+                      >
+                        <p className="text-sm font-black text-white flex items-center gap-1.5">
+                          <span>🏪</span>
+                          <span>In-Store Hub Pickup</span>
+                        </p>
+                        <p className="text-[10px] text-emerald-400 mt-0.5">Free next-day collection</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Pickup Hub Selection */}
+                  {deliveryMethod === 'pickup' && (
+                    <div className="space-y-3 p-4 rounded-xl border border-[#00b341]/30" style={{ background: 'rgba(0,179,65,0.06)' }}>
+                      <label className="block text-xs font-bold text-white mb-1">Select Pickup Location:</label>
+                      <select
+                        value={selectedPickupHub}
+                        onChange={e => setSelectedPickupHub(e.target.value)}
+                        className={inputCls}
+                        style={inputStyle}
+                      >
+                        {PICKUP_HUBS.map(hub => (
+                          <option key={hub.id} value={hub.id}>{hub.name} ({hub.hours})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Granular Home Delivery Address Fields */}
+                  {deliveryMethod === 'home' && (
+                    <div className="space-y-3 pt-2">
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Shipping Destination</p>
+                      
+                      {/* Country Selector */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 mb-1">Country / Territory *</label>
+                        <select
+                          value={shipping.country}
+                          onChange={e => setShipping(s => ({ ...s, country: e.target.value }))}
+                          className={inputCls}
+                          style={inputStyle}
+                        >
+                          {COUNTRIES.map(c => (
+                            <option key={c.code} value={c.name}>{c.flag} {c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Street Address Line 1 */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 mb-1">Street Address / Road Name *</label>
+                        <input
+                          value={shipping.address1}
+                          onChange={e => setShipping(s => ({ ...s, address1: e.target.value }))}
+                          placeholder="e.g. Kimathi Street / Estate Road"
+                          className={inputCls}
+                          style={inputStyle}
+                        />
+                      </div>
+
+                      {/* Apartment / Building */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 mb-1">Apartment, Suite, Unit, Building (Optional)</label>
+                        <input
+                          value={shipping.address2}
+                          onChange={e => setShipping(s => ({ ...s, address2: e.target.value }))}
+                          placeholder="e.g. Crimson Suites, 3rd Floor, Apt 4B"
+                          className={inputCls}
+                          style={inputStyle}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {/* City / Town with predictive chips */}
+                        <div className="relative">
+                          <label className="block text-[10px] font-bold text-gray-400 mb-1">City / Town *</label>
+                          <input
+                            value={shipping.city}
+                            onChange={e => setShipping(s => ({ ...s, city: e.target.value }))}
+                            placeholder="e.g. Nairobi"
+                            className={inputCls}
+                            style={inputStyle}
+                          />
+                          {citySuggestions.length > 0 && (
+                            <div className="absolute z-10 top-full left-0 right-0 mt-1 p-1 rounded-lg border border-[#1e1e32] shadow-xl space-y-1" style={{ background: '#131320' }}>
+                              {citySuggestions.slice(0, 3).map(sug => (
+                                <button
+                                  key={sug}
+                                  type="button"
+                                  onClick={() => setShipping(s => ({ ...s, city: sug }))}
+                                  className="w-full text-left px-2.5 py-1 text-xs text-gray-300 hover:text-white hover:bg-white/10 rounded"
+                                >
+                                  {sug}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* County / State / Region */}
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 mb-1">
+                            {isKenya ? 'County *' : shipping.country === 'United States' ? 'State *' : 'State / Province / Region *'}
+                          </label>
+                          {isKenya ? (
+                            <select
+                              value={shipping.region}
+                              onChange={e => setShipping(s => ({ ...s, region: e.target.value }))}
+                              className={inputCls}
+                              style={inputStyle}
+                            >
+                              {KENYA_COUNTIES.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                          ) : shipping.country === 'United States' ? (
+                            <select
+                              value={shipping.region}
+                              onChange={e => setShipping(s => ({ ...s, region: e.target.value }))}
+                              className={inputCls}
+                              style={inputStyle}
+                            >
+                              {US_STATES.map(st => <option key={st} value={st}>{st}</option>)}
+                            </select>
+                          ) : (
+                            <input
+                              value={shipping.region}
+                              onChange={e => setShipping(s => ({ ...s, region: e.target.value }))}
+                              placeholder="Region"
+                              className={inputCls}
+                              style={inputStyle}
+                            />
+                          )}
+                        </div>
+
+                        {/* Postal Code */}
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 mb-1">Postal / ZIP Code</label>
+                          <input
+                            value={shipping.postal}
+                            onChange={e => setShipping(s => ({ ...s, postal: e.target.value }))}
+                            placeholder={isKenya ? '00100' : 'ZIP Code'}
+                            className={inputCls}
+                            style={inputStyle}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Carrier selection info */}
+                      <div className="p-3.5 rounded-xl border border-[#1e1e32] flex items-center justify-between" style={{ background: '#0c0c14' }}>
+                        <div>
+                          <p className="text-xs font-black text-white flex items-center gap-1.5">
+                            <span>{isKenya ? '🚚 G4S Kenya Tracked Courier' : '🚀 DHL Express Worldwide'}</span>
+                          </p>
+                          <p className="text-[10px] text-gray-400">
+                            {isKenya ? '1–3 business days transit across Kenya' : '14–21 business days tracked air freight'}
+                          </p>
+                        </div>
+                        <span className="text-sm font-black text-[#00b341]">
+                          {shippingFee === 0 ? 'FREE' : `${currencySymbol} ${isKenya ? shippingFee : (shippingFee / KES_TO_USD_RATE).toFixed(2)}`}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!canProceedContact) {
+                        setErrorMessage('Please enter your full name, valid email, and phone number.')
+                        return
+                      }
+                      if (deliveryMethod === 'home' && (!shipping.address1 || !shipping.city)) {
+                        setErrorMessage('Please enter your street address and city.')
+                        return
+                      }
+                      setErrorMessage('')
+                      setStep('payment')
+                    }}
+                    className="w-full py-4 text-base font-black text-white rounded-xl transition-all hover:opacity-90 shadow-lg shadow-emerald-500/20"
+                    style={{ background: '#00b341', fontFamily: 'Big Shoulders Display' }}
+                  >
+                    Proceed to Review & Payment →
+                  </button>
+                </div>
+              )}
+
+              {/* ── STEP 2: REVIEW & MAKE PAYMENT (All Cart Types) ── */}
+              {(step === 'payment' || isAllDigital) && (
+                <div className="p-6 rounded-2xl border border-[#1e1e32] space-y-6" style={{ background: '#131320' }}>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>
+                      💳 {isAllDigital ? 'Digital Checkout & Payment' : 'Review & Payment'}
+                    </h2>
+                    <span className="text-xs font-bold text-gray-400 font-mono">Ref: {orderNum}</span>
+                  </div>
+
+                  {/* Digital contact inputs if digital-only */}
+                  {isAllDigital && (
+                    <div className="space-y-3 p-4 rounded-xl border border-[#6366f1]/30" style={{ background: 'rgba(99,102,241,0.06)' }}>
+                      <p className="text-xs font-bold text-[#a5b4fc]">Destination for Digital Files</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <input
+                          value={shipping.name}
+                          onChange={e => setShipping(s => ({ ...s, name: e.target.value }))}
+                          placeholder="Your Name *"
+                          className={inputCls}
+                          style={inputStyle}
+                        />
+                        <input
+                          type="email"
+                          value={shipping.email}
+                          onChange={e => setShipping(s => ({ ...s, email: e.target.value }))}
+                          placeholder="Your Email (download links sent here) *"
+                          className={inputCls}
+                          style={inputStyle}
                         />
                       </div>
                     </div>
                   )}
 
-                  {/* Card Fields */}
-                  {payMethod === 'card' && (
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs font-bold text-gray-400 mb-1">Cardholder Name *</label>
-                        <input value={card.name} onChange={e => setCard(c => ({ ...c, name: e.target.value }))} placeholder="As on card" className={inputCls} style={inputStyle} />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-400 mb-1">Card Number *</label>
-                        <input value={card.number} onChange={e => setCard(c => ({ ...c, number: e.target.value }))} placeholder="1234 5678 9012 3456" maxLength={19} className={inputCls} style={inputStyle} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-bold text-gray-400 mb-1">Expiry *</label>
-                          <input value={card.expiry} onChange={e => setCard(c => ({ ...c, expiry: e.target.value }))} placeholder="MM/YY" maxLength={5} className={inputCls} style={inputStyle} />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-400 mb-1">CVV *</label>
-                          <input value={card.cvv} onChange={e => setCard(c => ({ ...c, cvv: e.target.value }))} placeholder="123" maxLength={4} type="password" className={inputCls} style={inputStyle} />
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-500">🔒 Secured with 256-bit SSL encryption</p>
-                    </div>
-                  )}
-
-                  {/* PayPal Fields */}
-                  {payMethod === 'paypal' && (
-                    <div className="space-y-3">
-                      <div className="p-4 rounded-xl border border-blue-500/30" style={{ background: 'rgba(59,130,246,0.06)' }}>
-                        <p className="text-xs text-gray-400">You'll be redirected to PayPal to complete your payment securely.</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-gray-400 mb-1">PayPal Email *</label>
-                        <input value={paypalEmail} onChange={e => setPaypalEmail(e.target.value)} placeholder="your@paypal.com" type="email" className={inputCls} style={inputStyle} />
-                      </div>
-                    </div>
-                  )}
-
-                    {/* Tip / Gratuity */}
-                    <div className="mt-6 pt-5 border-t border-[#1e1e32]">
-                      <h3 className="text-sm font-black text-white mb-1">🙏 Leave a Tip (optional)</h3>
-                      <p className="text-xs text-gray-400 mb-3">Show some appreciation to our team. 100% goes to fulfilment staff.</p>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {tipOptions.map(t => (
-                          <button
-                            key={t}
-                            type="button"
-                            onClick={() => { setTip(t); setCustomTip('') }}
-                            className="px-4 py-2 text-xs font-bold rounded-xl border transition-all"
-                            style={{
-                              background: tip === t && customTip === '' ? '#00b341' : '#0d0d1e',
-                              color: tip === t && customTip === '' ? '#fff' : '#9ca3af',
-                              border: `1px solid ${tip === t && customTip === '' ? '#00b341' : '#1e1e32'}`,
-                            }}
-                          >
-                            {t === 0 ? 'No tip' : formatPrice(t)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3 mt-6 pt-4 border-t border-[#1e1e32]">
-                      <Link
-                        to={isAllDigital ? '/shop' : '#'}
-                        onClick={(e) => {
-                          if (!isAllDigital) {
-                            e.preventDefault()
-                            setStep('shipping')
-                          }
-                        }}
-                        className="px-5 py-3 text-xs font-bold text-gray-400 hover:text-white rounded-xl border border-[#1e1e32] transition-colors flex items-center"
-                      >
-                        ← {isAllDigital ? 'Go back to Shop' : 'Back'}
-                      </Link>
-
-                      <button
-                        onClick={handleStartPayment}
-                        disabled={!canProceedPayment || isProcessingPayment}
-                        className="flex-1 py-3.5 text-sm font-black text-white rounded-xl transition-all disabled:opacity-40 hover:opacity-90 shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
-                        style={{ background: '#00b341', fontFamily: 'Big Shoulders Display', fontSize: '16px' }}
-                      >
-                        {isProcessingPayment ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            <span>Opening Paystack...</span>
-                          </>
-                        ) : (
-                          payMethod === 'mpesa' ? `Send STK Push · ${formatPrice(grandTotal)}` :
-                          payMethod === 'paypal' ? `Pay via PayPal · ${formatPrice(grandTotal)}` :
-                          `Pay with Card · ${formatPrice(grandTotal)}`
-                        )}
-                      </button>
+                  {/* Tip / Support Creator */}
+                  <div className="p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0c0c14' }}>
+                    <h3 className="text-xs font-black text-white uppercase tracking-wider mb-1">🙏 Add a Tip to Support the Creator</h3>
+                    <p className="text-[10px] text-gray-400 mb-3">Optional support for our media production and kit curation.</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {tipOptions.map(tVal => (
+                        <button
+                          key={tVal}
+                          type="button"
+                          onClick={() => setTip(isKenya ? tVal : tVal * KES_TO_USD_RATE)}
+                          className="px-4 py-2 text-xs font-bold rounded-xl border transition-all"
+                          style={{
+                            background: (isKenya ? tip === tVal : Math.round(tip / KES_TO_USD_RATE) === tVal) ? '#00b341' : '#131320',
+                            color: (isKenya ? tip === tVal : Math.round(tip / KES_TO_USD_RATE) === tVal) ? '#fff' : '#9ca3af',
+                            borderColor: (isKenya ? tip === tVal : Math.round(tip / KES_TO_USD_RATE) === tVal) ? '#00b341' : '#1e1e32',
+                          }}
+                        >
+                          {tVal === 0 ? 'No tip' : `+${currencySymbol} ${tVal}`}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                )}
-              </div>
 
-              {/* Right: Order Summary */}
-              <div className="p-5 rounded-2xl border border-[#1e1e32] h-fit" style={{ background: '#131320' }}>
-                <h3 className="font-black text-white text-lg mb-4" style={{ fontFamily: 'Big Shoulders Display' }}>
+                  {/* Payment Gateway Trust notice */}
+                  <div className="p-4 rounded-xl border border-emerald-500/30 flex items-center gap-3" style={{ background: 'rgba(0,179,65,0.06)' }}>
+                    <span className="text-2xl">🔒</span>
+                    <div>
+                      <p className="text-xs font-bold text-white">Instant Payment via Paystack</p>
+                      <p className="text-[11px] text-gray-400">
+                        {isKenya
+                          ? 'Clicking below opens the secure Paystack popup. Pay via M-Pesa STK Push or Debit/Credit Card (Visa/Mastercard).'
+                          : 'Clicking below opens the secure Paystack global popup for instant Card processing in USD.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {errorMessage && (
+                    <div className="p-3 rounded-xl border border-red-500/40 text-xs text-red-300 bg-red-500/10">
+                      {errorMessage}
+                    </div>
+                  )}
+
+                  {/* The Primary Make Payment Action Button */}
+                  <div className="flex gap-3">
+                    {!isAllDigital && (
+                      <button
+                        type="button"
+                        onClick={() => setStep('shipping')}
+                        className="px-5 py-4 text-xs font-bold text-gray-400 hover:text-white rounded-xl border border-[#1e1e32]"
+                      >
+                        ← Edit Address
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleStartPayment}
+                      disabled={isProcessingPayment}
+                      className="flex-1 py-4 text-base font-black text-white rounded-xl transition-all disabled:opacity-40 hover:opacity-90 shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                      style={{ background: '#00b341', fontFamily: 'Big Shoulders Display' }}
+                    >
+                      {isProcessingPayment ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Opening Secure Payment...</span>
+                        </>
+                      ) : (
+                        `Make Payment · ${currencySymbol} ${isKenya ? displayTotal.toLocaleString() : displayTotal.toFixed(2)}`
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right 1 Col: Persistent Sticky Order Summary */}
+            <div>
+              <div className="p-5 rounded-2xl border border-[#1e1e32] sticky top-8 space-y-4" style={{ background: '#131320' }}>
+                <h3 className="font-black text-white text-xl" style={{ fontFamily: 'Big Shoulders Display' }}>
                   Order Summary
                 </h3>
-                {hasDigitalItems && !isAllDigital && (
-                  <div className="mb-3 p-3 rounded-xl border border-[#6366f1]/40 text-xs" style={{ background: 'rgba(99,102,241,0.08)' }}>
-                    <p className="font-bold text-[#a5b4fc] mb-1">🛍️ Mixed Order (Digital + Physical)</p>
-                    <p className="text-gray-400">Your cart has both digital files and physical items. Physical items require shipping. After payment, digital files will be available instantly and physical items will be shipped separately.</p>
+
+                {/* Mixed Cart Notice */}
+                {hasDigitalItems && hasPhysicalItems && (
+                  <div className="p-3 rounded-xl border border-[#6366f1]/40 text-xs space-y-1" style={{ background: 'rgba(99,102,241,0.08)' }}>
+                    <p className="font-bold text-[#a5b4fc] flex items-center gap-1.5">
+                      <span>🛍️</span>
+                      <span>Mixed Order (Digital + Physical)</span>
+                    </p>
+                    <p className="text-[11px] text-gray-300 leading-relaxed">
+                      Your digital downloads will be instantly accessible on your screen and via email confirmation immediately after payment clearance. Physical jerseys and merchandise items are processed separately for courier routing delivery dispatch.
+                    </p>
                   </div>
                 )}
-                <div className="space-y-3 mb-4 pb-4 border-b border-[#1e1e32]">
+
+                {/* Items List */}
+                <div className="space-y-3 pb-3 border-b border-[#1e1e32] max-h-72 overflow-y-auto">
                   {(cart.length > 0 ? cart : savedCartItems).map(item => (
                     <div key={`${item.id}-${item.size}`} className="flex items-center gap-3">
-                      <img src={item.image} alt={item.name} className="w-12 h-12 object-cover rounded-lg" />
+                      <img src={item.image} alt={item.name} className="w-12 h-12 object-contain bg-[#0c0c14] rounded-lg p-1 shrink-0 border border-[#1e1e32]" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-white truncate">{item.name}</p>
-                        <p className="text-xs text-gray-500">Size: {item.size} × {item.quantity}</p>
+                        <p className="text-[10px] text-gray-400">Size: <strong className="text-white">{item.size}</strong> × {item.quantity}</p>
                       </div>
-                      <p className="text-sm font-bold text-white">{formatPrice(item.price * item.quantity)}</p>
+                      <p className="text-xs font-bold text-white">
+                        {currencySymbol} {isKenya ? (item.price * item.quantity).toLocaleString() : ((item.price * item.quantity) / KES_TO_USD_RATE).toFixed(2)}
+                      </p>
                     </div>
                   ))}
                 </div>
-                <div className="space-y-2 text-xs mb-4">
+
+                {/* Financial Accumulator Table */}
+                <div className="space-y-2 text-xs">
                   <div className="flex justify-between text-gray-400">
                     <span>Subtotal</span>
-                    <span className="text-white font-bold">{formatPrice(cartTotal)}</span>
+                    <span className="text-white font-bold">
+                      {currencySymbol} {isKenya ? cartTotal.toLocaleString() : (cartTotal / KES_TO_USD_RATE).toFixed(2)}
+                    </span>
                   </div>
-                  <div className="flex justify-between text-gray-400">
-                    <span>Shipping</span>
-                    <span>{shippingCost === 0 ? <span className="text-[#00b341] font-bold">Free</span> : <span className="text-white">{formatPrice(shippingCost)}</span>}</span>
-                  </div>
-                  {tipAmount > 0 && (
+                  {!isAllDigital && (
                     <div className="flex justify-between text-gray-400">
-                      <span>Tip 🙏</span>
-                      <span className="text-[#00b341]">+{formatPrice(tipAmount)}</span>
+                      <span>Shipping ({isKenya ? (deliveryMethod === 'pickup' ? 'Hub Pickup' : 'G4S Courier') : 'DHL Express'})</span>
+                      <span className="text-white font-bold">
+                        {shippingFee === 0 ? <span className="text-[#00b341]">FREE</span> : `${currencySymbol} ${isKenya ? shippingFee : (shippingFee / KES_TO_USD_RATE).toFixed(2)}`}
+                      </span>
+                    </div>
+                  )}
+                  {tip > 0 && (
+                    <div className="flex justify-between text-gray-400">
+                      <span>Creator Tip 🙏</span>
+                      <span className="text-[#00b341] font-bold">
+                        +{currencySymbol} {isKenya ? tip : (tip / KES_TO_USD_RATE).toFixed(2)}
+                      </span>
                     </div>
                   )}
                 </div>
-                <div className="flex justify-between font-black text-white text-lg pt-3 border-t border-[#1e1e32]">
+
+                {/* Total */}
+                <div className="flex justify-between items-center font-black text-white text-xl pt-3 border-t border-[#1e1e32]">
                   <span>Total</span>
-                  <span style={{ color: '#00b341' }}>{formatPrice(grandTotal)}</span>
+                  <span style={{ color: '#00b341', fontFamily: 'Big Shoulders Display', fontSize: '24px' }}>
+                    {currencySymbol} {isKenya ? displayTotal.toLocaleString() : displayTotal.toFixed(2)}
+                  </span>
                 </div>
-                <p className="text-[10px] text-gray-600 mt-3 text-center">🔒 Secured checkout · SSL encrypted</p>
+
+                <p className="text-[10px] text-gray-500 text-center">
+                  🔒 256-bit SSL Encrypted · Paystack Verified Gateway
+                </p>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-    )
-  }
+    </div>
+  )
+}
+
 

@@ -45,7 +45,7 @@ export default function CartDrawer({ open, onClose }: Props) {
                 {remainingForFreeShipping === 0 ? (
                   <span className="text-[#00b341] font-bold">🎉 You qualify for FREE Shipping!</span>
                 ) : (
-                  <>Add <strong className="text-white">${remainingForFreeShipping.toFixed(2)}</strong> for FREE Shipping</>
+                  <>Add <strong className="text-white">{formatPrice(remainingForFreeShipping)}</strong> for FREE Shipping</>
                 )}
               </span>
             </div>
@@ -76,12 +76,12 @@ export default function CartDrawer({ open, onClose }: Props) {
           ) : (
             cart.map(item => (
               <div key={`${item.id}-${item.size}`} className="flex gap-3 py-3 border-b border-[#1e1e32]">
-                <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded-xl shrink-0" />
+                <img src={item.image} alt={item.name} className="w-16 h-16 object-contain bg-[#0c0c14] rounded-xl shrink-0 p-1 border border-[#1e1e32]" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-white truncate">{item.name}</p>
                   <p className="text-[10px] text-gray-400 mt-0.5">Size: <strong className="text-white">{item.size}</strong></p>
                   <p className="text-sm font-black text-[#00b341] mt-1" style={{ fontFamily: 'Big Shoulders Display' }}>
-                    ${(item.price * item.quantity).toFixed(2)}
+                    {formatPrice(item.price * item.quantity)}
                   </p>
 
                   <div className="flex items-center justify-between mt-2">
@@ -122,7 +122,7 @@ export default function CartDrawer({ open, onClose }: Props) {
             <div className="flex justify-between items-center mb-4">
               <span className="text-xs font-bold text-gray-400">Subtotal</span>
               <span className="text-xl font-black text-[#00b341]" style={{ fontFamily: 'Big Shoulders Display' }}>
-                ${cartTotal.toFixed(2)}
+                {formatPrice(cartTotal)}
               </span>
             </div>
             <Link
