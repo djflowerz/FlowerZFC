@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
-import { MessageCircle, Headphones, TicketCheck } from 'lucide-react'
+import { Headphones, TicketCheck } from 'lucide-react'
+import { FaWhatsapp } from 'react-icons/fa'
 import { fetchAllTickets, fetchAllMixes } from '../services/supabaseClient'
 
 export interface MixItem {
@@ -185,7 +186,7 @@ export default function Mixes() {
               rel="noreferrer"
               className="px-6 py-3 text-xs font-bold text-emerald-400 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all"
             >
-              <MessageCircle size={14} className="inline mr-1" strokeWidth={2.5} /> {t('whatsappBooking')}
+              <FaWhatsapp size={14} className="inline mr-1" /> {t('whatsappBooking')}
             </a>
           </div>
         </div>
@@ -360,7 +361,7 @@ export default function Mixes() {
                   rel="noreferrer"
                   className="flex items-center gap-3 p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 font-bold hover:bg-emerald-500/20 transition-colors"
                 >
-                  <MessageCircle size={16} strokeWidth={2.5} /> WhatsApp Direct: +254 700 000 000
+                  <FaWhatsapp size={16} /> WhatsApp Direct: +254 700 000 000
                 </a>
                 <a
                   href="mailto:bookings@flowerz.fc"

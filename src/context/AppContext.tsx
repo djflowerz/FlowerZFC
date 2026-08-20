@@ -411,17 +411,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
   })
   const [authLoading, setAuthLoading] = useState(true)
 
+  const resolveUserFromSession = async (session: any) => {
+    if (!session?.user) return null
+    const { profile } = await fetchProfile(session.user.id)
+    const role = profile?.role || 'user'
+    const metaName = session.user.user_metadata?.name || session.user.user_metadata?.full_name
+    const emailName = session.user.email ? session.user.email.split('@')[0] : ''
+    const formattedEmailName = emailName ? emailName.charAt(0).toUpperCase() + emailName.slice(1) : ''
+    const name = (profile?.name && profile.name !== 'User') ? profile.name.trim() : (metaName?.trim() || formattedEmailName || 'Member')
+    const email = session.user.email || profile?.email || ''
+    const avatar_url = profile?.avatar_url || session.user.user_metadata?.avatar_url || null
+    return { id: session.user.id, name, email, role, avatar_url }
+  }
+
   useEffect(() => {
     // Resolve initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        const { profile } = await fetchProfile(session.user.id)
-        const role = profile?.role || 'user'
-        const name = profile?.name || session.user.email?.split('@')[0] || 'User'
-        const email = session.user.email || ''
-        const resolved = { id: session.user.id, name, email, role, avatar_url: profile?.avatar_url || null }
-        setUser(resolved)
-        localStorage.setItem('flowerzfc_user', JSON.stringify(resolved))
+        const resolved = await resolveUserFromSession(session)
+        if (resolved) {
+          setUser(resolved)
+          localStorage.setItem('flowerzfc_user', JSON.stringify(resolved))
+        }
       } else {
         setUser(null)
         localStorage.removeItem('flowerzfc_user')
@@ -432,13 +443,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes (sign in, sign out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        const { profile } = await fetchProfile(session.user.id)
-        const role = profile?.role || 'user'
-        const name = profile?.name || session.user.email?.split('@')[0] || 'User'
-        const email = session.user.email || ''
-        const resolved = { id: session.user.id, name, email, role, avatar_url: profile?.avatar_url || null }
-        setUser(resolved)
-        localStorage.setItem('flowerzfc_user', JSON.stringify(resolved))
+        const resolved = await resolveUserFromSession(session)
+        if (resolved) {
+          setUser(resolved)
+          localStorage.setItem('flowerzfc_user', JSON.stringify(resolved))
+        }
       } else {
         setUser(null)
         localStorage.removeItem('flowerzfc_user')

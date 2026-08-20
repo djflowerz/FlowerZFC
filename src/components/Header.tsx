@@ -170,15 +170,23 @@ export default function Header() {
               <div className="relative">
                 <button
                   onClick={() => setAccountOpen(o => !o)}
-                  className="flex items-center gap-2 p-1 rounded-full transition-colors border border-[#00b341]/40 hover:border-[#00b341]"
+                  className="flex items-center gap-2 p-0.5 rounded-full transition-colors border border-[#00b341]/40 hover:border-[#00b341]"
+                  aria-label="User Account"
                 >
-                  <div className="w-7 h-7 rounded-full bg-[#00b341] text-black font-black text-xs flex items-center justify-center">
-                    {user.name.charAt(0).toUpperCase()}
-                  </div>
+                  {user.avatar_url ? (
+                    <img src={user.avatar_url} alt={user.name} className="w-7 h-7 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-[#00b341] text-black font-black text-xs flex items-center justify-center">
+                      {(user.name || 'U').charAt(0).toUpperCase()}
+                    </div>
+                  )}
                 </button>
                 {accountOpen && (
-                  <div className="absolute right-0 top-full mt-1 rounded shadow-xl z-50 py-1 min-w-[180px]" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-                    <div className="px-3 py-2 text-xs text-gray-400 border-b border-white/10 font-bold">{user.name}</div>
+                  <div className="absolute right-0 top-full mt-1 rounded-xl shadow-2xl z-50 py-1 min-w-[200px]" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
+                    <div className="px-3 py-2 border-b border-white/10">
+                      <div className="text-xs font-bold text-white truncate">{user.name}</div>
+                      <div className="text-[10px] text-gray-400 truncate">{user.email}</div>
+                    </div>
                     <Link to="/account/teams" className="block px-3 py-2 text-sm text-gray-300 hover:bg-white/10 transition-colors" onClick={() => setAccountOpen(false)}>{t('myTeams')}</Link>
                     <Link to="/account/saved" className="block px-3 py-2 text-sm text-gray-300 hover:bg-white/10 transition-colors" onClick={() => setAccountOpen(false)}>{t('savedArticles')}</Link>
                     <Link to="/account/predictions" className="block px-3 py-2 text-sm text-gray-300 hover:bg-white/10 transition-colors" onClick={() => setAccountOpen(false)}>{t('myPredictions')}</Link>
@@ -218,6 +226,7 @@ export default function Header() {
             <button
               className="lg:hidden p-2 text-gray-400 hover:text-white transition-colors"
               onClick={() => setMenuOpen(o => !o)}
+              aria-label="Toggle Navigation Menu"
             >
               <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 {menuOpen ? <path d="M18 6 6 18M6 6l12 12"/> : <path d="M4 6h16M4 12h16M4 18h16"/>}
@@ -228,7 +237,80 @@ export default function Header() {
 
         {/* Mobile drawer */}
         {menuOpen && (
-          <div className="lg:hidden border-t" style={{ background: '#0a0a12', borderColor: '#1e1e32' }}>
+          <div className="lg:hidden border-t max-h-[calc(100vh-56px)] overflow-y-auto" style={{ background: '#0a0a12', borderColor: '#1e1e32' }}>
+            
+            {/* Mobile User Profile Section */}
+            <div className="p-4 border-b border-white/10">
+              {user ? (
+                <div className="p-3.5 rounded-xl border border-[#00b341]/30 bg-[#131320] space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <Link to="/account" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 min-w-0 flex-1">
+                      {user.avatar_url ? (
+                        <img src={user.avatar_url} alt={user.name} className="w-10 h-10 rounded-full object-cover border-2 border-[#00b341] shrink-0" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-[#00b341] text-black font-black text-sm flex items-center justify-center shrink-0">
+                          {(user.name || 'U').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-sm text-white truncate flex items-center gap-2">
+                          <span>{user.name}</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-[#00b341]/20 text-[#00b341] uppercase shrink-0">
+                            {user.role}
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-400 truncate">{user.email}</div>
+                      </div>
+                    </Link>
+                    <button
+                      onClick={async () => { await logout(); setMenuOpen(false) }}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors shrink-0"
+                    >
+                      {t('logout')}
+                    </button>
+                  </div>
+
+                  {/* Quick Profile Shortcuts */}
+                  <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-white/5 text-xs font-semibold text-gray-300">
+                    <Link to="/account/teams" onClick={() => setMenuOpen(false)} className="px-2 py-1.5 rounded bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-1.5">
+                      <span>🛡️</span> My Teams
+                    </Link>
+                    <Link to="/account/saved" onClick={() => setMenuOpen(false)} className="px-2 py-1.5 rounded bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-1.5">
+                      <span>📌</span> Saved News
+                    </Link>
+                    <Link to="/account/predictions" onClick={() => setMenuOpen(false)} className="px-2 py-1.5 rounded bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-1.5">
+                      <span>🎯</span> Predictions
+                    </Link>
+                    <Link to="/account/settings" onClick={() => setMenuOpen(false)} className="px-2 py-1.5 rounded bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-1.5">
+                      <span>⚙️</span> Settings
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-xl border border-white/10 bg-[#131320] text-center space-y-2.5">
+                  <p className="text-xs text-gray-300 font-medium">Sign in to save teams, enter predictions, and customize match alerts.</p>
+                  <div className="flex gap-2">
+                    <Link
+                      to="/login"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex-1 py-2 text-xs font-black text-black rounded-lg transition-opacity hover:opacity-90"
+                      style={{ background: '#00b341' }}
+                    >
+                      {t('login')}
+                    </Link>
+                    <Link
+                      to="/login?mode=signup"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex-1 py-2 text-xs font-bold text-white rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
+                    >
+                      {t('signup')}
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Language and Currency */}
             <div className="px-4 py-3 flex gap-2 border-b border-white/10">
               <div className="flex-1">
                 <p className="text-[10px] font-bold text-gray-500 uppercase mb-1.5">Language</p>
@@ -259,6 +341,8 @@ export default function Header() {
                 </div>
               </div>
             </div>
+
+            {/* Main Links */}
             <nav className="px-4 py-3 flex flex-col gap-1">
               {navLinks.map(l => (
                 <Link
@@ -273,21 +357,31 @@ export default function Header() {
               <Link to="/advertise" className="py-2.5 px-3 text-sm font-medium text-[#00b341] hover:bg-white/10 rounded transition-colors" onClick={() => setMenuOpen(false)}>{t('advertise')}</Link>
               <Link to="/about" className="py-2.5 px-3 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors" onClick={() => setMenuOpen(false)}>{t('about')}</Link>
               <Link to="/contact" className="py-2.5 px-3 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors" onClick={() => setMenuOpen(false)}>{t('contact')}</Link>
-              <div className="border-t border-white/10 my-1" />
+              
+              {/* Role Dashboards */}
               {user?.role === 'super_admin' && (
-                <Link to="/admin" className="py-2.5 px-3 text-sm font-bold flex items-center gap-2 rounded transition-colors hover:bg-[#00b341]/10" style={{ color: '#00b341' }} onClick={() => setMenuOpen(false)}>
-                  <ShieldCheck size={15} strokeWidth={2.5} /> Admin Dashboard
-                </Link>
+                <>
+                  <div className="border-t border-white/10 my-1" />
+                  <Link to="/admin" className="py-2.5 px-3 text-sm font-bold flex items-center gap-2 rounded transition-colors hover:bg-[#00b341]/10" style={{ color: '#00b341' }} onClick={() => setMenuOpen(false)}>
+                    <ShieldCheck size={15} strokeWidth={2.5} /> Admin Dashboard
+                  </Link>
+                </>
               )}
               {user?.role === 'editor' && (
-                <Link to="/editor-dashboard" className="py-2.5 px-3 text-sm font-bold flex items-center gap-2 rounded transition-colors hover:bg-blue-500/10" style={{ color: '#3b82f6' }} onClick={() => setMenuOpen(false)}>
-                  <PenLine size={15} strokeWidth={2.5} /> Editor Dashboard
-                </Link>
+                <>
+                  <div className="border-t border-white/10 my-1" />
+                  <Link to="/editor-dashboard" className="py-2.5 px-3 text-sm font-bold flex items-center gap-2 rounded transition-colors hover:bg-blue-500/10" style={{ color: '#3b82f6' }} onClick={() => setMenuOpen(false)}>
+                    <PenLine size={15} strokeWidth={2.5} /> Editor Dashboard
+                  </Link>
+                </>
               )}
               {user?.role === 'support' && (
-                <Link to="/support-dashboard" className="py-2.5 px-3 text-sm font-bold flex items-center gap-2 rounded transition-colors hover:bg-purple-500/10" style={{ color: '#a855f7' }} onClick={() => setMenuOpen(false)}>
-                  <Headset size={15} strokeWidth={2.5} /> Support Dashboard
-                </Link>
+                <>
+                  <div className="border-t border-white/10 my-1" />
+                  <Link to="/support-dashboard" className="py-2.5 px-3 text-sm font-bold flex items-center gap-2 rounded transition-colors hover:bg-purple-500/10" style={{ color: '#a855f7' }} onClick={() => setMenuOpen(false)}>
+                    <Headset size={15} strokeWidth={2.5} /> Support Dashboard
+                  </Link>
+                </>
               )}
             </nav>
           </div>

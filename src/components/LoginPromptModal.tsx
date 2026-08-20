@@ -1,27 +1,41 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useApp } from '../context/AppContext'
 
 export default function LoginPromptModal() {
   const [show, setShow] = useState(false)
+  const { user, authLoading } = useApp()
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Only show if not logged in and not already prompted this session
-    const isLoggedIn = !!localStorage.getItem('flowerzfc_user')
+    // If logged in or auth is still initializing, do not show
+    if (authLoading || user) {
+      setShow(false)
+      return
+    }
+
+    const isLoggedIn = !!localStorage.getItem('flowerzfc_user') || !!localStorage.getItem('flz_auth_user_v1') || !!localStorage.getItem('flowerzfc_sb_session')
     const alreadyPrompted = sessionStorage.getItem('flowerzfc_login_prompted')
     if (isLoggedIn || alreadyPrompted) return
 
     const timer = setTimeout(() => {
-      setShow(true)
-      sessionStorage.setItem('flowerzfc_login_prompted', '1')
+      // Re-check before popping up
+      const currentUser = localStorage.getItem('flowerzfc_user')
+      if (!currentUser && !user) {
+        setShow(true)
+        sessionStorage.setItem('flowerzfc_login_prompted', '1')
+      }
     }, 45000)
 
     return () => clearTimeout(timer)
-  }, [])
+  }, [user, authLoading])
 
-  const dismiss = () => setShow(false)
+  const dismiss = () => {
+    setShow(false)
+    sessionStorage.setItem('flowerzfc_login_prompted', '1')
+  }
 
-  if (!show) return null
+  if (!show || user || authLoading) return null
 
   return (
     <div

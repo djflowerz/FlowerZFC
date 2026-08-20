@@ -30,6 +30,9 @@ export interface ProductRow {
   images?: string[] | string
   description?: string
   stock?: number
+  type?: 'physical' | 'digital'
+  digital_file_url?: string | null
+  access_password?: string | null
   created_at?: string
 }
 
@@ -512,4 +515,10 @@ export async function uploadMixCover(file: File): Promise<{ url: string | null; 
   } catch (error) {
     return { url: null, error }
   }
+}
+
+
+export async function createProduct(product: Record<string, any>): Promise<{ product: ProductRow | null; error: any }> {
+  const { data, error } = await supabase.from('products').insert(product).select().single()
+  return { product: data as ProductRow | null, error }
 }

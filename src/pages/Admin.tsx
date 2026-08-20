@@ -587,6 +587,9 @@ export default function Admin() {
     metaDescription: '',
     colors: 'Green, White',
     tags: 'jersey,home,2026,kits',
+    type: 'physical' as 'physical' | 'digital',
+    digitalFileUrl: '',
+    accessPassword: '',
   }
   const [newProduct, setNewProduct] = useState(BLANK_PRODUCT)
 
@@ -4792,12 +4795,15 @@ export default function Admin() {
       {/* Add Product */}
       {showAddProduct && (
         <Modal title="Add New Football Kit / Product" onClose={() => setShowAddProduct(false)}>
-          <form onSubmit={e => {
+          <form onSubmit={async e => {
             e.preventDefault()
             if (!newProduct.name || !newProduct.price) return
             const mainImg = newProduct.images[0] || newProduct.imageUrl || 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=600&h=600&fit=crop'
-            const prod: Product = {
+            const prod: any = {
               id: `p-${Date.now()}`,
+              type: newProduct.type,
+              digital_file_url: newProduct.type === 'digital' ? (newProduct.digitalFileUrl || null) : null,
+              access_password: newProduct.type === 'digital' ? (newProduct.accessPassword || null) : null,
               name: newProduct.name,
               sku: newProduct.sku || `SKU-${Date.now().toString().slice(-6)}`,
               description: newProduct.description,
@@ -4832,9 +4838,16 @@ export default function Admin() {
               colors: newProduct.colors,
               tags: newProduct.tags,
             }
-            setProducts(p => [prod, ...p])
+            const { product: savedProduct, error } = await createProduct(prod)
+            if (error || !savedProduct) {
+              toastLib.error('❌ Failed to save product. Please try again.')
+              console.error('Create product error:', error)
+              return
+            }
+            setProducts(p => [savedProduct as any, ...p])
             setShowAddProduct(false)
             setNewProduct(BLANK_PRODUCT)
+            toastLib.success('✅ Product created!')
           }} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
 
             {/* 📸 MEDIA & IMAGES */}
