@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { initiatePayment } from '../services/paymentService'
+import ReceiptPrinter from '../components/ReceiptPrinter'
 import { createOrder, fetchAllProducts, verifyPaidReceipt } from '../services/supabaseClient'
 import { getSiteSettings } from '../services/siteSettings'
 
@@ -391,6 +392,15 @@ export default function Checkout() {
                 <p className="text-xs text-gray-400">Payment Reference: <strong className="font-mono text-white">{confirmedRef}</strong></p>
               )}
               <p className="text-xs text-gray-400 mt-2">A full receipt has been emailed to <strong className="text-white">{shipping.email || 'your email'}</strong>.</p>
+
+              <ReceiptPrinter
+                orderNum={orderNum}
+                items={(cart.length > 0 ? cart : savedCartItems).map(item => ({ name: item.name, qty: item.quantity, price: item.price }))}
+                subtotal={cartTotal}
+                shipping={shippingFee}
+                tip={tip}
+                total={grandTotalKes}
+              />
 
               {/* Order Status Roadmap for Physical */}
               {!isAllDigital && (

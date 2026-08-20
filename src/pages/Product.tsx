@@ -21,6 +21,22 @@ function StarRating({ rating, reviews }: { rating: number; reviews: number }) {
   )
 }
 
+const LEAGUE_BADGES = [
+  { id: 'none', label: 'none', price: 0 },
+  { id: 'epl_lion', label: 'Premier League Lion Badge', price: 150 },
+  { id: 'ucl_starball', label: 'UEFA Champions League Starball', price: 200 },
+  { id: 'ucl_winners', label: 'UCL Champions Patch', price: 200 },
+  { id: 'fa_cup', label: 'Emirates FA Cup Badge', price: 150 },
+  { id: 'la_liga', label: 'La Liga EA Sports Badge', price: 150 },
+]
+
+const TOURNAMENT_BADGES = [
+  { id: 'none', label: 'none', price: 0 },
+  { id: 'world_cup_2026', label: 'FIFA World Cup 2026 Badge', price: 200 },
+  { id: 'club_world_cup', label: 'FIFA Club World Cup Champions Badge', price: 200 },
+  { id: 'afcon_badge', label: 'AFCON Champions Badge', price: 200 },
+]
+
 export default function Product() {
   const { id } = useParams()
   const { t, addToCart, formatPrice, user } = useApp()
@@ -35,6 +51,16 @@ export default function Product() {
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
   const [selectedAddons, setSelectedAddons] = useState<string[]>([])
+  const [selectedLeagueBadge, setSelectedLeagueBadge] = useState('none')
+  const [selectedTournamentBadge, setSelectedTournamentBadge] = useState('none')
+  const [isWishlisted, setIsWishlisted] = useState(() => {
+    try {
+      const list = JSON.parse(localStorage.getItem('flowerzfc_wishlist') || '[]')
+      return list.includes(id)
+    } catch {
+      return false
+    }
+  })
   const [buyNowLoading, setBuyNowLoading] = useState(false)
   const [buyNowError, setBuyNowError] = useState('')
 
@@ -44,7 +70,6 @@ export default function Product() {
   const [digitalEmailError, setDigitalEmailError] = useState('')
 
   // Player Name & Number Customization state
-  const [customPrintEnabled, setCustomPrintEnabled] = useState(false)
   const [customPlayerChoice, setCustomPlayerChoice] = useState<'squad' | 'custom'>('custom')
   const [customPlayerName, setCustomPlayerName] = useState('')
   const [customPlayerNumber, setCustomPlayerNumber] = useState('')
@@ -160,30 +185,49 @@ export default function Product() {
   const siteSettings = getSiteSettings()
   const availableSizes = (product.sizes && product.sizes.length > 0) ? product.sizes : ['S', 'M', 'L', 'XL', 'XXL']
   const squadList = (product.playerList || '').split(',').map(s => s.trim()).filter(Boolean)
-  const isPrintingAvailable = product.printing_enabled || Boolean(product.playerList) || (product.printing_price ? product.printing_price > 0 : false)
-  const printingPrice = customPrintEnabled ? (product.printing_price || 300) : 0
 
-  const addonTotal = (product.addons || []).filter((a: any) => selectedAddons.includes(a.id)).reduce((s: number, a: any) => s + a.price, 0)
-  const unitPrice = product.price + printingPrice
-  const totalPriceWithAddons = unitPrice * qty + addonTotal
+  const isCustomPrintActive = Boolean(customPlayerName.trim() || customPlayerNumber.trim() || (customPlayerChoice === 'squad' && selectedSquadPlayer))
+  const printingFeePerItem = isCustomPrintActive ? (product.printing_price || 200) : 0
+
+  const leagueBadgeItem = LEAGUE_BADGES.find(b => b.id === selectedLeagueBadge)
+  const leagueBadgePrice = leagueBadgeItem && leagueBadgeItem.id !== 'none' ? leagueBadgeItem.price : 0
+
+  const tournamentBadgeItem = TOURNAMENT_BADGES.find(b => b.id === selectedTournamentBadge)
+  const tournamentBadgePrice = tournamentBadgeItem && tournamentBadgeItem.id !== 'none' ? tournamentBadgeItem.price : 0
+
+  const customAddonTotal = (product.addons || []).filter((a: any) => selectedAddons.includes(a.id)).reduce((s: number, a: any) => s + a.price, 0)
+  const totalAddonsPerItem = printingFeePerItem + leagueBadgePrice + tournamentBadgePrice + customAddonTotal
+
+  const unitPrice = product.price + totalAddonsPerItem
+  const totalPriceWithAddons = unitPrice * qty
 
   const buildCartPayload = () => {
     let customDetails = ''
-    if (customPrintEnabled) {
-      const pName = customPlayerChoice === 'squad'
-        ? selectedSquadPlayer
-        : (customPlayerName ? `${customPlayerName.toUpperCase().trim()}${customPlayerNumber ? ` #${customPlayerNumber.trim()}` : ''}` : '')
-      if (pName) customDetails += ` [Print: ${pName}]`
+    if (customPlayerChoice === 'squad' && selectedSquadPlayer) {
+      customDetails += ` [Print: ${selectedSquadPlayer}]`
+    } else if (customPlayerName.trim() || customPlayerNumber.trim()) {
+      const namePart = customPlayerName.toUpperCase().trim()
+      const numPart = customPlayerNumber ? ` #${customPlayerNumber.trim()}` : ''
+      customDetails += ` [Print: ${namePart}${numPart}]`
     }
+
+    const badgesUsed: string[] = []
+    if (leagueBadgeItem && leagueBadgeItem.id !== 'none') badgesUsed.push(leagueBadgeItem.label)
+    if (tournamentBadgeItem && tournamentBadgeItem.id !== 'none') badgesUsed.push(tournamentBadgeItem.label)
     if (selectedAddons.length > 0 && product.addons) {
-      const addonNames = selectedAddons.map(sid => product.addons!.find((a: any) => a.id === sid)?.label || '').filter(Boolean).join(', ')
-      if (addonNames) customDetails += ` (+${addonNames})`
+      product.addons.forEach(a => {
+        if (selectedAddons.includes(a.id)) badgesUsed.push(a.label)
+      })
     }
-    const chosenSize = isDigital ? 'Digital' : (size || 'M')
+    if (badgesUsed.length > 0) {
+      customDetails += ` (+${badgesUsed.join(', ')})`
+    }
+
+    const chosenSize = isDigital ? 'Digital' : (size || availableSizes[0] || 'M')
     return {
       id: product.id,
       name: `${product.name}${customDetails}`,
-      price: unitPrice + (addonTotal / qty),
+      price: unitPrice,
       size: chosenSize,
       quantity: qty,
       image: product.images[0] || '',
@@ -195,6 +239,50 @@ export default function Product() {
     addToCart(buildCartPayload())
     setAdded(true)
     setTimeout(() => setAdded(false), 2500)
+  }
+
+  const handleOrderWhatsApp = () => {
+    const chosenSize = isDigital ? 'Digital' : (size || availableSizes[0] || 'M')
+    const pName = customPlayerChoice === 'squad' && selectedSquadPlayer
+      ? selectedSquadPlayer
+      : (customPlayerName.trim() ? `${customPlayerName.toUpperCase().trim()}${customPlayerNumber ? ` #${customPlayerNumber.trim()}` : ''}` : 'None')
+
+    const badgesUsed: string[] = []
+    if (leagueBadgeItem && leagueBadgeItem.id !== 'none') badgesUsed.push(leagueBadgeItem.label)
+    if (tournamentBadgeItem && tournamentBadgeItem.id !== 'none') badgesUsed.push(tournamentBadgeItem.label)
+    if (selectedAddons.length > 0 && product.addons) {
+      product.addons.forEach(a => {
+        if (selectedAddons.includes(a.id)) badgesUsed.push(a.label)
+      })
+    }
+
+    const msg = `Hello FlowerZFC! 👋 I would like to order:
+👕 *Product:* ${product.name}
+📏 *Size:* ${chosenSize}
+✍️ *Custom Print:* ${pName}
+🏅 *Badges:* ${badgesUsed.length > 0 ? badgesUsed.join(', ') : 'None'}
+🔢 *Quantity:* ${qty}
+💰 *Total Amount:* ${formatPrice(totalPriceWithAddons)}
+
+Please confirm order availability and payment details.`
+
+    const rawPhone = (siteSettings.supportPhone2 || siteSettings.supportPhone1 || '254789783258').replace(/[^0-9]/g, '')
+    window.open(`https://wa.me/${rawPhone}?text=${encodeURIComponent(msg)}`, '_blank')
+  }
+
+  const toggleWishlist = () => {
+    try {
+      const list = JSON.parse(localStorage.getItem('flowerzfc_wishlist') || '[]')
+      let updated: string[] = []
+      if (list.includes(id)) {
+        updated = list.filter((x: string) => x !== id)
+        setIsWishlisted(false)
+      } else {
+        updated = [...list, id]
+        setIsWishlisted(true)
+      }
+      localStorage.setItem('flowerzfc_wishlist', JSON.stringify(updated))
+    } catch {}
   }
 
   const executeDigitalPayment = async (targetEmail: string) => {
@@ -441,13 +529,13 @@ export default function Product() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {/* 1. Size Selector */}
                 {isApparel && (
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-bold text-gray-200">Select Clothing Size</span>
-                      <span className="text-xs text-[#00b341] font-bold">Selected: <strong className="text-white">{size || 'M'}</strong></span>
+                      <span className="text-xs font-black text-white uppercase tracking-wider">SIZE</span>
+                      <span className="text-xs text-[#00b341] font-bold">Selected: <strong className="text-white">{size || availableSizes[0] || 'M'}</strong></span>
                     </div>
                     <div className="flex gap-2 flex-wrap">
                       {availableSizes.map(s => (
@@ -455,10 +543,10 @@ export default function Product() {
                           key={s}
                           type="button"
                           onClick={() => setSize(s)}
-                          className={`w-12 h-12 text-sm font-black rounded-xl transition-all cursor-pointer ${
+                          className={`min-w-[44px] h-10 px-3 text-xs font-black rounded-lg border transition-all cursor-pointer ${
                             size === s
-                              ? 'bg-[#00b341] border-2 border-[#00b341] text-white shadow-lg shadow-emerald-500/20'
-                              : 'bg-[#131320] border-2 border-[#1e1e32] text-gray-300 hover:border-[#00b341]/60 hover:text-white'
+                              ? 'bg-white text-black border-white shadow-lg font-black'
+                              : 'bg-[#131320] border-[#1e1e32] text-gray-300 hover:border-white/40 hover:text-white'
                           }`}
                         >
                           {s}
@@ -468,111 +556,113 @@ export default function Product() {
                   </div>
                 )}
 
-                {/* 2. Player Name & Number Printing */}
-                {isPrintingAvailable && (
-                  <div className="p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-[#00b341]"
-                        checked={customPrintEnabled}
-                        onChange={e => setCustomPrintEnabled(e.target.checked)}
-                      />
-                      <div className="flex-1">
-                        <span className="text-xs font-black text-white flex items-center gap-1.5">
-                          <span>🔤</span>
-                          <span>Player Name & Number Customisation</span>
-                        </span>
-                        <p className="text-[10px] text-gray-400">Have your official name & squad number printed on the back</p>
-                      </div>
-                      <span className="text-xs font-black text-[#00b341]">+{formatPrice(product.printing_price || 300)}</span>
-                    </label>
-
-                    {customPrintEnabled && (
-                      <div className="mt-3 pt-3 border-t border-[#1e1e32] space-y-3 animate-fade-in">
-                        {squadList.length > 0 && (
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setCustomPlayerChoice('squad')}
-                              className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all ${
-                                customPlayerChoice === 'squad'
-                                  ? 'bg-[#00b341] border-[#00b341] text-white'
-                                  : 'bg-[#131320] border-[#1e1e32] text-gray-400 hover:text-white'
-                              }`}
-                            >
-                              ⭐ Official Squad Player
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setCustomPlayerChoice('custom')}
-                              className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all ${
-                                customPlayerChoice === 'custom'
-                                  ? 'bg-[#00b341] border-[#00b341] text-white'
-                                  : 'bg-[#131320] border-[#1e1e32] text-gray-400 hover:text-white'
-                              }`}
-                            >
-                              ✍️ Custom Name & Number
-                            </button>
-                          </div>
-                        )}
-
-                        {customPlayerChoice === 'squad' && squadList.length > 0 ? (
-                          <div>
-                            <label className="block text-[10px] font-bold text-gray-400 mb-1">Select Squad Player</label>
-                            <select
-                              value={selectedSquadPlayer}
-                              onChange={e => setSelectedSquadPlayer(e.target.value)}
-                              className="w-full px-3 py-2 text-xs text-white rounded-lg outline-none"
-                              style={{ background: '#131320', border: '1px solid #1e1e32' }}
-                            >
-                              {squadList.map(p => (
-                                <option key={p} value={p}>{p}</option>
-                              ))}
-                            </select>
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-3 gap-2">
-                            <div className="col-span-2">
-                              <label className="block text-[10px] font-bold text-gray-400 mb-1">Name on Jersey (Max 12 chars)</label>
-                              <input
-                                type="text"
-                                maxLength={12}
-                                value={customPlayerName}
-                                onChange={e => setCustomPlayerName(e.target.value.toUpperCase())}
-                                placeholder="e.g. FLOWERZ"
-                                className="w-full px-3 py-2 text-xs text-white font-mono uppercase rounded-lg outline-none focus:ring-1 focus:ring-[#00b341]"
-                                style={{ background: '#131320', border: '1px solid #1e1e32' }}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-bold text-gray-400 mb-1">Number (0–99)</label>
-                              <input
-                                type="number"
-                                min={0}
-                                max={99}
-                                value={customPlayerNumber}
-                                onChange={e => setCustomPlayerNumber(e.target.value)}
-                                placeholder="10"
-                                className="w-full px-3 py-2 text-xs text-white font-mono text-center rounded-lg outline-none focus:ring-1 focus:ring-[#00b341]"
-                                style={{ background: '#131320', border: '1px solid #1e1e32' }}
-                              />
-                            </div>
-                          </div>
-                        )}
+                {/* 2. Player Name & Number Customization Inputs */}
+                {isApparel && (
+                  <div className="space-y-2 pt-1">
+                    {squadList.length > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-gray-400">Squad Player Quick Select</span>
+                        <select
+                          value={selectedSquadPlayer}
+                          onChange={e => {
+                            setSelectedSquadPlayer(e.target.value)
+                            if (e.target.value) setCustomPlayerChoice('squad')
+                          }}
+                          className="px-2.5 py-1 text-xs text-white rounded-lg outline-none bg-[#131320] border border-[#1e1e32]"
+                        >
+                          <option value="">Select squad player...</option>
+                          {squadList.map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
                       </div>
                     )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold text-gray-300 mb-1">
+                          Print Name <span className="text-gray-500 font-normal">({formatPrice(product.printing_price || 200)})</span>
+                        </label>
+                        <input
+                          type="text"
+                          maxLength={12}
+                          value={customPlayerName}
+                          onChange={e => {
+                            setCustomPlayerName(e.target.value.toUpperCase())
+                            if (customPlayerChoice === 'squad') setCustomPlayerChoice('custom')
+                          }}
+                          placeholder="Enter your name here"
+                          className="w-full px-3.5 py-2.5 text-xs text-white placeholder-gray-500 rounded-lg outline-none focus:ring-1 focus:ring-[#00b341] uppercase font-mono"
+                          style={{ background: '#0c0c14', border: '1px solid #1e1e32' }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-gray-300 mb-1">
+                          Print Number <span className="text-gray-500 font-normal">({formatPrice(product.printing_price || 200)})</span>
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={99}
+                          value={customPlayerNumber}
+                          onChange={e => {
+                            setCustomPlayerNumber(e.target.value)
+                            if (customPlayerChoice === 'squad') setCustomPlayerChoice('custom')
+                          }}
+                          placeholder="Enter your number here"
+                          className="w-full px-3.5 py-2.5 text-xs text-white placeholder-gray-500 rounded-lg outline-none focus:ring-1 focus:ring-[#00b341] font-mono text-center"
+                          style={{ background: '#0c0c14', border: '1px solid #1e1e32' }}
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {/* 3. Product Add-ons / Patches */}
+                {/* 3. Badges Dropdowns */}
+                {isApparel && (
+                  <div className="space-y-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-300 mb-1">EPL Badges</label>
+                      <select
+                        value={selectedLeagueBadge}
+                        onChange={e => setSelectedLeagueBadge(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-xs text-white rounded-lg outline-none focus:ring-1 focus:ring-[#00b341] cursor-pointer"
+                        style={{ background: '#0c0c14', border: '1px solid #1e1e32' }}
+                      >
+                        {LEAGUE_BADGES.map(b => (
+                          <option key={b.id} value={b.id}>
+                            {b.label}{b.price > 0 ? ` (+${formatPrice(b.price)})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-gray-300 mb-1">World Cup Badges</label>
+                      <select
+                        value={selectedTournamentBadge}
+                        onChange={e => setSelectedTournamentBadge(e.target.value)}
+                        className="w-full px-3.5 py-2.5 text-xs text-white rounded-lg outline-none focus:ring-1 focus:ring-[#00b341] cursor-pointer"
+                        style={{ background: '#0c0c14', border: '1px solid #1e1e32' }}
+                      >
+                        {TOURNAMENT_BADGES.map(b => (
+                          <option key={b.id} value={b.id}>
+                            {b.label}{b.price > 0 ? ` (+${formatPrice(b.price)})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. Product Add-ons (if any from backend) */}
                 {product.addons && product.addons.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold text-gray-300">🏅 Badges & Extra Add-ons</p>
+                  <div className="space-y-2 pt-1">
+                    <p className="text-xs font-bold text-gray-300">🏅 Extra Add-ons</p>
                     {product.addons.map(addon => (
                       <label
                         key={addon.id}
-                        className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all"
+                        className="flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-all"
                         style={{
                           background: selectedAddons.includes(addon.id) ? 'rgba(0,179,65,0.08)' : '#0c0c14',
                           borderColor: selectedAddons.includes(addon.id) ? '#00b341' : '#1e1e32',
@@ -586,7 +676,7 @@ export default function Product() {
                             setSelectedAddons(prev => e.target.checked ? [...prev, addon.id] : prev.filter(id => id !== addon.id))
                           }}
                         />
-                        {addon.icon && <span className="text-base">{addon.icon}</span>}
+                        {addon.icon && <span className="text-sm">{addon.icon}</span>}
                         <span className="flex-1 text-xs font-semibold text-white">{addon.label}</span>
                         <span className="text-xs font-black text-[#00b341]">+{formatPrice(addon.price)}</span>
                       </label>
@@ -595,41 +685,73 @@ export default function Product() {
                 )}
 
                 {/* Total with options */}
-                {(addonTotal > 0 || customPrintEnabled) && (
-                  <div className="flex items-center justify-between p-3.5 rounded-xl border border-[#00b341]/30" style={{ background: 'rgba(0,179,65,0.06)' }}>
-                    <span className="text-xs font-bold text-gray-300">Total with selected options:</span>
-                    <span className="text-xl font-black text-[#00b341]">{formatPrice(totalPriceWithAddons)}</span>
+                {totalAddonsPerItem > 0 && (
+                  <div className="flex items-center justify-between p-3 rounded-xl border border-[#00b341]/30" style={{ background: 'rgba(0,179,65,0.06)' }}>
+                    <span className="text-xs font-bold text-gray-300">Total with options & customization:</span>
+                    <span className="text-lg font-black text-[#00b341]">{formatPrice(totalPriceWithAddons)}</span>
                   </div>
                 )}
 
-                {/* Quantity */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-gray-300">Quantity</span>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setQty(q => Math.max(1, q - 1))} className="w-9 h-9 rounded-lg border text-white font-bold text-base flex items-center justify-center hover:bg-white/10 transition-colors" style={{ borderColor: '#1e1e32', background: '#131320' }}>−</button>
-                    <span className="text-base font-black text-white w-8 text-center">{qty}</span>
-                    <button onClick={() => setQty(q => q + 1)} className="w-9 h-9 rounded-lg border text-white font-bold text-base flex items-center justify-center hover:bg-white/10 transition-colors" style={{ borderColor: '#1e1e32', background: '#131320' }}>+</button>
-                  </div>
-                </div>
-
-                {/* Add to Cart & Buy Now */}
-                <div className="flex gap-3">
-                  <button onClick={handleAdd} className="flex-1 py-4 text-sm font-black rounded-xl transition-all hover:opacity-90" style={{ background: added ? '#22c55e' : '#131320', color: added ? '#fff' : '#00b341', border: `2px solid ${added ? '#22c55e' : '#00b341'}`, fontFamily: 'Big Shoulders Display', fontSize: '16px' }}>
-                    {added ? '✓ Added to Cart!' : t('addToCart')}
-                  </button>
-                  <button onClick={handleBuyNow} className="flex-1 py-4 text-sm font-black rounded-xl transition-all hover:opacity-90" style={{ background: '#00b341', color: '#fff', fontFamily: 'Big Shoulders Display', fontSize: '16px' }}>
-                    Buy Now →
-                  </button>
-                </div>
-
-                {/* Trust Badges */}
-                <div className="grid grid-cols-3 gap-2 pt-2">
-                  {[{ icon: '🚚', label: 'G4S Kenya Tracked' }, { icon: '🔄', label: '7-Day Return Guarantee' }, { icon: '🔒', label: '100% Secure M-Pesa / Card' }].map(b => (
-                    <div key={b.label} className="flex flex-col items-center gap-1 p-2 rounded-xl border border-[#1e1e32] text-center" style={{ background: '#131320' }}>
-                      <span className="text-base">{b.icon}</span>
-                      <span className="text-[9px] text-gray-400 font-semibold">{b.label}</span>
+                {/* 5. Quantity + Action Buttons Row */}
+                <div className="pt-2 space-y-3">
+                  <div className="flex flex-col sm:flex-row gap-2.5 items-stretch">
+                    {/* Quantity Pill */}
+                    <div className="flex items-center justify-between border rounded-lg px-2 h-12 shrink-0 min-w-[110px]" style={{ borderColor: '#1e1e32', background: '#0c0c14' }}>
+                      <button
+                        type="button"
+                        onClick={() => setQty(q => Math.max(1, q - 1))}
+                        className="w-7 h-7 text-gray-300 hover:text-white font-bold text-base flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        −
+                      </button>
+                      <span className="text-sm font-black text-white px-2">{qty}</span>
+                      <button
+                        type="button"
+                        onClick={() => setQty(q => q + 1)}
+                        className="w-7 h-7 text-gray-300 hover:text-white font-bold text-base flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        +
+                      </button>
                     </div>
-                  ))}
+
+                    {/* Add to Cart */}
+                    <button
+                      type="button"
+                      onClick={handleAdd}
+                      className="flex-1 h-12 px-4 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer hover:opacity-95"
+                      style={{
+                        background: added ? '#22c55e' : '#d9777f',
+                        color: '#ffffff',
+                      }}
+                    >
+                      {added ? '✓ Added to Cart' : 'Add to cart'}
+                    </button>
+
+                    {/* Order via Whatsapp */}
+                    <button
+                      type="button"
+                      onClick={handleOrderWhatsApp}
+                      className="flex-1 h-12 px-4 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer hover:opacity-95 text-white"
+                      style={{ background: '#25D366' }}
+                    >
+                      <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.699c.971.53 1.77.781 2.796.781 3.182 0 5.768-2.587 5.769-5.766.001-3.182-2.585-5.767-5.769-5.767zm7.553 5.766c-.001 4.162-3.388 7.548-7.553 7.548-1.309 0-2.316-.328-3.323-.884l-4.708 1.235 1.259-4.595c-.628-1.077-.96-2.072-.96-3.304 0-4.163 3.387-7.549 7.552-7.549 4.164 0 7.551 3.386 7.551 7.549z"/>
+                      </svg>
+                      <span>Order via Whatsapp</span>
+                    </button>
+                  </div>
+
+                  {/* Add to Wishlist */}
+                  <button
+                    type="button"
+                    onClick={toggleWishlist}
+                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors pt-1 cursor-pointer"
+                  >
+                    <span className={isWishlisted ? 'text-red-500' : 'text-gray-400'}>
+                      {isWishlisted ? '❤️' : '🤍'}
+                    </span>
+                    <span>{isWishlisted ? 'Saved in Wishlist' : 'Add to wishlist'}</span>
+                  </button>
                 </div>
               </div>
             )}

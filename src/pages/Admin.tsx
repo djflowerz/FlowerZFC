@@ -1048,13 +1048,23 @@ export default function Admin() {
       }
     }
 
-    // 4. Auto-generate SKU from the filled data
+    // 4. Detect kids / junior segment
+    if (lower.includes('kid') || lower.includes('junior') || lower.includes('child') || lower.includes('youth')) {
+      updates.gender = 'Kids'
+      updates.category = 'Kids'
+      updates.sizes = ['16', '18', '20', '22', '24', '26', '28']
+    }
+
+    // 5. Auto-generate SKU from the filled data
     updates.sku = generateAutoSKU({ name: rawName, team: updates.team, kitType: updates.kitType, season: updates.season, type: newProduct.type })
 
     return updates
   }
 
-  const SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'One Size']
+  const KIDS_SIZES = ['16', '18', '20', '22', '24', '26', '28']
+  const ADULT_SIZES = ['S', 'M', 'L', 'XL', 'XXL']
+  const INFANT_SIZES = ['14', '16', '18']
+  const SIZE_OPTIONS = ['16', '18', '20', '22', '24', '26', '28', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'One Size']
 
   // ── Login Gate ──────────────────────────────────────────────────────────────
   if (!isAuthed) return (
@@ -5155,16 +5165,41 @@ export default function Admin() {
               <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
                 <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">🎨 Customization, Badges & Variants</label>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-2">Available Sizes</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {['XS','S','M','L','XL','XXL','Kids','Infant','One Size'].map(s => {
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[10px] font-bold text-gray-500">Available Sizes</label>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setEditProduct(p => p ? { ...p, sizes: ['S', 'M', 'L', 'XL', 'XXL'], gender: 'Men' } : p)}
+                        className="px-2 py-0.5 text-[9px] font-bold bg-[#131320] border border-[#1e1e32] rounded hover:border-[#00b341] text-gray-300 hover:text-white"
+                      >
+                        👔 Adults (S–XXL)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditProduct(p => p ? { ...p, sizes: ['16', '18', '20', '22', '24', '26', '28'], gender: 'Kids' } : p)}
+                        className="px-2 py-0.5 text-[9px] font-bold bg-[#131320] border border-[#1e1e32] rounded hover:border-[#00b341] text-gray-300 hover:text-white"
+                      >
+                        👶 Kids (16–28)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditProduct(p => p ? { ...p, sizes: ['14', '16', '18'], gender: 'Infant' } : p)}
+                        className="px-2 py-0.5 text-[9px] font-bold bg-[#131320] border border-[#1e1e32] rounded hover:border-[#00b341] text-gray-300 hover:text-white"
+                      >
+                        🍼 Infant (14–18)
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {SIZE_OPTIONS.map(s => {
                       const active = (editProduct.sizes || []).includes(s)
                       return (
                         <button type="button" key={s} onClick={() => {
                           const cur = editProduct.sizes || []
                           const updated = active ? cur.filter(x => x !== s) : [...cur, s]
                           setEditProduct(p => p ? { ...p, sizes: updated } : p)
-                        }} className="px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all"
+                        }} className="px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer"
                           style={{ background: active ? '#00b341' : '#131320', color: active ? '#fff' : '#6b7280', borderColor: active ? '#00b341' : '#1e1e32' }}>{s}</button>
                       )
                     })}
@@ -5846,15 +5881,40 @@ export default function Admin() {
               <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
                 <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">🎨 Customization, Badges & Sizes</label>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-500 mb-2">Available Sizes</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {['XS','S','M','L','XL','XXL','Kids','Infant','One Size'].map(s => {
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[10px] font-bold text-gray-500">Available Sizes</label>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setNewProduct(p => ({ ...p, sizes: ['S', 'M', 'L', 'XL', 'XXL'], gender: 'Men' }))}
+                        className="px-2 py-0.5 text-[9px] font-bold bg-[#131320] border border-[#1e1e32] rounded hover:border-[#00b341] text-gray-300 hover:text-white cursor-pointer"
+                      >
+                        👔 Adults (S–XXL)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewProduct(p => ({ ...p, sizes: ['16', '18', '20', '22', '24', '26', '28'], gender: 'Kids' }))}
+                        className="px-2 py-0.5 text-[9px] font-bold bg-[#131320] border border-[#1e1e32] rounded hover:border-[#00b341] text-gray-300 hover:text-white cursor-pointer"
+                      >
+                        👶 Kids (16–28)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewProduct(p => ({ ...p, sizes: ['14', '16', '18'], gender: 'Infant' }))}
+                        className="px-2 py-0.5 text-[9px] font-bold bg-[#131320] border border-[#1e1e32] rounded hover:border-[#00b341] text-gray-300 hover:text-white cursor-pointer"
+                      >
+                        🍼 Infant (14–18)
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {SIZE_OPTIONS.map(s => {
                       const active = newProduct.sizes.includes(s)
                       return (
                         <button type="button" key={s} onClick={() => {
                           const updated = active ? newProduct.sizes.filter(x => x !== s) : [...newProduct.sizes, s]
                           setNewProduct(p => ({ ...p, sizes: updated }))
-                        }} className="px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all"
+                        }} className="px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all cursor-pointer"
                           style={{ background: active ? '#00b341' : '#131320', color: active ? '#fff' : '#6b7280', borderColor: active ? '#00b341' : '#1e1e32' }}>{s}</button>
                       )
                     })}
