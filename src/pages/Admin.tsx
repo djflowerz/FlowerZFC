@@ -1056,7 +1056,32 @@ export default function Admin() {
       updates.sizes = ['16', '18', '20', '22', '24', '26', '28']
     }
 
-    // 5. Auto-generate SKU from the filled data
+    // 5. Auto-generate tags based on title and detected attributes
+    const tagList: string[] = []
+    if (updates.team) tagList.push(updates.team)
+    if (updates.league) tagList.push(updates.league)
+    if (updates.season) tagList.push(updates.season)
+    if (updates.kitType) tagList.push(`${updates.kitType} Kit`)
+    if (updates.gender === 'Kids') tagList.push('Kids', 'Junior')
+    if (lower.includes('jersey') || lower.includes('kit') || lower.includes('shirt')) tagList.push('Jersey', 'Football Kit')
+    if (lower.includes('away')) tagList.push('Away Kit')
+    if (lower.includes('home')) tagList.push('Home Kit')
+    if (lower.includes('third')) tagList.push('Third Kit')
+    if (lower.includes('authentic') || lower.includes('player')) tagList.push('Player Version')
+    if (lower.includes('retro') || lower.includes('classic')) tagList.push('Retro', 'Vintage')
+    if (lower.includes('training') || lower.includes('warmup')) tagList.push('Training')
+    if (lower.includes('boot') || lower.includes('cleat')) tagList.push('Football Boots')
+
+    // Extract any unique keywords from rawName
+    const words = rawName.split(/[\s,/\-_]+/).filter(w => w.length > 2 && !/^\d+$/.test(w) && !['the', 'and', 'for', 'with', 'from'].includes(w.toLowerCase()))
+    words.forEach(w => {
+      const cap = w.charAt(0).toUpperCase() + w.slice(1)
+      if (!tagList.some(t => t.toLowerCase() === cap.toLowerCase())) tagList.push(cap)
+    })
+
+    updates.tags = tagList.join(', ')
+
+    // 6. Auto-generate SKU from the filled data
     updates.sku = generateAutoSKU({ name: rawName, team: updates.team, kitType: updates.kitType, season: updates.season, type: newProduct.type })
 
     return updates

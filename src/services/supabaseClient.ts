@@ -276,6 +276,10 @@ function sanitizeProductPayload(product: Record<string, any>): Record<string, an
   return sanitized
 }
 
+function isValidUUID(str: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str)
+}
+
 export async function fetchAllProducts(): Promise<{ products: ProductRow[]; error: any }> {
   let dbProducts: ProductRow[] = []
   try {
@@ -283,11 +287,12 @@ export async function fetchAllProducts(): Promise<{ products: ProductRow[]; erro
       .from('products')
       .select('*')
       .order('created_at', { ascending: false })
-    if (!error && data) {
+    if (!error && data && data.length > 0) {
       dbProducts = (data as ProductRow[]).map(p => {
         const vg = (p as any).variant_groups || {}
         return {
           ...p,
+          id: String(p.id),
           platforms: vg.platforms || (p as any).os?.split(',').map((s: string) => s.trim()) || ['mac', 'windows', 'android'],
           mac_url: vg.mac_url || null,
           windows_url: vg.windows_url || null,
@@ -296,20 +301,22 @@ export async function fetchAllProducts(): Promise<{ products: ProductRow[]; erro
           addons: vg.addons || null,
           team: vg.team || (p as any).team || null,
           kitType: vg.kitType || (p as any).kitType || null,
+          season: vg.season || (p as any).season || null,
+          league: vg.league || (p as any).league || null,
           version: vg.version || (p as any).version || null,
-          sizes: vg.sizes || null,
-          gender: vg.gender || null,
-          playerList: vg.playerList || null,
-          info_shipping: vg.info_shipping || null,
-          info_sizing: vg.info_sizing || null,
-          info_returns: vg.info_returns || null,
-          info_assistance: vg.info_assistance || null,
-          spec_material: vg.spec_material || null,
-          spec_fit: vg.spec_fit || null,
-          spec_origin: vg.spec_origin || null,
-          spec_care: vg.spec_care || null,
-          printing_enabled: vg.printing_enabled ?? (p as any).customizable ?? false,
-          printing_price: vg.printing_price || 0,
+          sizes: vg.sizes || (p as any).sizes || null,
+          gender: vg.gender || (p as any).gender || null,
+          playerList: vg.playerList || (p as any).playerList || null,
+          info_shipping: vg.info_shipping || (p as any).info_shipping || null,
+          info_sizing: vg.info_sizing || (p as any).info_sizing || null,
+          info_returns: vg.info_returns || (p as any).info_returns || null,
+          info_assistance: vg.info_assistance || (p as any).info_assistance || null,
+          spec_material: vg.spec_material || (p as any).spec_material || null,
+          spec_fit: vg.spec_fit || (p as any).spec_fit || null,
+          spec_origin: vg.spec_origin || (p as any).spec_origin || null,
+          spec_care: vg.spec_care || (p as any).spec_care || null,
+          printing_enabled: vg.printing_enabled ?? (p as any).printing_enabled ?? (p as any).customizable ?? false,
+          printing_price: vg.printing_price || (p as any).printing_price || 0,
         }
       })
     }
@@ -320,7 +327,7 @@ export async function fetchAllProducts(): Promise<{ products: ProductRow[]; erro
   // Merge with locally created products
   try {
     const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
-    if (localProducts.length > 0) {
+    if (Array.isArray(localProducts) && localProducts.length > 0) {
       const dbIds = new Set(dbProducts.map(p => String(p.id)))
       const extraLocal = localProducts.filter((lp: any) => !dbIds.has(String(lp.id)))
       return { products: [...extraLocal, ...dbProducts], error: null }
@@ -733,24 +740,35 @@ export async function uploadProductImage(file: File): Promise<{ url: string | nu
 export async function createProduct(product: Record<string, any>): Promise<{ product: ProductRow | null; error: any }> {
   try {
     const sanitized = sanitizeProductPayload(product)
-    const fullProduct = { ...product, ...sanitized, id: sanitized.id || product.id || `p-${Date.now()}` }
+    const newId = (sanitized.id && isValidUUID(sanitized.id)) ? sanitized.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `p-${Date.now()}`)
+    sanitized.id = newId
 
-    // Try Supabase first
+    let dbRow: any = null
+
+    // Try Supabase insert
     try {
       const { data, error } = await supabase.from('products').insert(sanitized).select().single()
       if (!error && data) {
-        fullProduct.id = data.id
+        dbRow = data
       } else if (error) {
         console.warn('Supabase product insert notice (saving locally):', error?.message || error)
+        // If error was about id format, retry omitting id so DB generates it
+        const { id: _, ...sanitizedNoId } = sanitized
+        const retry = await supabase.from('products').insert(sanitizedNoId).select().single()
+        if (!retry.error && retry.data) {
+          dbRow = retry.data
+        }
       }
     } catch (dbErr) {
       console.warn('Supabase product insert exception:', dbErr)
     }
 
-    // Safely persist to localStorage with quota protection
+    const fullProduct = { ...product, ...sanitized, ...(dbRow || {}), id: String(dbRow?.id || newId) }
+
+    // Always persist to localStorage with quota protection
     try {
       const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
-      const updated = [fullProduct, ...localProducts.filter((x: any) => x.id !== fullProduct.id)]
+      const updated = [fullProduct, ...localProducts.filter((x: any) => String(x.id) !== String(fullProduct.id))]
       localStorage.setItem('flowerzfc_custom_products', JSON.stringify(updated))
     } catch (quotaErr) {
       console.warn('localStorage quota limit reached for custom products:', quotaErr)
@@ -759,7 +777,12 @@ export async function createProduct(product: Record<string, any>): Promise<{ pro
     return { product: fullProduct as ProductRow, error: null }
   } catch (err) {
     console.warn('createProduct caught error:', err)
-    const fallbackProduct = { ...product, id: product.id || `p-${Date.now()}` }
+    const fallbackProduct = { ...product, id: String(product.id || `p-${Date.now()}`) }
+    try {
+      const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
+      const updated = [fallbackProduct, ...localProducts.filter((x: any) => String(x.id) !== String(fallbackProduct.id))]
+      localStorage.setItem('flowerzfc_custom_products', JSON.stringify(updated))
+    } catch {}
     return { product: fallbackProduct as ProductRow, error: null }
   }
 }

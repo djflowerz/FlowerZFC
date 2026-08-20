@@ -6,7 +6,7 @@ import AdBanner from '../components/AdBanner'
 import { Headphones, Heart, MessageCircle } from 'lucide-react'
 import { fetchLiveMatches, LiveMatch, fetchLiveStandings } from '../services/liveScoreApi'
 import { fetchLiveIngestedPosts, IngestedPost } from '../services/contentIngestion'
-import { fetchAllArticles, fetchAllComments, fetchAllMixes } from '../services/supabaseClient'
+import { fetchAllArticles, fetchAllComments, fetchAllMixes, fetchAllProducts } from '../services/supabaseClient'
 import { saveArticle } from '../services/articleStore'
 
 const TRANSFER_NEWS: { id: string; player: string; from: string; to: string; status: string; fee: string; image: string }[] = []
@@ -140,7 +140,7 @@ function formatRelativeTime(dateInput?: string | number): string {
 }
 
 export default function Home() {
-  const { t } = useApp()
+  const { t, formatPrice } = useApp()
   const [slide, setSlide] = useState(0)
   const [dismissed, setDismissed] = useState(false)
   const [dbArticles, setDbArticles] = useState<any[]>([])
@@ -148,8 +148,14 @@ export default function Home() {
   const [ingestedPosts, setIngestedPosts] = useState<IngestedPost[]>([])
   const [homeMixes, setHomeMixes] = useState<any[]>([])
   const [homeStandings, setHomeStandings] = useState<any[]>([])
+  const [showcaseProducts, setShowcaseProducts] = useState<any[]>([])
 
   useEffect(() => {
+    fetchAllProducts().then(({ products: prods }) => {
+      if (prods && prods.length > 0) {
+        setShowcaseProducts(prods.slice(0, 4))
+      }
+    })
     fetchAllArticles().then(({ articles: arts }) => {
       if (arts && arts.length > 0) {
         setDbArticles(arts)
@@ -374,28 +380,69 @@ export default function Home() {
 
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
-            {/* Transfer news */}
+            {/* Shop Showcase */}
             <section className="mb-10">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>{t('transfers')}</h2>
-                <Link to="/transfers" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">{t('viewAll')} →</Link>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🛍️</span>
+                  <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>Shop Showcase</h2>
+                </div>
+                <Link to="/shop" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">
+                  {t('viewAll')} Store Items →
+                </Link>
               </div>
-              {dbArticles.filter(a => (a.category || '').toLowerCase() === 'transfers').length > 0 ? (
-                <div className="space-y-3">
-                  {dbArticles.filter(a => (a.category || '').toLowerCase() === 'transfers').slice(0, 5).map(tr => (
-                    <Link key={tr.id} to={`/news/${tr.id}`} className="flex items-center gap-4 p-3 rounded-lg transition-colors hover:bg-white/5" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-                      <img src={tr.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=200&h=200&fit=crop'} alt={tr.title} className="w-12 h-12 rounded-full object-cover" />
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm font-bold text-white line-clamp-1">{tr.title}</span>
-                        <p className="text-xs text-gray-500 mt-0.5">{tr.published_at ? new Date(tr.published_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Recent'}</p>
-                      </div>
-                    </Link>
-                  ))}
+
+              {showcaseProducts.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {showcaseProducts.map(item => {
+                    let itemImg = 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=600&h=600&fit=crop'
+                    if (Array.isArray(item.images) && item.images.length > 0) itemImg = item.images[0]
+                    else if (typeof item.images === 'string' && item.images.startsWith('[')) {
+                      try { itemImg = JSON.parse(item.images)[0] || itemImg } catch {}
+                    } else if (item.image || item.imageUrl) itemImg = item.image || item.imageUrl
+
+                    return (
+                      <Link
+                        key={item.id}
+                        to={`/product/${item.id}`}
+                        className="group rounded-2xl overflow-hidden border border-[#1e1e32] p-3.5 flex flex-col justify-between transition-all hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10"
+                        style={{ background: '#131320' }}
+                      >
+                        <div className="aspect-square rounded-xl overflow-hidden bg-black/40 mb-3 relative flex items-center justify-center p-2">
+                          <img
+                            src={itemImg}
+                            alt={item.name}
+                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                          />
+                          {item.category && (
+                            <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-black/70 text-emerald-400 border border-emerald-500/30">
+                              {item.category}
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <span className="text-sm font-bold text-white line-clamp-1 group-hover:text-emerald-400 transition-colors">
+                            {item.name}
+                          </span>
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
+                            <span className="text-sm font-black text-emerald-400">
+                              {formatPrice(typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0)}
+                            </span>
+                            <span className="text-[11px] font-bold text-gray-400 group-hover:text-white flex items-center gap-1">
+                              View Item →
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="p-6 text-center rounded-lg border border-[#1e1e32]" style={{ background: '#131320' }}>
-                  <p className="text-xs text-gray-400">No transfer news available right now.</p>
-                  <Link to="/transfers" className="text-xs font-bold text-emerald-400 mt-2 inline-block hover:underline">View Live Transfer Tracker →</Link>
+                  <p className="text-xs text-gray-400">Official Kits, Training Gear & Merch.</p>
+                  <Link to="/shop" className="text-xs font-bold text-emerald-400 mt-2 inline-block hover:underline">
+                    Explore Store Catalog →
+                  </Link>
                 </div>
               )}
             </section>
