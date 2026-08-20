@@ -7,11 +7,11 @@ interface Props {
 }
 
 export default function CartDrawer({ open, onClose }: Props) {
-  const { cart, removeFromCart, updateQty, cartTotal, t } = useApp()
+  const { cart, removeFromCart, updateQty, cartTotal, t, formatPrice } = useApp()
 
   if (!open) return null
 
-  const freeShippingThreshold = 80
+  const freeShippingThreshold = 8000
   const progressToFreeShipping = Math.min(100, (cartTotal / freeShippingThreshold) * 100)
   const remainingForFreeShipping = Math.max(0, freeShippingThreshold - cartTotal)
 
