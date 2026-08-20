@@ -244,8 +244,18 @@ function sanitizeProductPayload(product: Record<string, any>): Record<string, an
     version: product.version || null,
     sizes: product.sizes || null,
     gender: product.gender || null,
-    playerList: product.playerList || null,
+    playerList: product.playerList || product.player_list || null,
     addons: product.addons || null,
+    info_shipping: product.info_shipping || product.infoShipping || null,
+    info_sizing: product.info_sizing || product.infoSizing || null,
+    info_returns: product.info_returns || product.infoReturns || null,
+    info_assistance: product.info_assistance || product.infoAssistance || null,
+    spec_material: product.spec_material || product.specMaterial || null,
+    spec_fit: product.spec_fit || product.specFit || null,
+    spec_origin: product.spec_origin || product.specOrigin || null,
+    spec_care: product.spec_care || product.specCare || null,
+    printing_enabled: product.printing_enabled ?? product.customizable ?? false,
+    printing_price: parseFloat(product.printing_price || product.printingPrice) || 0,
   }
 
   sanitized.variant_groups = variantGroups
@@ -284,6 +294,22 @@ export async function fetchAllProducts(): Promise<{ products: ProductRow[]; erro
           android_url: vg.android_url || null,
           ios_url: vg.ios_url || null,
           addons: vg.addons || null,
+          team: vg.team || (p as any).team || null,
+          kitType: vg.kitType || (p as any).kitType || null,
+          version: vg.version || (p as any).version || null,
+          sizes: vg.sizes || null,
+          gender: vg.gender || null,
+          playerList: vg.playerList || null,
+          info_shipping: vg.info_shipping || null,
+          info_sizing: vg.info_sizing || null,
+          info_returns: vg.info_returns || null,
+          info_assistance: vg.info_assistance || null,
+          spec_material: vg.spec_material || null,
+          spec_fit: vg.spec_fit || null,
+          spec_origin: vg.spec_origin || null,
+          spec_care: vg.spec_care || null,
+          printing_enabled: vg.printing_enabled ?? (p as any).customizable ?? false,
+          printing_price: vg.printing_price || 0,
         }
       })
     }

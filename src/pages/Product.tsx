@@ -5,8 +5,6 @@ import { fetchAllProducts, verifyPaidReceipt } from '../services/supabaseClient'
 import { initiatePayment } from '../services/paymentService'
 import type { ProductType } from './Shop'
 
-const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
-
 function StarRating({ rating, reviews }: { rating: number; reviews: number }) {
   return (
     <div className="flex items-center gap-2">
@@ -32,13 +30,19 @@ export default function Product() {
   const [loading, setLoading] = useState(true)
 
   const [activeImage, setActiveImage] = useState(0)
-  const [size, setSize] = useState('')
+  const [size, setSize] = useState('M')
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
-  const [activeTab, setActiveTab] = useState<'description' | 'sizing' | 'shipping'>('description')
   const [selectedAddons, setSelectedAddons] = useState<string[]>([])
   const [buyNowLoading, setBuyNowLoading] = useState(false)
   const [buyNowError, setBuyNowError] = useState('')
+
+  // Player Name & Number Customization state
+  const [customPrintEnabled, setCustomPrintEnabled] = useState(false)
+  const [customPlayerChoice, setCustomPlayerChoice] = useState<'squad' | 'custom'>('custom')
+  const [customPlayerName, setCustomPlayerName] = useState('')
+  const [customPlayerNumber, setCustomPlayerNumber] = useState('')
+  const [selectedSquadPlayer, setSelectedSquadPlayer] = useState('')
 
   // Payment code receipt recovery state
   const [showRecovery, setShowRecovery] = useState(false)
@@ -65,7 +69,6 @@ export default function Product() {
     }
   }
 
-
   useEffect(() => {
     setLoading(true)
     fetchAllProducts().then(({ products, error }) => {
@@ -90,12 +93,36 @@ export default function Product() {
           windows_url: p.windows_url || null,
           android_url: p.android_url || null,
           ios_url: p.ios_url || null,
+          addons: p.addons || null,
+          sku: p.sku || null,
+          team: p.team || null,
+          kitType: p.kitType || null,
+          version: p.version || null,
+          sizes: p.sizes || null,
+          gender: p.gender || null,
+          playerList: p.playerList || null,
+          info_shipping: p.info_shipping || null,
+          info_sizing: p.info_sizing || null,
+          info_returns: p.info_returns || null,
+          info_assistance: p.info_assistance || null,
+          spec_material: p.spec_material || null,
+          spec_fit: p.spec_fit || null,
+          spec_origin: p.spec_origin || null,
+          spec_care: p.spec_care || null,
+          printing_enabled: p.printing_enabled ?? false,
+          printing_price: p.printing_price || 0,
         }))
       }
       setAllProducts(formatted)
       const found = formatted.find(p => String(p.id) === String(id))
-
       setProduct(found || null)
+      if (found?.sizes && found.sizes.length > 0) {
+        setSize(found.sizes[0])
+      }
+      if (found?.playerList) {
+        const firstPlayer = found.playerList.split(',')[0]?.trim()
+        if (firstPlayer) setSelectedSquadPlayer(firstPlayer)
+      }
     }).finally(() => setLoading(false))
   }, [id])
 
@@ -123,38 +150,51 @@ export default function Product() {
   }
 
   const isDigital = product.type === 'digital'
-  const isApparel = !isDigital && ['jerseys', 'shorts', 'tracksuits', 'apparel', 'clothing', 'boots', 'shoes'].includes((product.category || '').toLowerCase())
+  const isApparel = !isDigital
+  const availableSizes = (product.sizes && product.sizes.length > 0) ? product.sizes : ['S', 'M', 'L', 'XL', 'XXL']
+  const squadList = (product.playerList || '').split(',').map(s => s.trim()).filter(Boolean)
+  const isPrintingAvailable = product.printing_enabled || Boolean(product.playerList) || (product.printing_price ? product.printing_price > 0 : false)
+  const printingPrice = customPrintEnabled ? (product.printing_price || 300) : 0
 
   const addonTotal = (product.addons || []).filter((a: any) => selectedAddons.includes(a.id)).reduce((s: number, a: any) => s + a.price, 0)
-  const totalPriceWithAddons = product.price * qty + addonTotal
+  const unitPrice = product.price + printingPrice
+  const totalPriceWithAddons = unitPrice * qty + addonTotal
+
+  const buildCartPayload = () => {
+    let customDetails = ''
+    if (customPrintEnabled) {
+      const pName = customPlayerChoice === 'squad'
+        ? selectedSquadPlayer
+        : (customPlayerName ? `${customPlayerName.toUpperCase().trim()}${customPlayerNumber ? ` #${customPlayerNumber.trim()}` : ''}` : '')
+      if (pName) customDetails += ` [Print: ${pName}]`
+    }
+    if (selectedAddons.length > 0 && product.addons) {
+      const addonNames = selectedAddons.map(sid => product.addons!.find((a: any) => a.id === sid)?.label || '').filter(Boolean).join(', ')
+      if (addonNames) customDetails += ` (+${addonNames})`
+    }
+    const chosenSize = isDigital ? 'Digital' : (size || 'M')
+    return {
+      id: product.id,
+      name: `${product.name}${customDetails}`,
+      price: unitPrice + (addonTotal / qty),
+      size: chosenSize,
+      quantity: qty,
+      image: product.images[0] || '',
+    }
+  }
 
   const handleAdd = () => {
-    const chosenSize = isDigital ? 'Digital' : (isApparel ? size : (size || 'Standard'))
     if (isApparel && !size) return
-    addToCart({ 
-      id: product.id, 
-      name: product.name + (selectedAddons.length > 0 ? ` (+${selectedAddons.map(sid => product.addons!.find((a: any) => a.id === sid)?.label || '').join(', ')})` : ''), 
-      price: product.price + addonTotal / qty, 
-      size: chosenSize, 
-      quantity: qty, 
-      image: product.images[0] 
-    })
+    addToCart(buildCartPayload())
     setAdded(true)
     setTimeout(() => setAdded(false), 2500)
   }
 
   const handleBuyNow = async () => {
-    const chosenSize = isDigital ? 'Digital' : (isApparel ? size : (size || 'Standard'))
     if (isApparel && !size) return
-    addToCart({ 
-      id: product.id, 
-      name: product.name + (selectedAddons.length > 0 ? ` (+${selectedAddons.map(sid => product.addons!.find((a: any) => a.id === sid)?.label || '').join(', ')})` : ''), 
-      price: product.price + addonTotal / qty, 
-      size: chosenSize, 
-      quantity: qty, 
-      image: product.images[0] 
-    })
-    
+    const cartItem = buildCartPayload()
+    addToCart(cartItem)
+
     if (isDigital) {
       setBuyNowLoading(true)
       setBuyNowError('')
@@ -183,19 +223,6 @@ export default function Product() {
     }
   }
 
-  const handleUnlockDownload = () => {
-    if (!product.access_password) {
-      setShowDownloadPanel(true)
-      return
-    }
-    if (passwordInput === product.access_password) {
-      setShowDownloadPanel(true)
-      setPasswordError('')
-    } else {
-      setPasswordError('Incorrect password. Please check your order confirmation email.')
-    }
-  }
-
   const related = allProducts.filter(p => p.id !== product.id && p.category === product.category).slice(0, 4)
   const allRelated = related.length > 0 ? related : allProducts.filter(p => p.id !== product.id).slice(0, 4)
   const savings = product.originalPrice ? product.originalPrice - product.price : 0
@@ -203,6 +230,7 @@ export default function Product() {
   return (
     <div style={{ background: '#0a0a14', minHeight: '100vh' }}>
       <div className="max-w-screen-xl mx-auto px-4 py-8">
+        {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-xs text-gray-500 mb-6">
           <Link to="/shop" className="hover:text-[#00b341] transition-colors">Shop</Link>
           <span>›</span>
@@ -211,54 +239,76 @@ export default function Product() {
           <span className="text-white line-clamp-1">{product.name}</span>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-10 mb-16">
-          <div>
-            <div className="rounded-2xl overflow-hidden mb-3 border border-[#1e1e32] relative" style={{ height: '420px' }}>
-              <img src={product.images[activeImage] || product.images[0]} alt={product.name} className="w-full h-full object-cover" />
+        {/* ══ TOP HERO PRODUCT PURCHASE SECTION ══════════════════════════════ */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 mb-12">
+          {/* Left Column: Product Images (6 Cols) */}
+          <div className="lg:col-span-6 space-y-4">
+            <div className="rounded-2xl overflow-hidden border border-[#1e1e32] relative flex items-center justify-center p-6" style={{ minHeight: '440px', maxHeight: '540px', background: '#0b0b14' }}>
+              <img
+                src={product.images[activeImage] || product.images[0]}
+                alt={product.name}
+                className="w-full h-full max-h-[480px] object-contain transition-all duration-300"
+              />
               {isDigital && (
                 <div className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black text-white" style={{ background: '#6366f1' }}>
                   💾 Digital Download
                 </div>
               )}
               {savings > 0 && (
-                <div className="absolute top-4 right-4 bg-red-500 text-white text-xs font-black px-2 py-1 rounded-full">
+                <div className="absolute top-4 right-4 bg-red-500 text-white text-xs font-black px-2.5 py-1 rounded-full shadow-lg">
                   Save {formatPrice(savings)}
                 </div>
               )}
             </div>
+
+            {/* Thumbnails */}
             {product.images.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="flex gap-3 overflow-x-auto pb-1">
                 {product.images.map((img, i) => (
-                  <button key={i} onClick={() => setActiveImage(i)} className="shrink-0 w-16 h-16 rounded-lg overflow-hidden transition-all" style={{ border: `2px solid ${activeImage === i ? '#00b341' : '#1e1e32'}` }}>
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                  <button
+                    key={i}
+                    onClick={() => setActiveImage(i)}
+                    className="shrink-0 w-20 h-20 rounded-xl overflow-hidden transition-all p-1.5 flex items-center justify-center cursor-pointer"
+                    style={{
+                      background: '#0b0b14',
+                      border: `2px solid ${activeImage === i ? '#00b341' : '#1e1e32'}`,
+                      transform: activeImage === i ? 'scale(1.04)' : 'scale(1)'
+                    }}
+                  >
+                    <img src={img} alt="" className="w-full h-full object-contain" />
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          <div>
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{product.category}</span>
-              {isDigital && <span className="text-[10px] font-black px-2 py-0.5 rounded-full text-white" style={{ background: '#6366f1' }}>💾 DIGITAL</span>}
-              {product.badge && <span className="text-[10px] font-black px-2 py-0.5 rounded-full text-white" style={{ background: '#00b341' }}>{product.badge}</span>}
+          {/* Right Column: Title, Pricing, Customisation, Cart (6 Cols) */}
+          <div className="lg:col-span-6 space-y-6">
+            <div>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{product.category}</span>
+                {product.team && <span className="text-[11px] font-bold text-white bg-[#1a1a2e] px-2 py-0.5 rounded-md border border-[#1e1e32]">{product.team}</span>}
+                {isDigital && <span className="text-[10px] font-black px-2 py-0.5 rounded-full text-white" style={{ background: '#6366f1' }}>💾 DIGITAL</span>}
+                {product.badge && <span className="text-[10px] font-black px-2 py-0.5 rounded-full text-white" style={{ background: '#00b341' }}>{product.badge}</span>}
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-black text-white mb-3" style={{ fontFamily: 'Big Shoulders Display' }}>{product.name}</h1>
+              <StarRating rating={product.rating} reviews={product.reviews} />
             </div>
-            <h1 className="text-3xl font-black text-white mb-3" style={{ fontFamily: 'Big Shoulders Display' }}>{product.name}</h1>
-            <StarRating rating={product.rating} reviews={product.reviews} />
 
-            <div className="flex items-baseline gap-3 mt-4 mb-6">
-              <span className="text-4xl font-black" style={{ color: isDigital ? '#a5b4fc' : '#00b341', fontFamily: 'Big Shoulders Display' }}>
+            {/* Price */}
+            <div className="flex items-baseline gap-3 pb-4 border-b border-[#1e1e32]">
+              <span className="text-4xl sm:text-5xl font-black" style={{ color: isDigital ? '#a5b4fc' : '#00b341', fontFamily: 'Big Shoulders Display' }}>
                 {formatPrice(Number(product.price) || 0)}
               </span>
               {product.originalPrice != null && (
-                <span className="text-lg text-gray-500 line-through">{formatPrice(Number(product.originalPrice) || 0)}</span>
+                <span className="text-xl text-gray-500 line-through">{formatPrice(Number(product.originalPrice) || 0)}</span>
               )}
             </div>
 
             {isDigital ? (
               <div className="space-y-4">
                 {/* Platform Compatibility Badges */}
-                <div className="p-3 rounded-xl border border-[#6366f1]/30 flex items-center justify-between flex-wrap gap-2" style={{ background: 'rgba(99,102,241,0.06)' }}>
+                <div className="p-3.5 rounded-xl border border-[#6366f1]/30 flex items-center justify-between flex-wrap gap-2" style={{ background: 'rgba(99,102,241,0.06)' }}>
                   <span className="text-[10px] font-black text-white uppercase tracking-wider">Compatible With:</span>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {[
@@ -268,25 +318,11 @@ export default function Product() {
                       { id: 'ios', label: '📱 iOS' },
                       { id: 'universal', label: '🌐 Universal' },
                     ].filter(p => !product.platforms || product.platforms.length === 0 || product.platforms.includes(p.id) || product.platforms.includes('universal')).map(p => (
-                      <span key={p.id} className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#131320] text-gray-300 border border-[#1e1e32]">
+                      <span key={p.id} className="text-[10px] font-bold px-2.5 py-1 rounded-md bg-[#131320] text-gray-300 border border-[#1e1e32]">
                         {p.label}
                       </span>
                     ))}
                   </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  {[{ icon: '⚡', label: 'Instant Access' }, { icon: '🔒', label: 'Secure File' }, { icon: '♾️', label: 'Lifetime Download' }].map(b => (
-                    <div key={b.label} className="flex flex-col items-center gap-1 p-2 rounded-xl border border-[#6366f1]/20 text-center" style={{ background: 'rgba(99,102,241,0.06)' }}>
-                      <span className="text-base">{b.icon}</span>
-                      <span className="text-[9px] text-[#a5b4fc] font-semibold">{b.label}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="p-4 rounded-xl border border-[#6366f1]/30" style={{ background: 'rgba(99,102,241,0.06)' }}>
-                  <p className="text-xs font-bold text-[#a5b4fc] mb-1">📦 What's included</p>
-                  <p className="text-xs text-gray-300 leading-relaxed">{product.description}</p>
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -306,15 +342,7 @@ export default function Product() {
                   {buyNowError && <p className="text-xs text-red-400 font-bold text-center">{buyNowError}</p>}
                 </div>
 
-                <div className="p-3.5 rounded-xl border border-[#1e1e32] flex items-center gap-3" style={{ background: '#131320' }}>
-                  <span className="text-xl">⚡</span>
-                  <div>
-                    <p className="text-xs font-bold text-white">Instant Automatic Delivery</p>
-                    <p className="text-[10px] text-gray-400">Download links and activation details are unlocked instantly on the confirmation screen & sent to your email.</p>
-                  </div>
-                </div>
-
-                {/* 🔑 Already Paid & Need Download Recovery */}
+                {/* Retrieve Download Recovery */}
                 <div className="p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#131320' }}>
                   <button
                     type="button"
@@ -323,16 +351,13 @@ export default function Product() {
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-sm">🔑</span>
-                      <span className="text-xs font-bold text-white">Already made payment? Retrieve download with receipt code</span>
+                      <span className="text-xs font-bold text-white">Already paid? Retrieve download with receipt code</span>
                     </div>
                     <span className="text-xs text-gray-400 font-bold">{showRecovery ? '▲ Hide' : '▼ Enter Code'}</span>
                   </button>
 
                   {showRecovery && (
-                    <div className="mt-3 pt-3 border-t border-[#1e1e32] space-y-2 animate-fade-in">
-                      <p className="text-[10px] text-gray-400">
-                        If you paid and the download page did not open, enter your <strong>Order Ref (e.g. FZ123456) or M-Pesa / Paystack code</strong> below. The system will confirm payment and grant immediate access.
-                      </p>
+                    <div className="mt-3 pt-3 border-t border-[#1e1e32] space-y-2">
                       {!verifiedPaidOrder ? (
                         <div className="space-y-2">
                           <input
@@ -347,10 +372,10 @@ export default function Product() {
                           <button
                             onClick={handleVerifyReceipt}
                             disabled={isVerifyingReceipt || !receiptInput.trim()}
-                            className="w-full py-2.5 text-xs font-bold text-white rounded-lg transition-all hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
+                            className="w-full py-2.5 text-xs font-bold text-white rounded-lg transition-all hover:opacity-90 disabled:opacity-40"
                             style={{ background: '#6366f1' }}
                           >
-                            {isVerifyingReceipt ? '🔍 Verifying Payment Authenticity...' : '🔍 Verify Payment & Access Files →'}
+                            {isVerifyingReceipt ? '🔍 Verifying Payment...' : '🔍 Verify Payment & Access Files →'}
                           </button>
                         </div>
                       ) : (
@@ -358,73 +383,32 @@ export default function Product() {
                           <div className="p-3 rounded-lg border border-emerald-500/40 flex items-center gap-2" style={{ background: 'rgba(34,197,94,0.1)' }}>
                             <span className="text-xl">✅</span>
                             <div>
-                              <p className="text-xs font-bold text-emerald-400">Payment Authenticated & Confirmed!</p>
-                              <p className="text-[10px] text-gray-300">Receipt Code: <strong className="font-mono text-white">{receiptInput.toUpperCase()}</strong></p>
+                              <p className="text-xs font-bold text-emerald-400">Payment Confirmed!</p>
+                              <p className="text-[10px] text-gray-300">Receipt: <strong className="font-mono text-white">{receiptInput.toUpperCase()}</strong></p>
                             </div>
                           </div>
-
-                          {/* Multi-OS Download Buttons for Verified Payer */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             {(product.mac_url || product.digital_file_url) && (
-                              <a
-                                href={product.mac_url || product.digital_file_url!}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                download
-                                className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl transition-all hover:opacity-90 border border-white/20"
-                                style={{ background: '#1e1e38' }}
-                              >
-                                <span>🍏</span>
-                                <span>Download for macOS</span>
+                              <a href={product.mac_url || product.digital_file_url!} target="_blank" rel="noopener noreferrer" download className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl border border-white/20" style={{ background: '#1e1e38' }}>
+                                <span>🍏</span><span>Download for macOS</span>
                               </a>
                             )}
                             {(product.windows_url || product.digital_file_url) && (
-                              <a
-                                href={product.windows_url || product.digital_file_url!}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                download
-                                className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl transition-all hover:opacity-90 border border-[#00a4ef]/30"
-                                style={{ background: 'rgba(0,164,239,0.12)', color: '#38bdf8' }}
-                              >
-                                <span>🪟</span>
-                                <span>Download for Windows</span>
+                              <a href={product.windows_url || product.digital_file_url!} target="_blank" rel="noopener noreferrer" download className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl border border-[#00a4ef]/30" style={{ background: 'rgba(0,164,239,0.12)', color: '#38bdf8' }}>
+                                <span>🪟</span><span>Download for Windows</span>
                               </a>
                             )}
                             {(product.android_url || product.digital_file_url) && (
-                              <a
-                                href={product.android_url || product.digital_file_url!}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                download
-                                className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl transition-all hover:opacity-90 border border-[#3ddc84]/30"
-                                style={{ background: 'rgba(61,220,132,0.12)', color: '#4ade80' }}
-                              >
-                                <span>🤖</span>
-                                <span>Download Android APK</span>
+                              <a href={product.android_url || product.digital_file_url!} target="_blank" rel="noopener noreferrer" download className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl border border-[#3ddc84]/30" style={{ background: 'rgba(61,220,132,0.12)', color: '#4ade80' }}>
+                                <span>🤖</span><span>Download Android APK</span>
                               </a>
                             )}
                             {product.digital_file_url && (
-                              <a
-                                href={product.digital_file_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                download
-                                className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl transition-all hover:opacity-90"
-                                style={{ background: '#22c55e' }}
-                              >
-                                <span>📦</span>
-                                <span>Universal Download (.ZIP)</span>
+                              <a href={product.digital_file_url} target="_blank" rel="noopener noreferrer" download className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-xl" style={{ background: '#22c55e' }}>
+                                <span>📦</span><span>Universal Download (.ZIP)</span>
                               </a>
                             )}
                           </div>
-
-                          {product.access_password && (
-                            <div className="p-2 rounded-lg bg-black/40 border border-[#1e1e32] text-xs text-gray-400 flex items-center justify-between">
-                              <span>🔑 Access Password:</span>
-                              <strong className="font-mono text-[#a5b4fc] text-sm">{product.access_password}</strong>
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>
@@ -432,200 +416,359 @@ export default function Product() {
                 </div>
               </div>
             ) : (
-
-
-
-              <>
+              <div className="space-y-5">
+                {/* 1. Size Selector */}
                 {isApparel && (
-                  <div className="mb-5">
+                  <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-bold text-gray-300">Select Size</span>
-                      {!size && <span className="text-xs text-red-400 animate-pulse">← Please select a size</span>}
+                      <span className="text-sm font-bold text-gray-200">Select Clothing Size</span>
+                      <span className="text-xs text-[#00b341] font-bold">Selected: <strong className="text-white">{size || 'M'}</strong></span>
                     </div>
                     <div className="flex gap-2 flex-wrap">
-                      {SIZES.map(s => (
-                        <button key={s} onClick={() => setSize(s)} className="w-11 h-11 text-sm font-bold rounded-xl transition-all" style={size === s ? { background: '#00b341', border: '2px solid #00b341', color: '#fff' } : { background: '#131320', border: '2px solid #1e1e32', color: '#9ca3af' }}>{s}</button>
+                      {availableSizes.map(s => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setSize(s)}
+                          className={`w-12 h-12 text-sm font-black rounded-xl transition-all cursor-pointer ${
+                            size === s
+                              ? 'bg-[#00b341] border-2 border-[#00b341] text-white shadow-lg shadow-emerald-500/20'
+                              : 'bg-[#131320] border-2 border-[#1e1e32] text-gray-300 hover:border-[#00b341]/60 hover:text-white'
+                          }`}
+                        >
+                          {s}
+                        </button>
                       ))}
                     </div>
                   </div>
                 )}
 
+                {/* 2. Player Name & Number Printing */}
+                {isPrintingAvailable && (
+                  <div className="p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 accent-[#00b341]"
+                        checked={customPrintEnabled}
+                        onChange={e => setCustomPrintEnabled(e.target.checked)}
+                      />
+                      <div className="flex-1">
+                        <span className="text-xs font-black text-white flex items-center gap-1.5">
+                          <span>🔤</span>
+                          <span>Player Name & Number Customisation</span>
+                        </span>
+                        <p className="text-[10px] text-gray-400">Have your official name & squad number printed on the back</p>
+                      </div>
+                      <span className="text-xs font-black text-[#00b341]">+{formatPrice(product.printing_price || 300)}</span>
+                    </label>
+
+                    {customPrintEnabled && (
+                      <div className="mt-3 pt-3 border-t border-[#1e1e32] space-y-3 animate-fade-in">
+                        {squadList.length > 0 && (
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setCustomPlayerChoice('squad')}
+                              className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                                customPlayerChoice === 'squad'
+                                  ? 'bg-[#00b341] border-[#00b341] text-white'
+                                  : 'bg-[#131320] border-[#1e1e32] text-gray-400 hover:text-white'
+                              }`}
+                            >
+                              ⭐ Official Squad Player
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCustomPlayerChoice('custom')}
+                              className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                                customPlayerChoice === 'custom'
+                                  ? 'bg-[#00b341] border-[#00b341] text-white'
+                                  : 'bg-[#131320] border-[#1e1e32] text-gray-400 hover:text-white'
+                              }`}
+                            >
+                              ✍️ Custom Name & Number
+                            </button>
+                          </div>
+                        )}
+
+                        {customPlayerChoice === 'squad' && squadList.length > 0 ? (
+                          <div>
+                            <label className="block text-[10px] font-bold text-gray-400 mb-1">Select Squad Player</label>
+                            <select
+                              value={selectedSquadPlayer}
+                              onChange={e => setSelectedSquadPlayer(e.target.value)}
+                              className="w-full px-3 py-2 text-xs text-white rounded-lg outline-none"
+                              style={{ background: '#131320', border: '1px solid #1e1e32' }}
+                            >
+                              {squadList.map(p => (
+                                <option key={p} value={p}>{p}</option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="col-span-2">
+                              <label className="block text-[10px] font-bold text-gray-400 mb-1">Name on Jersey (Max 12 chars)</label>
+                              <input
+                                type="text"
+                                maxLength={12}
+                                value={customPlayerName}
+                                onChange={e => setCustomPlayerName(e.target.value.toUpperCase())}
+                                placeholder="e.g. FLOWERZ"
+                                className="w-full px-3 py-2 text-xs text-white font-mono uppercase rounded-lg outline-none focus:ring-1 focus:ring-[#00b341]"
+                                style={{ background: '#131320', border: '1px solid #1e1e32' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-gray-400 mb-1">Number (0–99)</label>
+                              <input
+                                type="number"
+                                min={0}
+                                max={99}
+                                value={customPlayerNumber}
+                                onChange={e => setCustomPlayerNumber(e.target.value)}
+                                placeholder="10"
+                                className="w-full px-3 py-2 text-xs text-white font-mono text-center rounded-lg outline-none focus:ring-1 focus:ring-[#00b341]"
+                                style={{ background: '#131320', border: '1px solid #1e1e32' }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 3. Product Add-ons / Patches */}
                 {product.addons && product.addons.length > 0 && (
-                  <div className="mb-5">
-                    <p className="text-sm font-bold text-gray-300 mb-2">Customisation Options</p>
-                    <div className="space-y-2">
-                      {product.addons.map(addon => (
-                        <label key={addon.id} className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all" style={{
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-gray-300">🏅 Badges & Extra Add-ons</p>
+                    {product.addons.map(addon => (
+                      <label
+                        key={addon.id}
+                        className="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all"
+                        style={{
                           background: selectedAddons.includes(addon.id) ? 'rgba(0,179,65,0.08)' : '#0c0c14',
                           borderColor: selectedAddons.includes(addon.id) ? '#00b341' : '#1e1e32',
-                        }}>
-                          <input
-                            type="checkbox"
-                            className="w-4 h-4 accent-[#00b341]"
-                            checked={selectedAddons.includes(addon.id)}
-                            onChange={e => {
-                              setSelectedAddons(prev => e.target.checked ? [...prev, addon.id] : prev.filter(id => id !== addon.id))
-                            }}
-                          />
-                          {addon.icon && <span className="text-base">{addon.icon}</span>}
-                          <span className="flex-1 text-xs font-semibold text-white">{addon.label}</span>
-                          <span className="text-xs font-black text-[#00b341]">+{formatPrice(addon.price)}</span>
-                        </label>
-                      ))}
-                    </div>
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 accent-[#00b341]"
+                          checked={selectedAddons.includes(addon.id)}
+                          onChange={e => {
+                            setSelectedAddons(prev => e.target.checked ? [...prev, addon.id] : prev.filter(id => id !== addon.id))
+                          }}
+                        />
+                        {addon.icon && <span className="text-base">{addon.icon}</span>}
+                        <span className="flex-1 text-xs font-semibold text-white">{addon.label}</span>
+                        <span className="text-xs font-black text-[#00b341]">+{formatPrice(addon.price)}</span>
+                      </label>
+                    ))}
                   </div>
                 )}
 
-                {addonTotal > 0 && (
-                  <div className="flex items-center justify-between p-3 rounded-xl border border-[#00b341]/30 mb-4" style={{ background: 'rgba(0,179,65,0.06)' }}>
-                    <span className="text-xs font-bold text-gray-300">Total (with options)</span>
-                    <span className="text-lg font-black text-[#00b341]">{formatPrice(totalPriceWithAddons)}</span>
+                {/* Total with options */}
+                {(addonTotal > 0 || customPrintEnabled) && (
+                  <div className="flex items-center justify-between p-3.5 rounded-xl border border-[#00b341]/30" style={{ background: 'rgba(0,179,65,0.06)' }}>
+                    <span className="text-xs font-bold text-gray-300">Total with selected options:</span>
+                    <span className="text-xl font-black text-[#00b341]">{formatPrice(totalPriceWithAddons)}</span>
                   </div>
                 )}
 
-                <div className="mb-6">
-                  <span className="text-sm font-bold text-gray-300 mb-2 block">Quantity</span>
-                  <div className="flex items-center gap-3 w-fit">
-                    <button onClick={() => setQty(q => Math.max(1, q - 1))} className="w-10 h-10 rounded-xl border text-white font-bold text-lg flex items-center justify-center hover:bg-white/10 transition-colors" style={{ borderColor: '#1e1e32', background: '#131320' }}>−</button>
-                    <span className="text-lg font-black text-white w-8 text-center">{qty}</span>
-                    <button onClick={() => setQty(q => q + 1)} className="w-10 h-10 rounded-xl border text-white font-bold text-lg flex items-center justify-center hover:bg-white/10 transition-colors" style={{ borderColor: '#1e1e32', background: '#131320' }}>+</button>
+                {/* Quantity */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-300">Quantity</span>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setQty(q => Math.max(1, q - 1))} className="w-9 h-9 rounded-lg border text-white font-bold text-base flex items-center justify-center hover:bg-white/10 transition-colors" style={{ borderColor: '#1e1e32', background: '#131320' }}>−</button>
+                    <span className="text-base font-black text-white w-8 text-center">{qty}</span>
+                    <button onClick={() => setQty(q => q + 1)} className="w-9 h-9 rounded-lg border text-white font-bold text-base flex items-center justify-center hover:bg-white/10 transition-colors" style={{ borderColor: '#1e1e32', background: '#131320' }}>+</button>
                   </div>
                 </div>
 
-                <div className="flex gap-3 mb-6">
-                  <button onClick={handleAdd} disabled={isApparel && !size} className="flex-1 py-4 text-sm font-black rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90" style={{ background: added ? '#22c55e' : '#131320', color: added ? '#fff' : '#00b341', border: `2px solid ${added ? '#22c55e' : '#00b341'}`, fontFamily: 'Big Shoulders Display', fontSize: '15px' }}>
+                {/* Add to Cart & Buy Now */}
+                <div className="flex gap-3">
+                  <button onClick={handleAdd} className="flex-1 py-4 text-sm font-black rounded-xl transition-all hover:opacity-90" style={{ background: added ? '#22c55e' : '#131320', color: added ? '#fff' : '#00b341', border: `2px solid ${added ? '#22c55e' : '#00b341'}`, fontFamily: 'Big Shoulders Display', fontSize: '16px' }}>
                     {added ? '✓ Added to Cart!' : t('addToCart')}
                   </button>
-                  <button onClick={handleBuyNow} disabled={isApparel && !size} className="flex-1 py-4 text-sm font-black rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90" style={{ background: '#00b341', color: '#fff', fontFamily: 'Big Shoulders Display', fontSize: '15px' }}>
+                  <button onClick={handleBuyNow} className="flex-1 py-4 text-sm font-black rounded-xl transition-all hover:opacity-90" style={{ background: '#00b341', color: '#fff', fontFamily: 'Big Shoulders Display', fontSize: '16px' }}>
                     Buy Now →
                   </button>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 mb-6 pb-6 border-b border-[#1e1e32]">
-                  {[{ icon: '🚚', label: 'Free over \$80' }, { icon: '🔄', label: '30-day returns' }, { icon: '🔒', label: 'Secure pay' }].map(b => (
+                {/* Trust Badges */}
+                <div className="grid grid-cols-3 gap-2 pt-2">
+                  {[{ icon: '🚚', label: 'G4S Kenya Tracked' }, { icon: '🔄', label: '7-Day Return Guarantee' }, { icon: '🔒', label: '100% Secure M-Pesa / Card' }].map(b => (
                     <div key={b.label} className="flex flex-col items-center gap-1 p-2 rounded-xl border border-[#1e1e32] text-center" style={{ background: '#131320' }}>
                       <span className="text-base">{b.icon}</span>
                       <span className="text-[9px] text-gray-400 font-semibold">{b.label}</span>
                     </div>
                   ))}
                 </div>
-
-                {/* ── 3-Column Info Row: Description | Informations | Specifications ── */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4 border-t border-[#1e1e32]">
-
-                  {/* DESCRIPTION */}
-                  <div>
-                    <h3 className="text-2xl font-black text-white mb-4" style={{ fontFamily: 'Big Shoulders Display' }}>Description</h3>
-                    <p className="text-xs text-gray-300 leading-relaxed mb-5">{product.description}</p>
-
-                    <p className="text-xs font-black text-white uppercase tracking-widest mb-3">Details</p>
-                    <ul className="space-y-1.5">
-                      {[
-                        product.sku && `Product ID: ${product.sku}`,
-                        product.team && `Team: ${product.team}`,
-                        product.kitType && `Kit Type: ${product.kitType}`,
-                        product.version && `Version: ${product.version}`,
-                        product.category && `Category: ${product.category}`,
-                        product.type === 'physical' && 'Machine wash (30°C)',
-                        product.type === 'physical' && 'Officially licensed merchandise',
-                        product.type === 'digital' && 'Instant digital download',
-                        product.type === 'digital' && 'No physical shipment required',
-                        product.type === 'physical' && 'Ships from Kenya 🇰🇪',
-                        product.type === 'physical' && 'Customised items are final sale and cannot be returned after order is placed',
-                      ].filter(Boolean).map((detail, i) => (
-                        <li key={i} className="flex items-start gap-2 text-[11px] text-gray-400">
-                          <span className="text-[#00b341] mt-0.5 shrink-0">•</span>
-                          <span>{detail as string}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* INFORMATIONS */}
-                  <div>
-                    <h3 className="text-2xl font-black text-white mb-4" style={{ fontFamily: 'Big Shoulders Display' }}>Informations</h3>
-                    <div className="space-y-5">
-                      <div>
-                        <p className="text-sm font-black text-white mb-1.5">🚚 Shipping</p>
-                        <p className="text-[11px] text-gray-400 leading-relaxed">We offer countrywide (Kenya) shipping through G4S courier services at an additional cost of KSh. 350/-. International shipping available via DHL tracked — 14–21 business days.</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-black text-white mb-1.5">📐 Sizing</p>
-                        <p className="text-[11px] text-gray-400 leading-relaxed">Fits true to size. Refer to the size chart above for chest and length measurements. For jerseys, we recommend sizing up if between sizes.</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-black text-white mb-1.5">🔄 Returns</p>
-                        <p className="text-[11px] text-gray-400 leading-relaxed">Unopened / unworn items can be returned within 7 days of delivery. Customised or personalised items are final sale.</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-black text-white mb-1.5">📞 Assistance</p>
-                        <p className="text-[11px] text-gray-400 leading-relaxed">Contact us on <strong className="text-white">+254 7XX XXX XXX</strong> (WhatsApp/Call) or email <strong className="text-white">support@djflowerz.co.ke</strong> for help with your order.</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* SPECIFICATIONS */}
-                  <div>
-                    <h3 className="text-2xl font-black text-white mb-4" style={{ fontFamily: 'Big Shoulders Display' }}>Specifications</h3>
-                    <div className="space-y-5">
-                      <div>
-                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Clothing Size</p>
-                        <div className="flex gap-1.5 flex-wrap">
-                          {['S', 'M', 'L', 'XL', 'XXL'].map(s => (
-                            <span key={s} className="w-10 h-10 flex items-center justify-center text-xs font-bold rounded-lg border text-gray-300 border-[#1e1e32]" style={{ background: '#0c0c14' }}>{s}</span>
-                          ))}
-                        </div>
-                      </div>
-                      {(product.platforms && product.platforms.length > 0 && product.type === 'digital') && (
-                        <div>
-                          <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Compatible Platforms</p>
-                          <div className="flex gap-1.5 flex-wrap">
-                            {product.platforms.map(pl => (
-                              <span key={pl} className="px-2.5 py-1 text-[10px] font-bold rounded-lg border border-[#1e1e32] text-gray-300 capitalize" style={{ background: '#0c0c14' }}>{pl}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Dimensions</p>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-[11px]">
-                            <thead>
-                              <tr className="text-gray-500 border-b border-[#1e1e32]">
-                                <th className="text-left py-1.5 font-bold">Size</th>
-                                <th className="py-1.5 text-center font-bold">Chest (cm)</th>
-                                <th className="py-1.5 text-center font-bold">Length (cm)</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {[['S','86–91','68'],['M','92–97','70'],['L','98–103','72'],['XL','104–109','74'],['XXL','110–115','76']].map(r => (
-                                <tr key={r[0]} className="border-t border-[#1e1e32] text-gray-400">
-                                  <td className="py-1.5 font-bold text-white">{r[0]}</td>
-                                  <td className="py-1.5 text-center">{r[1]}</td>
-                                  <td className="py-1.5 text-center">{r[2]}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-              </>
+              </div>
             )}
+          </div>
+        </div>
+
+        {/* ══ FULL-WIDTH 3-COLUMN INFORMATION & SPECIFICATION SECTION ═════════ */}
+        <div className="pt-10 border-t border-[#1e1e32] mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
+
+            {/* COLUMN 1: DESCRIPTION */}
+            <div className="space-y-4">
+              <h3 className="text-3xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>Description</h3>
+              <p className="text-xs text-gray-300 leading-relaxed whitespace-pre-line">{product.description}</p>
+
+              <div className="pt-2">
+                <p className="text-xs font-black text-white uppercase tracking-widest mb-3">Product Details</p>
+                <ul className="space-y-2">
+                  {[
+                    product.sku && `Product ID: ${product.sku}`,
+                    product.team && `Team: ${product.team}`,
+                    product.kitType && `Kit Type: ${product.kitType}`,
+                    product.version && `Version: ${product.version}`,
+                    product.category && `Category: ${product.category}`,
+                    product.type === 'physical' && 'Machine wash (30°C inside out)',
+                    product.type === 'physical' && 'Officially licensed merchandise',
+                    product.type === 'digital' && 'Instant digital download',
+                    product.type === 'digital' && 'No physical shipment required',
+                    product.type === 'physical' && 'Ships from Kenya 🇰🇪',
+                    product.type === 'physical' && 'Customised items are final sale and cannot be returned after order is placed',
+                  ].filter(Boolean).map((detail, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-gray-400">
+                      <span className="text-[#00b341] mt-0.5 shrink-0 font-bold">•</span>
+                      <span>{detail as string}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* COLUMN 2: INFORMATIONS */}
+            <div className="space-y-5">
+              <h3 className="text-3xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>Informations</h3>
+              
+              <div>
+                <p className="text-sm font-black text-white mb-1.5">🚚 Shipping</p>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  {product.info_shipping || 'We offer countrywide (Kenya) shipping through G4S courier services at an additional cost of KSh. 350/-. International shipping available via DHL tracked — 14–21 business days.'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm font-black text-white mb-1.5">📐 Sizing</p>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  {product.info_sizing || 'Fits true to size. Refer to the size chart for chest and length measurements. For jerseys, we recommend sizing up if between sizes.'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm font-black text-white mb-1.5">🔄 Returns</p>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  {product.info_returns || 'Unopened / unworn items can be returned within 7 days of delivery. Customised or personalised items are final sale.'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm font-black text-white mb-1.5">📞 Assistance</p>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  {product.info_assistance || 'Contact us on (+254) 755 699 898 or (+254) 737 308 510, or email support@djflowerz.co.ke for help with your order.'}
+                </p>
+              </div>
+            </div>
+
+            {/* COLUMN 3: SPECIFICATIONS */}
+            <div className="space-y-5">
+              <h3 className="text-3xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>Specifications</h3>
+
+              {isApparel && (
+                <div>
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2.5">Clothing Size</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {availableSizes.map(s => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setSize(s)}
+                        className={`w-11 h-11 flex items-center justify-center text-xs font-black rounded-xl border transition-all cursor-pointer ${
+                          size === s
+                            ? 'bg-[#00b341] text-white border-[#00b341]'
+                            : 'bg-[#0c0c14] text-gray-300 border-[#1e1e32] hover:border-[#00b341]/50'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Material & Fit specs */}
+              <div className="space-y-2 pt-1">
+                {product.spec_material && (
+                  <div className="flex items-start justify-between py-1.5 border-b border-[#1e1e32] text-xs">
+                    <span className="text-gray-400">Material:</span>
+                    <span className="font-semibold text-white text-right">{product.spec_material}</span>
+                  </div>
+                )}
+                {product.spec_fit && (
+                  <div className="flex items-start justify-between py-1.5 border-b border-[#1e1e32] text-xs">
+                    <span className="text-gray-400">Fit:</span>
+                    <span className="font-semibold text-white text-right">{product.spec_fit}</span>
+                  </div>
+                )}
+                {product.spec_origin && (
+                  <div className="flex items-start justify-between py-1.5 border-b border-[#1e1e32] text-xs">
+                    <span className="text-gray-400">Origin:</span>
+                    <span className="font-semibold text-white text-right">{product.spec_origin}</span>
+                  </div>
+                )}
+                {product.spec_care && (
+                  <div className="flex items-start justify-between py-1.5 border-b border-[#1e1e32] text-xs">
+                    <span className="text-gray-400">Care:</span>
+                    <span className="font-semibold text-white text-right">{product.spec_care}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Dimensions Table */}
+              <div>
+                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Dimensions</p>
+                <div className="overflow-x-auto rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-gray-400 border-b border-[#1e1e32] bg-[#131320]">
+                        <th className="text-left py-2 px-3 font-bold">Size</th>
+                        <th className="py-2 px-3 text-center font-bold">Chest (cm)</th>
+                        <th className="py-2 px-3 text-center font-bold">Length (cm)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[['S','86–91','68'],['M','92–97','70'],['L','98–103','72'],['XL','104–109','74'],['XXL','110–115','76']].map(r => (
+                        <tr key={r[0]} className={`border-t border-[#1e1e32] text-gray-300 ${size === r[0] ? 'bg-[#00b341]/10 font-bold' : ''}`}>
+                          <td className="py-2 px-3 font-bold text-white">{r[0]}</td>
+                          <td className="py-2 px-3 text-center">{r[1]}</td>
+                          <td className="py-2 px-3 text-center">{r[2]}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
 
           </div>
         </div>
 
+        {/* ══ RELATED PRODUCTS ═══════════════════════════════════════════════ */}
         <div>
           <h2 className="text-2xl font-black text-white mb-6" style={{ fontFamily: 'Big Shoulders Display' }}>You Might Also Like</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {allRelated.map(p => (
               <Link key={p.id} to={`/shop/${p.id}`} className="group block rounded-2xl overflow-hidden transition-all hover:-translate-y-1 hover:border-[#00b341]" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-                <div style={{ height: '180px', overflow: 'hidden' }}>
-                  <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                <div className="p-3 flex items-center justify-center" style={{ height: '180px', background: '#0b0b14' }}>
+                  <img src={p.images[0]} alt={p.name} className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" />
                 </div>
                 <div className="p-3">
                   <div className="flex items-center gap-1 mb-0.5">
@@ -642,3 +785,4 @@ export default function Product() {
     </div>
   )
 }
+

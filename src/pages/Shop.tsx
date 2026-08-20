@@ -25,6 +25,23 @@ export interface ProductType {
   android_url?: string | null
   ios_url?: string | null
   addons?: Array<{ id: string; label: string; price: number; icon?: string }>
+  sku?: string | null
+  team?: string | null
+  kitType?: string | null
+  version?: string | null
+  sizes?: string[] | null
+  gender?: string | null
+  playerList?: string | null
+  info_shipping?: string | null
+  info_sizing?: string | null
+  info_returns?: string | null
+  info_assistance?: string | null
+  spec_material?: string | null
+  spec_fit?: string | null
+  spec_origin?: string | null
+  spec_care?: string | null
+  printing_enabled?: boolean
+  printing_price?: number
 }
 
 type SortOption = 'newest' | 'popular' | 'price-asc' | 'price-desc'
@@ -144,6 +161,24 @@ export default function Shop() {
             windows_url: p.windows_url || null,
             android_url: p.android_url || null,
             ios_url: p.ios_url || null,
+            addons: p.addons || null,
+            sku: p.sku || null,
+            team: p.team || null,
+            kitType: p.kitType || null,
+            version: p.version || null,
+            sizes: p.sizes || null,
+            gender: p.gender || null,
+            playerList: p.playerList || null,
+            info_shipping: p.info_shipping || null,
+            info_sizing: p.info_sizing || null,
+            info_returns: p.info_returns || null,
+            info_assistance: p.info_assistance || null,
+            spec_material: p.spec_material || null,
+            spec_fit: p.spec_fit || null,
+            spec_origin: p.spec_origin || null,
+            spec_care: p.spec_care || null,
+            printing_enabled: p.printing_enabled ?? false,
+            printing_price: p.printing_price || 0,
           }
 
         })
@@ -273,11 +308,11 @@ export default function Shop() {
                 style={{ background: '#131320', border: '1px solid #1e1e32' }}
               >
                 {/* Image */}
-                <div className="relative overflow-hidden" style={{ height: '240px' }}>
+                <div className="relative overflow-hidden flex items-center justify-center p-3" style={{ height: '240px', background: '#0b0b14' }}>
                   <img
                     src={p.images[0]}
                     alt={p.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
                   />
                   {/* Badge */}
                   {p.badge && (

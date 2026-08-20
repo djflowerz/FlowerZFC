@@ -403,7 +403,17 @@ export default function Admin() {
             androidUrl: p.android_url || vg.android_url || null,
             ios_url: p.ios_url || vg.ios_url || null,
             iosUrl: p.ios_url || vg.ios_url || null,
-            addons: p.addons || vg.addons || null,
+            addons: p.addons || vg.addons || [],
+            info_shipping: p.info_shipping || vg.info_shipping || 'We offer countrywide (Kenya) shipping through G4S courier services at an additional cost of KSh. 350/-. International shipping available via DHL tracked — 14–21 business days.',
+            info_sizing: p.info_sizing || vg.info_sizing || 'Fits true to size. Refer to the size chart above for chest and length measurements. For jerseys, we recommend sizing up if between sizes.',
+            info_returns: p.info_returns || vg.info_returns || 'Unopened / unworn items can be returned within 7 days of delivery. Customised or personalised items are final sale.',
+            info_assistance: p.info_assistance || vg.info_assistance || 'Contact us on (+254) 755 699 898 or (+254) 737 308 510, or email support@djflowerz.co.ke',
+            spec_material: p.spec_material || vg.spec_material || '100% Polyester Dri-FIT moisture-wicking technology',
+            spec_fit: p.spec_fit || vg.spec_fit || 'Replica / Stadium collection standard fit',
+            spec_origin: p.spec_origin || vg.spec_origin || 'Officially licensed imported merchandise',
+            spec_care: p.spec_care || vg.spec_care || 'Machine wash 30°C inside out',
+            printing_enabled: p.printing_enabled ?? vg.printing_enabled ?? Boolean(p.customizable),
+            printing_price: p.printing_price ?? vg.printing_price ?? 300,
           }
         })
         setProducts(mappedProds)
@@ -636,6 +646,16 @@ export default function Admin() {
     tags: 'jersey,home,2026,kits',
     type: 'physical' as 'physical' | 'digital',
     addons: [] as Array<{ id: string; label: string; price: number; icon?: string }>,
+    printing_enabled: true,
+    printing_price: '300',
+    info_shipping: 'We offer countrywide (Kenya) shipping through G4S courier services at an additional cost of KSh. 350/-. International shipping available via DHL tracked — 14–21 business days.',
+    info_sizing: 'Fits true to size. Refer to the size chart above for chest and length measurements. For jerseys, we recommend sizing up if between sizes.',
+    info_returns: 'Unopened / unworn items can be returned within 7 days of delivery. Customised or personalised items are final sale.',
+    info_assistance: 'Contact us on (+254) 755 699 898 or (+254) 737 308 510, or email support@djflowerz.co.ke',
+    spec_material: '100% Polyester Dri-FIT moisture-wicking technology',
+    spec_fit: 'Replica / Stadium collection standard fit',
+    spec_origin: 'Officially licensed imported merchandise',
+    spec_care: 'Machine wash 30°C inside out',
     digitalFileUrl: '',
     accessPassword: '',
     platforms: ['mac', 'windows', 'android'] as string[],
@@ -5019,18 +5039,142 @@ export default function Admin() {
                     </select>
                   </div>
                   <div className="flex items-center gap-2 pt-5">
-                    <input type="checkbox" id="edit-custom" checked={editProduct.customizable} onChange={e => setEditProduct(p => p ? { ...p, customizable: e.target.checked } : p)} className="w-4 h-4 accent-[#00b341]" />
+                    <input type="checkbox" id="edit-custom" checked={(editProduct as any).printing_enabled ?? editProduct.customizable} onChange={e => setEditProduct(p => p ? { ...p, customizable: e.target.checked, printing_enabled: e.target.checked } : p)} className="w-4 h-4 accent-[#00b341]" />
                     <label htmlFor="edit-custom" className="text-xs font-bold text-white cursor-pointer">Enable Player Name & Number Printing</label>
                   </div>
                 </div>
-                {editProduct.customizable && (
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 mb-1">Pre-loaded Squad Players (comma separated)</label>
-                    <input value={editProduct.playerList || ''} onChange={e => setEditProduct(p => p ? { ...p, playerList: e.target.value } : p)} placeholder="Bukayo Saka #7, Martin Ødegaard #8" className={INPUT} style={INPUT_STYLE} />
+                {((editProduct as any).printing_enabled ?? editProduct.customizable) && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-3 rounded-lg border border-[#00b341]/30" style={{ background: 'rgba(0,179,65,0.06)' }}>
+                    <div>
+                      <label className="block text-[10px] font-bold text-[#00b341] mb-1">Printing Extra Fee (KES)</label>
+                      <input
+                        type="number"
+                        value={(editProduct as any).printing_price ?? 300}
+                        onChange={e => setEditProduct(p => p ? { ...p, printing_price: parseFloat(e.target.value) || 0 } : p)}
+                        placeholder="300"
+                        className={INPUT}
+                        style={INPUT_STYLE}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-[10px] font-bold text-gray-400 mb-1">Pre-loaded Squad Players (auto-fills dropdown)</label>
+                      <input
+                        value={editProduct.playerList || ''}
+                        onChange={e => setEditProduct(p => p ? { ...p, playerList: e.target.value } : p)}
+                        placeholder="Cole Palmer #20, Enzo Fernández #8, Moises Caicedo #25"
+                        className={INPUT}
+                        style={INPUT_STYLE}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
             )}
+
+            {/* 📑 SEPARATE INFORMATIONS & SPECIFICATIONS */}
+            <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
+              <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">
+                📑 3-Column Page Content (Informations & Specifications)
+              </label>
+
+              {/* Column 2: Informations */}
+              <div className="p-3 rounded-xl border border-[#1e1e32] space-y-2" style={{ background: '#131320' }}>
+                <p className="text-xs font-black text-white">🚚 Column 2: Informations</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Shipping Info</label>
+                    <textarea
+                      value={(editProduct as any).info_shipping || ''}
+                      onChange={e => setEditProduct(p => p ? { ...p, info_shipping: e.target.value } : p)}
+                      placeholder="We offer countrywide (Kenya) shipping through G4S courier..."
+                      rows={2}
+                      className={`${INPUT} text-[11px] resize-none`}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Sizing Guidance</label>
+                    <textarea
+                      value={(editProduct as any).info_sizing || ''}
+                      onChange={e => setEditProduct(p => p ? { ...p, info_sizing: e.target.value } : p)}
+                      placeholder="Fits true to size. Refer to size chart..."
+                      rows={2}
+                      className={`${INPUT} text-[11px] resize-none`}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Return Policy</label>
+                    <textarea
+                      value={(editProduct as any).info_returns || ''}
+                      onChange={e => setEditProduct(p => p ? { ...p, info_returns: e.target.value } : p)}
+                      placeholder="Unopened / unworn items can be returned within 7 days..."
+                      rows={2}
+                      className={`${INPUT} text-[11px] resize-none`}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Customer Assistance / Phone</label>
+                    <textarea
+                      value={(editProduct as any).info_assistance || ''}
+                      onChange={e => setEditProduct(p => p ? { ...p, info_assistance: e.target.value } : p)}
+                      placeholder="Contact us on (+254) 755 699 898 or email support@..."
+                      rows={2}
+                      className={`${INPUT} text-[11px] resize-none`}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Column 3: Specifications */}
+              <div className="p-3 rounded-xl border border-[#1e1e32] space-y-2" style={{ background: '#131320' }}>
+                <p className="text-xs font-black text-white">⚙️ Column 3: Specifications</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Material & Fabric Tech</label>
+                    <input
+                      value={(editProduct as any).spec_material || ''}
+                      onChange={e => setEditProduct(p => p ? { ...p, spec_material: e.target.value } : p)}
+                      placeholder="e.g. 100% Polyester Dri-FIT technology"
+                      className={INPUT}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Fit & Cut</label>
+                    <input
+                      value={(editProduct as any).spec_fit || ''}
+                      onChange={e => setEditProduct(p => p ? { ...p, spec_fit: e.target.value } : p)}
+                      placeholder="e.g. Regular / Replica Fit"
+                      className={INPUT}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Country of Origin</label>
+                    <input
+                      value={(editProduct as any).spec_origin || ''}
+                      onChange={e => setEditProduct(p => p ? { ...p, spec_origin: e.target.value } : p)}
+                      placeholder="e.g. Georgia / Thailand"
+                      className={INPUT}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Care Instructions</label>
+                    <input
+                      value={(editProduct as any).spec_care || ''}
+                      onChange={e => setEditProduct(p => p ? { ...p, spec_care: e.target.value } : p)}
+                      placeholder="e.g. Machine wash 30°C inside out"
+                      className={INPUT}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* 📦 SHIPPING & SEO */}
             <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
@@ -5117,6 +5261,16 @@ export default function Admin() {
               colors: newProduct.colors,
               tags: newProduct.tags,
               addons: (newProduct as any).addons || null,
+              info_shipping: (newProduct as any).info_shipping || null,
+              info_sizing: (newProduct as any).info_sizing || null,
+              info_returns: (newProduct as any).info_returns || null,
+              info_assistance: (newProduct as any).info_assistance || null,
+              spec_material: (newProduct as any).spec_material || null,
+              spec_fit: (newProduct as any).spec_fit || null,
+              spec_origin: (newProduct as any).spec_origin || null,
+              spec_care: (newProduct as any).spec_care || null,
+              printing_enabled: Boolean((newProduct as any).printing_enabled),
+              printing_price: parseFloat((newProduct as any).printing_price) || 0,
             }
 
             const { product: savedProduct, error } = await createProduct(prod)
@@ -5496,18 +5650,142 @@ export default function Admin() {
                     </select>
                   </div>
                   <div className="flex items-center gap-2 pt-5">
-                    <input type="checkbox" id="add-custom" checked={newProduct.customizable} onChange={e => setNewProduct(p => ({ ...p, customizable: e.target.checked }))} className="w-4 h-4 accent-[#00b341]" />
+                    <input type="checkbox" id="add-custom" checked={(newProduct as any).printing_enabled ?? newProduct.customizable} onChange={e => setNewProduct(p => ({ ...p, customizable: e.target.checked, printing_enabled: e.target.checked }))} className="w-4 h-4 accent-[#00b341]" />
                     <label htmlFor="add-custom" className="text-xs font-bold text-white cursor-pointer">Enable Player Name & Number Printing</label>
                   </div>
                 </div>
-                {newProduct.customizable && (
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 mb-1">Squad Players List (auto-fills printing selection)</label>
-                    <input value={newProduct.playerList} onChange={e => setNewProduct(p => ({ ...p, playerList: e.target.value }))} placeholder="Bukayo Saka #7, Martin Ødegaard #8" className={INPUT} style={INPUT_STYLE} />
+                {((newProduct as any).printing_enabled ?? newProduct.customizable) && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-3 rounded-lg border border-[#00b341]/30" style={{ background: 'rgba(0,179,65,0.06)' }}>
+                    <div>
+                      <label className="block text-[10px] font-bold text-[#00b341] mb-1">Printing Extra Fee (KES)</label>
+                      <input
+                        type="number"
+                        value={(newProduct as any).printing_price ?? 300}
+                        onChange={e => setNewProduct(p => ({ ...p, printing_price: parseFloat(e.target.value) || 0 }))}
+                        placeholder="300"
+                        className={INPUT}
+                        style={INPUT_STYLE}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-[10px] font-bold text-gray-400 mb-1">Pre-loaded Squad Players (auto-fills dropdown)</label>
+                      <input
+                        value={newProduct.playerList || ''}
+                        onChange={e => setNewProduct(p => ({ ...p, playerList: e.target.value }))}
+                        placeholder="Cole Palmer #20, Enzo Fernández #8, Moises Caicedo #25"
+                        className={INPUT}
+                        style={INPUT_STYLE}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
             )}
+
+            {/* 📑 SEPARATE INFORMATIONS & SPECIFICATIONS */}
+            <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
+              <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">
+                📑 3-Column Page Content (Informations & Specifications)
+              </label>
+
+              {/* Column 2: Informations */}
+              <div className="p-3 rounded-xl border border-[#1e1e32] space-y-2" style={{ background: '#131320' }}>
+                <p className="text-xs font-black text-white">🚚 Column 2: Informations</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Shipping Info</label>
+                    <textarea
+                      value={(newProduct as any).info_shipping || ''}
+                      onChange={e => setNewProduct(p => ({ ...p, info_shipping: e.target.value }))}
+                      placeholder="We offer countrywide (Kenya) shipping through G4S courier..."
+                      rows={2}
+                      className={`${INPUT} text-[11px] resize-none`}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Sizing Guidance</label>
+                    <textarea
+                      value={(newProduct as any).info_sizing || ''}
+                      onChange={e => setNewProduct(p => ({ ...p, info_sizing: e.target.value }))}
+                      placeholder="Fits true to size. Refer to size chart..."
+                      rows={2}
+                      className={`${INPUT} text-[11px] resize-none`}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Return Policy</label>
+                    <textarea
+                      value={(newProduct as any).info_returns || ''}
+                      onChange={e => setNewProduct(p => ({ ...p, info_returns: e.target.value }))}
+                      placeholder="Unopened / unworn items can be returned within 7 days..."
+                      rows={2}
+                      className={`${INPUT} text-[11px] resize-none`}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Customer Assistance / Phone</label>
+                    <textarea
+                      value={(newProduct as any).info_assistance || ''}
+                      onChange={e => setNewProduct(p => ({ ...p, info_assistance: e.target.value }))}
+                      placeholder="Contact us on (+254) 755 699 898 or email support@..."
+                      rows={2}
+                      className={`${INPUT} text-[11px] resize-none`}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Column 3: Specifications */}
+              <div className="p-3 rounded-xl border border-[#1e1e32] space-y-2" style={{ background: '#131320' }}>
+                <p className="text-xs font-black text-white">⚙️ Column 3: Specifications</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Material & Fabric Tech</label>
+                    <input
+                      value={(newProduct as any).spec_material || ''}
+                      onChange={e => setNewProduct(p => ({ ...p, spec_material: e.target.value }))}
+                      placeholder="e.g. 100% Polyester Dri-FIT technology"
+                      className={INPUT}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Fit & Cut</label>
+                    <input
+                      value={(newProduct as any).spec_fit || ''}
+                      onChange={e => setNewProduct(p => ({ ...p, spec_fit: e.target.value }))}
+                      placeholder="e.g. Regular / Replica Fit"
+                      className={INPUT}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Country of Origin</label>
+                    <input
+                      value={(newProduct as any).spec_origin || ''}
+                      onChange={e => setNewProduct(p => ({ ...p, spec_origin: e.target.value }))}
+                      placeholder="e.g. Georgia / Thailand"
+                      className={INPUT}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">Care Instructions</label>
+                    <input
+                      value={(newProduct as any).spec_care || ''}
+                      onChange={e => setNewProduct(p => ({ ...p, spec_care: e.target.value }))}
+                      placeholder="e.g. Machine wash 30°C inside out"
+                      className={INPUT}
+                      style={INPUT_STYLE}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* 📦 SHIPPING & SEO */}
             <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
