@@ -19,7 +19,13 @@ export interface ProductType {
   type?: 'physical' | 'digital'
   digital_file_url?: string | null
   access_password?: string | null
+  platforms?: string[]
+  mac_url?: string | null
+  windows_url?: string | null
+  android_url?: string | null
+  ios_url?: string | null
 }
+
 type SortOption = 'newest' | 'popular' | 'price-asc' | 'price-desc'
 
 
@@ -132,9 +138,15 @@ export default function Shop() {
             type: p.type || 'physical',
             digital_file_url: p.digital_file_url || null,
             access_password: p.access_password || null,
+            platforms: Array.isArray(p.platforms) ? p.platforms : (typeof p.platforms === 'string' ? p.platforms.split(',').map((s: string) => s.trim()) : ['mac', 'windows', 'android']),
+            mac_url: p.mac_url || null,
+            windows_url: p.windows_url || null,
+            android_url: p.android_url || null,
+            ios_url: p.ios_url || null,
           }
 
         })
+
         setProductList(formatted.length > 0 ? formatted : DEFAULT_SHOP_PRODUCTS)
       } else {
         setProductList(DEFAULT_SHOP_PRODUCTS)

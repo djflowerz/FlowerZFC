@@ -590,7 +590,13 @@ export default function Admin() {
     type: 'physical' as 'physical' | 'digital',
     digitalFileUrl: '',
     accessPassword: '',
+    platforms: ['mac', 'windows', 'android'] as string[],
+    macUrl: '',
+    windowsUrl: '',
+    androidUrl: '',
+    iosUrl: '',
   }
+
   const [newProduct, setNewProduct] = useState(BLANK_PRODUCT)
 
   // New article form with full football news CMS specifications
@@ -4664,18 +4670,94 @@ export default function Admin() {
                 <div className="p-3.5 rounded-xl border border-[#6366f1]/40 space-y-3" style={{ background: 'rgba(99,102,241,0.06)' }}>
                   <div className="flex items-center gap-1.5 text-xs font-black text-[#a5b4fc]">
                     <span>💾</span>
-                    <span>Downloadable File Storage & Delivery</span>
+                    <span>Downloadable File Storage & OS Compatibility</span>
                   </div>
+
+                  {/* OS Platform Selector */}
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-400 mb-1">Direct Download File URL (Dropbox, Google Drive, R2, S3, etc.) *</label>
+                    <label className="block text-[10px] font-bold text-gray-400 mb-1.5">Supported Operating Systems & Devices</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {[
+                        { id: 'mac', label: '🍏 macOS (.dmg / .zip)' },
+                        { id: 'windows', label: '🪟 Windows (.exe / .zip)' },
+                        { id: 'android', label: '🤖 Android (.apk)' },
+                        { id: 'ios', label: '📱 iOS / iPadOS' },
+                        { id: 'universal', label: '🌐 Universal / All Devices' },
+                      ].map(os => {
+                        const curPlatforms: string[] = Array.isArray(editProduct.platforms)
+                          ? editProduct.platforms
+                          : (typeof editProduct.platforms === 'string' ? (editProduct.platforms as string).split(',').map(s => s.trim()) : ['mac', 'windows', 'android'])
+                        const isSelected = curPlatforms.includes(os.id)
+                        return (
+                          <button
+                            type="button"
+                            key={os.id}
+                            onClick={() => {
+                              const updated = isSelected ? curPlatforms.filter(x => x !== os.id) : [...curPlatforms, os.id]
+                              setEditProduct(p => p ? { ...p, platforms: updated } : p)
+                            }}
+                            className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all ${
+                              isSelected
+                                ? 'bg-[#6366f1] text-white border-[#6366f1]'
+                                : 'bg-[#131320] text-gray-400 border-[#1e1e32] hover:text-white'
+                            }`}
+                          >
+                            {os.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Primary / General File URL */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 mb-1">Main / Universal Download URL (or primary package) *</label>
                     <input
                       value={editProduct.digital_file_url || (editProduct as any).digitalFileUrl || ''}
                       onChange={e => setEditProduct(p => p ? { ...p, digital_file_url: e.target.value, digitalFileUrl: e.target.value } : p)}
-                      placeholder="https://storage.flowerz.fc/downloads/tactics-guide-2026.pdf"
+                      placeholder="https://storage.flowerz.fc/downloads/app-universal.zip"
                       className={INPUT}
                       style={INPUT_STYLE}
                     />
                   </div>
+
+                  {/* Platform-Specific Download URLs */}
+                  <div className="space-y-2 pt-2 border-t border-[#6366f1]/20">
+                    <label className="text-[10px] font-black uppercase text-[#a5b4fc] tracking-wider block">Platform-Specific Builds (optional)</label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-[9px] font-bold text-gray-400 mb-1">🍏 Mac Download URL (.dmg / .zip)</label>
+                        <input
+                          value={editProduct.mac_url || (editProduct as any).macUrl || ''}
+                          onChange={e => setEditProduct(p => p ? { ...p, mac_url: e.target.value, macUrl: e.target.value } : p)}
+                          placeholder="https://.../app-mac.dmg"
+                          className={INPUT}
+                          style={INPUT_STYLE}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-gray-400 mb-1">🪟 Windows Download URL (.exe / .zip)</label>
+                        <input
+                          value={editProduct.windows_url || (editProduct as any).windowsUrl || ''}
+                          onChange={e => setEditProduct(p => p ? { ...p, windows_url: e.target.value, windowsUrl: e.target.value } : p)}
+                          placeholder="https://.../app-setup.exe"
+                          className={INPUT}
+                          style={INPUT_STYLE}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-gray-400 mb-1">🤖 Android Download URL (.apk)</label>
+                        <input
+                          value={editProduct.android_url || (editProduct as any).androidUrl || ''}
+                          onChange={e => setEditProduct(p => p ? { ...p, android_url: e.target.value, androidUrl: e.target.value } : p)}
+                          placeholder="https://.../app-release.apk"
+                          className={INPUT}
+                          style={INPUT_STYLE}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 mb-1">Access Password / Key (optional)</label>
@@ -4688,11 +4770,11 @@ export default function Admin() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 mb-1">File Format / Format Note</label>
+                      <label className="block text-[10px] font-bold text-gray-400 mb-1">File Format & Size</label>
                       <input
                         value={editProduct.version || ''}
                         onChange={e => setEditProduct(p => p ? { ...p, version: e.target.value } : p)}
-                        placeholder="e.g. PDF (35 MB) or ZIP Archive"
+                        placeholder="e.g. DMG / EXE / APK (45 MB)"
                         className={INPUT}
                         style={INPUT_STYLE}
                       />
@@ -4700,6 +4782,7 @@ export default function Admin() {
                   </div>
                 </div>
               ) : null}
+
 
               <div>
                 <label className="block text-[10px] font-bold text-gray-500 mb-1">
@@ -4877,6 +4960,11 @@ export default function Admin() {
               type: newProduct.type,
               digital_file_url: newProduct.type === 'digital' ? (newProduct.digitalFileUrl || null) : null,
               access_password: newProduct.type === 'digital' ? (newProduct.accessPassword || null) : null,
+              platforms: newProduct.type === 'digital' ? (newProduct.platforms || ['mac', 'windows', 'android']) : [],
+              mac_url: newProduct.type === 'digital' ? (newProduct.macUrl || null) : null,
+              windows_url: newProduct.type === 'digital' ? (newProduct.windowsUrl || null) : null,
+              android_url: newProduct.type === 'digital' ? (newProduct.androidUrl || null) : null,
+              ios_url: newProduct.type === 'digital' ? (newProduct.iosUrl || null) : null,
               name: newProduct.name,
               sku: newProduct.sku || `SKU-${Date.now().toString().slice(-6)}`,
               description: newProduct.description,
@@ -4911,6 +4999,7 @@ export default function Admin() {
               colors: newProduct.colors,
               tags: newProduct.tags,
             }
+
             const { product: savedProduct, error } = await createProduct(prod)
             if (error || !savedProduct) {
               toastLib.error('❌ Failed to save product. Please try again.')
@@ -5047,20 +5136,94 @@ export default function Admin() {
                 <div className="p-3.5 rounded-xl border border-[#6366f1]/40 space-y-3" style={{ background: 'rgba(99,102,241,0.06)' }}>
                   <div className="flex items-center gap-1.5 text-xs font-black text-[#a5b4fc]">
                     <span>💾</span>
-                    <span>Downloadable File Storage & Delivery</span>
+                    <span>Downloadable File Storage & OS Compatibility</span>
                   </div>
+
+                  {/* OS Platform Selector */}
                   <div>
-                    <label className="block text-[10px] font-bold text-gray-400 mb-1">Direct Download File URL (Dropbox, Google Drive, R2, S3, Cloudflare, etc.) *</label>
+                    <label className="block text-[10px] font-bold text-gray-400 mb-1.5">Supported Operating Systems & Devices</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {[
+                        { id: 'mac', label: '🍏 macOS (.dmg / .zip)' },
+                        { id: 'windows', label: '🪟 Windows (.exe / .zip)' },
+                        { id: 'android', label: '🤖 Android (.apk)' },
+                        { id: 'ios', label: '📱 iOS / iPadOS' },
+                        { id: 'universal', label: '🌐 Universal / All Devices' },
+                      ].map(os => {
+                        const curPlatforms: string[] = newProduct.platforms || ['mac', 'windows', 'android']
+                        const isSelected = curPlatforms.includes(os.id)
+                        return (
+                          <button
+                            type="button"
+                            key={os.id}
+                            onClick={() => {
+                              const updated = isSelected ? curPlatforms.filter(x => x !== os.id) : [...curPlatforms, os.id]
+                              setNewProduct(p => ({ ...p, platforms: updated }))
+                            }}
+                            className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-all ${
+                              isSelected
+                                ? 'bg-[#6366f1] text-white border-[#6366f1]'
+                                : 'bg-[#131320] text-gray-400 border-[#1e1e32] hover:text-white'
+                            }`}
+                          >
+                            {os.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Primary / General File URL */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 mb-1">Main / Universal Download URL (or primary package) *</label>
                     <input
                       value={newProduct.digitalFileUrl}
                       onChange={e => setNewProduct(p => ({ ...p, digitalFileUrl: e.target.value }))}
-                      placeholder="https://storage.flowerz.fc/downloads/tactics-guide-2026.pdf"
+                      placeholder="https://storage.flowerz.fc/downloads/app-universal.zip"
                       required
                       className={INPUT}
                       style={INPUT_STYLE}
                     />
                     <p className="text-[9px] text-gray-500 mt-1">Buyers get instant one-click access to download this file after completing checkout.</p>
                   </div>
+
+                  {/* Platform-Specific Download URLs */}
+                  <div className="space-y-2 pt-2 border-t border-[#6366f1]/20">
+                    <label className="text-[10px] font-black uppercase text-[#a5b4fc] tracking-wider block">Platform-Specific Builds (optional)</label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-[9px] font-bold text-gray-400 mb-1">🍏 Mac Download URL (.dmg / .zip)</label>
+                        <input
+                          value={newProduct.macUrl}
+                          onChange={e => setNewProduct(p => ({ ...p, macUrl: e.target.value }))}
+                          placeholder="https://.../app-mac.dmg"
+                          className={INPUT}
+                          style={INPUT_STYLE}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-gray-400 mb-1">🪟 Windows Download URL (.exe / .zip)</label>
+                        <input
+                          value={newProduct.windowsUrl}
+                          onChange={e => setNewProduct(p => ({ ...p, windowsUrl: e.target.value }))}
+                          placeholder="https://.../app-setup.exe"
+                          className={INPUT}
+                          style={INPUT_STYLE}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-gray-400 mb-1">🤖 Android Download URL (.apk)</label>
+                        <input
+                          value={newProduct.androidUrl}
+                          onChange={e => setNewProduct(p => ({ ...p, androidUrl: e.target.value }))}
+                          placeholder="https://.../app-release.apk"
+                          className={INPUT}
+                          style={INPUT_STYLE}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 mb-1">Access Password / Unlock Key (optional)</label>
@@ -5073,11 +5236,11 @@ export default function Admin() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 mb-1">File Format / Format Note</label>
+                      <label className="block text-[10px] font-bold text-gray-400 mb-1">File Format & Size</label>
                       <input
                         value={newProduct.version}
                         onChange={e => setNewProduct(p => ({ ...p, version: e.target.value }))}
-                        placeholder="e.g. PDF (35 MB) or ZIP (450 MB)"
+                        placeholder="e.g. DMG / EXE / APK (45 MB)"
                         className={INPUT}
                         style={INPUT_STYLE}
                       />
@@ -5085,6 +5248,7 @@ export default function Admin() {
                   </div>
                 </div>
               )}
+
 
               <div>
                 <label className="block text-[10px] font-bold text-gray-500 mb-1">

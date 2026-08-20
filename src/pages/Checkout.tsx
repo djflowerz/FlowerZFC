@@ -22,6 +22,9 @@ export default function Checkout() {
   const [cartProductTypes, setCartProductTypes] = useState<Record<string, 'physical' | 'digital'>>({})
   const [cartDigitalFiles, setCartDigitalFiles] = useState<Record<string, string | null>>({})
   const [cartDigitalPasswords, setCartDigitalPasswords] = useState<Record<string, string | null>>({})
+  const [cartMacFiles, setCartMacFiles] = useState<Record<string, string | null>>({})
+  const [cartWindowsFiles, setCartWindowsFiles] = useState<Record<string, string | null>>({})
+  const [cartAndroidFiles, setCartAndroidFiles] = useState<Record<string, string | null>>({})
 
   useEffect(() => {
     fetchAllProducts().then(({ products }) => {
@@ -29,16 +32,26 @@ export default function Checkout() {
       const types: Record<string, 'physical' | 'digital'> = {}
       const files: Record<string, string | null> = {}
       const passwords: Record<string, string | null> = {}
+      const macs: Record<string, string | null> = {}
+      const windows: Record<string, string | null> = {}
+      const androids: Record<string, string | null> = {}
       products.forEach((p: any) => {
         types[String(p.id)] = p.type || 'physical'
         files[String(p.id)] = p.digital_file_url || null
         passwords[String(p.id)] = p.access_password || null
+        macs[String(p.id)] = p.mac_url || null
+        windows[String(p.id)] = p.windows_url || null
+        androids[String(p.id)] = p.android_url || null
       })
       setCartProductTypes(types)
       setCartDigitalFiles(files)
       setCartDigitalPasswords(passwords)
+      setCartMacFiles(macs)
+      setCartWindowsFiles(windows)
+      setCartAndroidFiles(androids)
     })
   }, [])
+
 
   const isAllDigital = cart.length > 0 && cart.every(item => cartProductTypes[item.id] === 'digital')
   const hasDigitalItems = cart.some(item => cartProductTypes[item.id] === 'digital')
@@ -387,30 +400,89 @@ export default function Checkout() {
                           </div>
                         </div>
                       </div>
-                      {cartDigitalFiles[item.id] ? (
-                        <a
-                          href={cartDigitalFiles[item.id]!}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          download
-                          className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-black text-white rounded-lg transition-all hover:opacity-90"
-                          style={{ background: '#22c55e' }}
-                        >
-                          ⬇️ Download {item.name}
-                        </a>
-                      ) : (
-                        <div className="py-2.5 px-3 rounded-lg text-xs text-yellow-300 border border-yellow-500/30" style={{ background: 'rgba(234,179,8,0.06)' }}>
-                          📧 Download link sent to <strong>{shipping.email}</strong>. Check your inbox within 5 minutes.
-                          {cartDigitalPasswords[item.id] && (
-                            <p className="mt-1">🔑 Access Password: <strong className="font-mono text-white">{cartDigitalPasswords[item.id]}</strong></p>
+                      {/* Download Buttons / Multi-OS */}
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {/* Mac */}
+                          {(cartMacFiles[item.id] || cartDigitalFiles[item.id]) && (
+                            <a
+                              href={cartMacFiles[item.id] || cartDigitalFiles[item.id]!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download
+                              className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-lg transition-all hover:opacity-90 border border-white/20"
+                              style={{ background: '#1e1e38' }}
+                            >
+                              <span>🍏</span>
+                              <span>Mac (.dmg / .zip)</span>
+                            </a>
+                          )}
+
+                          {/* Windows */}
+                          {(cartWindowsFiles[item.id] || cartDigitalFiles[item.id]) && (
+                            <a
+                              href={cartWindowsFiles[item.id] || cartDigitalFiles[item.id]!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download
+                              className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-lg transition-all hover:opacity-90 border border-[#00a4ef]/30"
+                              style={{ background: 'rgba(0,164,239,0.12)', color: '#38bdf8' }}
+                            >
+                              <span>🪟</span>
+                              <span>Windows (.exe / .zip)</span>
+                            </a>
+                          )}
+
+                          {/* Android */}
+                          {(cartAndroidFiles[item.id] || cartDigitalFiles[item.id]) && (
+                            <a
+                              href={cartAndroidFiles[item.id] || cartDigitalFiles[item.id]!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download
+                              className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-lg transition-all hover:opacity-90 border border-[#3ddc84]/30"
+                              style={{ background: 'rgba(61,220,132,0.12)', color: '#4ade80' }}
+                            >
+                              <span>🤖</span>
+                              <span>Android APK</span>
+                            </a>
+                          )}
+
+                          {/* Universal Package */}
+                          {cartDigitalFiles[item.id] && (
+                            <a
+                              href={cartDigitalFiles[item.id]!}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              download
+                              className="flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-black text-white rounded-lg transition-all hover:opacity-90"
+                              style={{ background: '#22c55e' }}
+                            >
+                              <span>📦</span>
+                              <span>Universal File (.ZIP)</span>
+                            </a>
                           )}
                         </div>
-                      )}
+
+                        {!cartDigitalFiles[item.id] && !cartMacFiles[item.id] && !cartWindowsFiles[item.id] && !cartAndroidFiles[item.id] && (
+                          <div className="py-2.5 px-3 rounded-lg text-xs text-yellow-300 border border-yellow-500/30" style={{ background: 'rgba(234,179,8,0.06)' }}>
+                            📧 Download link sent to <strong>{shipping.email}</strong>. Check your inbox within 5 minutes.
+                          </div>
+                        )}
+
+                        {cartDigitalPasswords[item.id] && (
+                          <div className="p-2 rounded-lg bg-black/40 border border-[#1e1e32] text-xs text-gray-400 flex items-center justify-between">
+                            <span>🔑 Access Password:</span>
+                            <strong className="font-mono text-[#a5b4fc] text-sm">{cartDigitalPasswords[item.id]}</strong>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+
           </div>
         )}
 

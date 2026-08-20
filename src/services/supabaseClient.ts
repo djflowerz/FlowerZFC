@@ -33,8 +33,14 @@ export interface ProductRow {
   type?: 'physical' | 'digital'
   digital_file_url?: string | null
   access_password?: string | null
+  platforms?: string[] | string
+  mac_url?: string | null
+  windows_url?: string | null
+  android_url?: string | null
+  ios_url?: string | null
   created_at?: string
 }
+
 
 export interface OrderRow {
   id: string

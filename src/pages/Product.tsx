@@ -59,10 +59,16 @@ export default function Product() {
           type: p.type || 'physical',
           digital_file_url: p.digital_file_url || null,
           access_password: p.access_password || null,
+          platforms: Array.isArray(p.platforms) ? p.platforms : (typeof p.platforms === 'string' ? p.platforms.split(',').map((s: string) => s.trim()) : ['mac', 'windows', 'android']),
+          mac_url: p.mac_url || null,
+          windows_url: p.windows_url || null,
+          android_url: p.android_url || null,
+          ios_url: p.ios_url || null,
         }))
       }
       setAllProducts(formatted)
       const found = formatted.find(p => String(p.id) === String(id))
+
       setProduct(found || null)
     }).finally(() => setLoading(false))
   }, [id])
@@ -182,6 +188,24 @@ export default function Product() {
 
             {isDigital ? (
               <div className="space-y-4">
+                {/* Platform Compatibility Badges */}
+                <div className="p-3 rounded-xl border border-[#6366f1]/30 flex items-center justify-between flex-wrap gap-2" style={{ background: 'rgba(99,102,241,0.06)' }}>
+                  <span className="text-[10px] font-black text-white uppercase tracking-wider">Compatible With:</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {[
+                      { id: 'mac', label: '🍏 macOS' },
+                      { id: 'windows', label: '🪟 Windows' },
+                      { id: 'android', label: '🤖 Android' },
+                      { id: 'ios', label: '📱 iOS' },
+                      { id: 'universal', label: '🌐 Universal' },
+                    ].filter(p => !product.platforms || product.platforms.length === 0 || product.platforms.includes(p.id) || product.platforms.includes('universal')).map(p => (
+                      <span key={p.id} className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#131320] text-gray-300 border border-[#1e1e32]">
+                        {p.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-3 gap-2">
                   {[{ icon: '⚡', label: 'Instant Access' }, { icon: '🔒', label: 'Secure File' }, { icon: '♾️', label: 'Lifetime Download' }].map(b => (
                     <div key={b.label} className="flex flex-col items-center gap-1 p-2 rounded-xl border border-[#6366f1]/20 text-center" style={{ background: 'rgba(99,102,241,0.06)' }}>
@@ -215,29 +239,86 @@ export default function Product() {
                           {passwordError && <p className="text-[10px] text-red-400 mt-1">{passwordError}</p>}
                         </div>
                       )}
-                      <button onClick={handleUnlockDownload} className="w-full py-2 text-xs font-bold text-white rounded-lg transition-all hover:opacity-90" style={{ background: '#6366f1' }}>Unlock Download →</button>
+                      <button onClick={handleUnlockDownload} className="w-full py-2 text-xs font-bold text-white rounded-lg transition-all hover:opacity-90" style={{ background: '#6366f1' }}>Unlock Downloads →</button>
                     </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div className="flex items-center gap-2 p-3 rounded-lg border border-[#6366f1]/40" style={{ background: 'rgba(99,102,241,0.1)' }}>
                         <span className="text-xl">✅</span>
                         <div>
-                          <p className="text-xs font-bold text-[#a5b4fc]">Download Unlocked!</p>
-                          <p className="text-[10px] text-gray-400">Your file is ready to download.</p>
+                          <p className="text-xs font-bold text-[#a5b4fc]">Downloads Ready!</p>
+                          <p className="text-[10px] text-gray-400">Choose your device or operating system below to download.</p>
                         </div>
                       </div>
-                      {product.digital_file_url ? (
-                        <a href={product.digital_file_url} target="_blank" rel="noopener noreferrer" download className="w-full flex items-center justify-center gap-2 py-3 text-sm font-black text-white rounded-xl transition-all hover:opacity-90" style={{ background: '#22c55e' }}>
-                          ⬇️ Download File
-                        </a>
-                      ) : (
-                        <p className="text-[10px] text-yellow-400">⚠️ Download link will be sent to your email after payment is verified.</p>
-                      )}
+
+                      {/* Multi-OS Download Buttons */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {/* Mac */}
+                        {(product.mac_url || product.digital_file_url) && (
+                          <a
+                            href={product.mac_url || product.digital_file_url!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download
+                            className="flex items-center justify-center gap-2 py-3 px-4 text-xs font-black text-white rounded-xl transition-all hover:opacity-90 border border-white/20"
+                            style={{ background: '#1e1e38' }}
+                          >
+                            <span>🍏</span>
+                            <span>Download for macOS</span>
+                          </a>
+                        )}
+
+                        {/* Windows */}
+                        {(product.windows_url || product.digital_file_url) && (
+                          <a
+                            href={product.windows_url || product.digital_file_url!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download
+                            className="flex items-center justify-center gap-2 py-3 px-4 text-xs font-black text-white rounded-xl transition-all hover:opacity-90 border border-[#00a4ef]/30"
+                            style={{ background: 'rgba(0,164,239,0.12)', color: '#38bdf8' }}
+                          >
+                            <span>🪟</span>
+                            <span>Download for Windows</span>
+                          </a>
+                        )}
+
+                        {/* Android */}
+                        {(product.android_url || product.digital_file_url) && (
+                          <a
+                            href={product.android_url || product.digital_file_url!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download
+                            className="flex items-center justify-center gap-2 py-3 px-4 text-xs font-black text-white rounded-xl transition-all hover:opacity-90 border border-[#3ddc84]/30"
+                            style={{ background: 'rgba(61,220,132,0.12)', color: '#4ade80' }}
+                          >
+                            <span>🤖</span>
+                            <span>Download Android APK</span>
+                          </a>
+                        )}
+
+                        {/* Universal / Main */}
+                        {product.digital_file_url && (
+                          <a
+                            href={product.digital_file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download
+                            className="flex items-center justify-center gap-2 py-3 px-4 text-xs font-black text-white rounded-xl transition-all hover:opacity-90"
+                            style={{ background: '#22c55e' }}
+                          >
+                            <span>📦</span>
+                            <span>Universal Download (.ZIP)</span>
+                          </a>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
             ) : (
+
               <>
                 {isApparel && (
                   <div className="mb-5">
