@@ -24,6 +24,7 @@ export interface ProductType {
   windows_url?: string | null
   android_url?: string | null
   ios_url?: string | null
+  addons?: Array<{ id: string; label: string; price: number; icon?: string }>
 }
 
 type SortOption = 'newest' | 'popular' | 'price-asc' | 'price-desc'
@@ -57,8 +58,8 @@ const DEFAULT_SHOP_PRODUCTS: ProductType[] = [
   {
     id: 'p1771285147630',
     name: 'FlowerZFC Official Home Jersey 2026',
-    price: 49.99,
-    originalPrice: 64.99,
+    price: 6500,
+    originalPrice: 8500,
     category: 'Jerseys',
     badge: 'OFFICIAL',
     rating: 4.9,

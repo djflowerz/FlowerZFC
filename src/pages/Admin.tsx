@@ -171,6 +171,7 @@ export type Product = {
   androidUrl?: string | null
   ios_url?: string | null
   iosUrl?: string | null
+  addons?: Array<{ id: string; label: string; price: number; icon?: string }>
 }
 
 
@@ -402,6 +403,7 @@ export default function Admin() {
             androidUrl: p.android_url || vg.android_url || null,
             ios_url: p.ios_url || vg.ios_url || null,
             iosUrl: p.ios_url || vg.ios_url || null,
+            addons: p.addons || vg.addons || null,
           }
         })
         setProducts(mappedProds)
@@ -633,6 +635,7 @@ export default function Admin() {
     colors: 'Green, White',
     tags: 'jersey,home,2026,kits',
     type: 'physical' as 'physical' | 'digital',
+    addons: [] as Array<{ id: string; label: string; price: number; icon?: string }>,
     digitalFileUrl: '',
     accessPassword: '',
     platforms: ['mac', 'windows', 'android'] as string[],
@@ -4943,6 +4946,42 @@ export default function Admin() {
                     })}
                   </div>
                 </div>
+
+                {/* Addons / Extra Charges */}
+                {editProduct.type !== 'digital' && (
+                  <div className="mt-4">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Product Add-ons (Extra Charges)</label>
+                    <div className="space-y-2 mb-2">
+                      {((editProduct as any).addons || []).map((addon: any, idx: number) => (
+                        <div key={idx} className="flex items-center gap-2 p-2 rounded-lg border border-[#1e1e32]" style={{ background: '#0c0c14' }}>
+                          <input value={addon.icon || ''} onChange={e => {
+                            const newAddons = [...((editProduct as any).addons || [])]
+                            newAddons[idx] = { ...addon, icon: e.target.value }
+                            setEditProduct((p: any) => ({ ...p, addons: newAddons }))
+                          }} placeholder="🏅" className="w-10 text-center text-sm bg-transparent border-none outline-none" />
+                          <input value={addon.label} onChange={e => {
+                            const newAddons = [...((editProduct as any).addons || [])]
+                            newAddons[idx] = { ...addon, label: e.target.value }
+                            setEditProduct((p: any) => ({ ...p, addons: newAddons }))
+                          }} placeholder="e.g. Premier League badge" className="flex-1 px-2 py-1 text-xs text-white rounded outline-none" style={{ background: '#131320', border: '1px solid #1e1e32' }} />
+                          <input type="number" value={addon.price} onChange={e => {
+                            const newAddons = [...((editProduct as any).addons || [])]
+                            newAddons[idx] = { ...addon, price: parseFloat(e.target.value) || 0 }
+                            setEditProduct((p: any) => ({ ...p, addons: newAddons }))
+                          }} placeholder="200" className="w-24 px-2 py-1 text-xs text-white rounded outline-none" style={{ background: '#131320', border: '1px solid #1e1e32' }} />
+                          <button onClick={() => {
+                            const newAddons = ((editProduct as any).addons || []).filter((_: any, i: number) => i !== idx)
+                            setEditProduct((p: any) => ({ ...p, addons: newAddons }))
+                          }} className="text-red-400 hover:text-red-300 text-xs">✕</button>
+                        </div>
+                      ))}
+                    </div>
+                    <button type="button" onClick={() => {
+                      const newAddon = { id: `addon_${Date.now()}`, label: '', price: 0, icon: '' }
+                      setEditProduct((p: any) => ({ ...p, addons: [...(p.addons || []), newAddon] }))
+                    }} className="w-full py-1.5 text-[10px] font-bold text-gray-400 border border-dashed border-[#1e1e32] rounded-lg hover:border-[#00b341] hover:text-[#00b341] transition-all">+ Add Option</button>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-[10px] font-bold text-gray-500 mb-1">Gender / Age Segment</label>
@@ -5048,6 +5087,7 @@ export default function Admin() {
               metaDescription: newProduct.metaDescription || newProduct.description,
               colors: newProduct.colors,
               tags: newProduct.tags,
+              addons: (newProduct as any).addons || null,
             }
 
             const { product: savedProduct, error } = await createProduct(prod)
@@ -5451,12 +5491,77 @@ export default function Admin() {
               <input value={newProduct.tags} onChange={e => setNewProduct(p => ({ ...p, tags: e.target.value }))} placeholder="Tags (comma-separated)" className={INPUT} style={INPUT_STYLE} />
             </div>
 
+            {/* 🏅 PRODUCT ADD-ONS / EXTRA CHARGES (Physical only) */}
+            {newProduct.type !== 'digital' && (
+              <div className="space-y-3 p-4 rounded-xl border border-[#1e1e32]" style={{ background: '#0d0d1e' }}>
+                <label className="text-[10px] font-black uppercase tracking-wider text-[#00b341]">🏅 Add-ons & Extra Charges</label>
+                <p className="text-[10px] text-gray-500">Optional upgrades customers can tick when buying (e.g. Premier League badge +KES 200, Name printing +KES 300)</p>
+                <div className="space-y-2">
+                  {((newProduct as any).addons || []).map((addon: any, idx: number) => (
+                    <div key={idx} className="flex items-center gap-2 p-2 rounded-lg border border-[#1e1e32]" style={{ background: '#0c0c14' }}>
+                      <input
+                        value={addon.icon || ''}
+                        onChange={e => {
+                          const newAddons = [...((newProduct as any).addons || [])]
+                          newAddons[idx] = { ...addon, icon: e.target.value }
+                          setNewProduct((p: any) => ({ ...p, addons: newAddons }))
+                        }}
+                        placeholder="🏅"
+                        className="w-10 text-center text-sm bg-transparent border-none outline-none"
+                      />
+                      <input
+                        value={addon.label}
+                        onChange={e => {
+                          const newAddons = [...((newProduct as any).addons || [])]
+                          newAddons[idx] = { ...addon, label: e.target.value }
+                          setNewProduct((p: any) => ({ ...p, addons: newAddons }))
+                        }}
+                        placeholder="e.g. Premier League badge"
+                        className="flex-1 px-2 py-1 text-xs text-white rounded outline-none"
+                        style={{ background: '#131320', border: '1px solid #1e1e32' }}
+                      />
+                      <span className="text-[10px] text-gray-500 shrink-0">+KES</span>
+                      <input
+                        type="number"
+                        value={addon.price}
+                        onChange={e => {
+                          const newAddons = [...((newProduct as any).addons || [])]
+                          newAddons[idx] = { ...addon, price: parseFloat(e.target.value) || 0 }
+                          setNewProduct((p: any) => ({ ...p, addons: newAddons }))
+                        }}
+                        placeholder="200"
+                        className="w-20 px-2 py-1 text-xs text-white rounded outline-none"
+                        style={{ background: '#131320', border: '1px solid #1e1e32' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newAddons = ((newProduct as any).addons || []).filter((_: any, i: number) => i !== idx)
+                          setNewProduct((p: any) => ({ ...p, addons: newAddons }))
+                        }}
+                        className="text-red-400 hover:text-red-300 text-sm font-bold shrink-0"
+                      >✕</button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newAddon = { id: `addon_${Date.now()}`, label: '', price: 0, icon: '' }
+                    setNewProduct((p: any) => ({ ...p, addons: [...((p as any).addons || []), newAddon] }))
+                  }}
+                  className="w-full py-1.5 text-[10px] font-bold text-gray-400 border border-dashed border-[#1e1e32] rounded-lg hover:border-[#00b341] hover:text-[#00b341] transition-all"
+                >+ Add Option (e.g. badge, name printing)</button>
+              </div>
+            )}
+
             <button type="submit" className="w-full py-3.5 font-black text-white rounded-xl hover:opacity-90 sticky bottom-0" style={{ background: newProduct.type === 'digital' ? '#6366f1' : '#00b341' }}>
               {newProduct.type === 'digital' ? '+ Publish Digital File to Store' : '+ Publish Product to Store'}
             </button>
           </form>
         </Modal>
       )}
+
 
       {/* Edit Article */}
       {editArticle && (

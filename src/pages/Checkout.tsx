@@ -374,6 +374,9 @@ export default function Checkout() {
                 {isAllDigital ? 'Purchase Complete! Download Ready.' : 'Payment Received & Order Confirmed!'}
               </h2>
               <p className="text-gray-400 mb-1">Order <strong className="text-[#00b341]">#{orderNum}</strong> is paid.</p>
+              {confirmedRef && (
+                <p className="text-xs text-gray-400">Payment Reference: <strong className="font-mono text-white">{confirmedRef}</strong></p>
+              )}
               <p className="text-sm text-gray-500 mb-2">Confirmation receipt sent to {shipping.email || 'your email'}.</p>
               {!isAllDigital && <p className="text-xs text-gray-600 mb-4">Estimated delivery: 7–14 business days.</p>}
 

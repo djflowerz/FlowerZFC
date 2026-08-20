@@ -245,6 +245,7 @@ function sanitizeProductPayload(product: Record<string, any>): Record<string, an
     sizes: product.sizes || null,
     gender: product.gender || null,
     playerList: product.playerList || null,
+    addons: product.addons || null,
   }
 
   sanitized.variant_groups = variantGroups
@@ -282,6 +283,7 @@ export async function fetchAllProducts(): Promise<{ products: ProductRow[]; erro
           windows_url: vg.windows_url || null,
           android_url: vg.android_url || null,
           ios_url: vg.ios_url || null,
+          addons: vg.addons || null,
         }
       })
     }
