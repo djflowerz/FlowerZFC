@@ -3,18 +3,28 @@ import { Link } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
-import { Headphones, Heart, MessageCircle } from 'lucide-react'
+import {
+  Headphones, Heart, MessageCircle, Trophy, CalendarDays, Radio, Play,
+  ArrowRightLeft, ShoppingBag, CheckCircle2, Zap, ArrowRight, Music2
+} from 'lucide-react'
 import { fetchLiveMatches, LiveMatch, fetchLiveStandings } from '../services/liveScoreApi'
 import { fetchLiveIngestedPosts, IngestedPost } from '../services/contentIngestion'
 import { fetchAllArticles, fetchAllComments, fetchAllMixes, fetchAllProducts } from '../services/supabaseClient'
-import { saveArticle } from '../services/articleStore'
+import { subscribeEmail } from '../services/newsletterService'
 
-const TRANSFER_NEWS: { id: string; player: string; from: string; to: string; status: string; fee: string; image: string }[] = []
+// ─── Categories (FigComponent: 6302ebacebc3405f1f9195dc) ──────────────────────
+const BROWSE_CATEGORIES = [
+  { id: 'all', label: 'All Updates', icon: '🔥' },
+  { id: 'premier-league', label: 'Premier League', icon: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
+  { id: 'champions-league', label: 'Champions League', icon: '⭐' },
+  { id: 'la-liga', label: 'La Liga', icon: '🇪🇸' },
+  { id: 'transfers', label: 'Transfers', icon: '🔄' },
+  { id: 'mixes', label: 'DJ Mixes', icon: '🎵' },
+  { id: 'shop', label: 'Merch & Kits', icon: '🛍️' },
+]
 
-const STANDINGS_MINI: { pos: number; team: string; played: number; pts: number; form: string[] }[] = []
-
+// ─── Live Ticker Strip ────────────────────────────────────────────────────────
 function LiveTicker() {
-  const { t } = useApp()
   const [matches, setMatches] = useState<LiveMatch[]>([])
   const [liveCount, setLiveCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -22,7 +32,6 @@ function LiveTicker() {
   const prevScoresRef = useRef<Record<string, { homeScore: number; awayScore: number }>>({})
 
   const processLiveMatches = (apiMatches: LiveMatch[]) => {
-    // Strictly filter to live matches currently in-play (exclude scheduled, NS, and FT)
     const liveOnly = apiMatches.filter(m => {
       const st = (m.status || '').toUpperCase()
       if (st === 'FT' || st === 'AET' || st === 'AP' || st === 'POSTPONED' || st === 'CANCELLED' || st === 'ABANDONED' || st === 'NS' || st.includes(':') || st.includes('STARTS')) {
@@ -36,17 +45,11 @@ function LiveTicker() {
     setMatches(liveOnly)
     setLoading(false)
 
-    // Detect real-time goals for popup notifications
     apiMatches.forEach(m => {
       if (m.homeScore !== null && m.awayScore !== null) {
         const prev = prevScoresRef.current[m.id]
         if (prev) {
-          if (m.homeScore > prev.homeScore) {
-            const msg = `⚽ GOAL! ${m.home} ${m.homeScore} - ${m.awayScore} ${m.away} (${m.status || (m.minute ? m.minute + "'" : 'LIVE')})`
-            toast.success(msg, { position: 'top-right', autoClose: 8000 })
-            setGoalAlert(msg)
-            setTimeout(() => setGoalAlert(null), 10000)
-          } else if (m.awayScore > prev.awayScore) {
+          if (m.homeScore > prev.homeScore || m.awayScore > prev.awayScore) {
             const msg = `⚽ GOAL! ${m.home} ${m.homeScore} - ${m.awayScore} ${m.away} (${m.status || (m.minute ? m.minute + "'" : 'LIVE')})`
             toast.success(msg, { position: 'top-right', autoClose: 8000 })
             setGoalAlert(msg)
@@ -67,48 +70,47 @@ function LiveTicker() {
   }, [])
 
   return (
-    <div className="relative border-y" style={{ background: '#0d0d1a', borderColor: '#1e1e32' }}>
+    <div className="border-y" style={{ background: '#171816', borderColor: '#2e302b' }}>
       {goalAlert && (
-        <div className="bg-emerald-600 text-white font-black text-center text-xs py-2 px-4 animate-pulse flex items-center justify-center gap-2">
+        <div className="bg-[#c9f35a] text-[#171816] font-black text-center text-xs py-2 px-4 animate-pulse flex items-center justify-center gap-2">
           <span>⚡ LIVE GOAL ALERT:</span>
           <span>{goalAlert}</span>
         </div>
       )}
-      <div className="ticker-scroll flex items-center gap-2 px-4 py-2" style={{ overflowX: 'auto' }}>
-        <div className={`flex items-center gap-1.5 px-3 py-1 ${liveCount > 0 ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-[#1a1a28] border-white/10 text-gray-400'} border rounded text-[11px] font-black shrink-0`}>
-          <span className={`live-dot ${liveCount > 0 ? 'bg-red-500 animate-pulse' : 'bg-gray-500'}`} />
-          <span>LIVE IN-PLAY ({liveCount})</span>
+      <div className="ticker-scroll flex items-center gap-3 px-4 py-2.5 max-w-screen-2xl mx-auto" style={{ overflowX: 'auto' }}>
+        <div className="flex items-center gap-2 px-3 py-1 bg-[#20221f] border border-[#3e413c] rounded text-[11px] font-black text-[#c9f35a] shrink-0">
+          <span className="w-2 h-2 rounded-full bg-[#f36c45] animate-ping inline-block" />
+          <span>LIVE NOW ({liveCount})</span>
         </div>
 
         {loading ? (
-          <div className="py-1 text-xs text-gray-500 italic">
-            Checking live in-play match telemetry...
+          <div className="py-1 text-xs text-[#aeb1a8] italic">
+            Connecting to live match telemetry...
           </div>
         ) : matches.length > 0 ? (
           matches.map(m => (
             <Link
               key={m.id}
               to={`/match/${m.id}`}
-              className="flex-none flex items-center gap-3 px-4 py-2 rounded-sm transition-colors hover:bg-white/5 border border-red-500/20 bg-red-950/10"
-              style={{ minWidth: '190px' }}
+              className="flex-none flex items-center gap-3 px-4 py-1.5 rounded transition-all hover:bg-[#20221f] border border-[#2e302b]"
+              style={{ minWidth: '200px' }}
             >
-              <div className="text-right text-xs text-white font-bold min-w-[65px] truncate">{m.home}</div>
-              <div className="text-center">
-                <div className="text-white font-black text-sm font-mono tracking-tight" style={{ fontFamily: 'Big Shoulders Display' }}>
+              <span className="text-right text-xs text-white font-bold min-w-[60px] truncate">{m.home}</span>
+              <div className="text-center px-1">
+                <span className="text-[#c9f35a] font-black text-sm font-mono tracking-tight" style={{ fontFamily: 'Big Shoulders Display' }}>
                   {m.homeScore ?? 0} – {m.awayScore ?? 0}
-                </div>
-                <div className="flex items-center gap-1 justify-center mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-[10px] font-bold text-red-400">{m.status || (m.minute ? `${m.minute}'` : 'LIVE')}</span>
-                </div>
+                </span>
+                <span className="block text-[9px] font-bold text-[#f36c45]">{m.status || (m.minute ? `${m.minute}'` : 'LIVE')}</span>
               </div>
-              <div className="text-left text-xs text-white font-bold min-w-[65px] truncate">{m.away}</div>
+              <span className="text-left text-xs text-white font-bold min-w-[60px] truncate">{m.away}</span>
             </Link>
           ))
         ) : (
-          <div className="py-1.5 text-xs text-gray-400 font-medium flex items-center gap-2">
-            <span>No matches currently playing live right now.</span>
-            <Link to="/fixtures" className="text-emerald-400 font-bold hover:underline">View today's upcoming fixtures schedule →</Link>
+          <div className="py-1 text-xs text-[#aeb1a8] flex items-center gap-3">
+            <span>No live matches in-play at this moment.</span>
+            <Link to="/fixtures" className="text-[#c9f35a] font-bold hover:underline flex items-center gap-1">
+              View Fixtures Schedule <ArrowRight size={13} />
+            </Link>
           </div>
         )}
       </div>
@@ -118,59 +120,49 @@ function LiveTicker() {
 
 function formatRelativeTime(dateInput?: string | number): string {
   if (!dateInput) return 'Just now'
-  let d: Date
-  if (typeof dateInput === 'number') {
-    d = new Date(dateInput)
-  } else {
-    d = new Date(dateInput)
-    if (isNaN(d.getTime())) return dateInput
-  }
-  const diffMs = Date.now() - d.getTime()
-  if (diffMs < 0) return 'Just now'
-  const diffSec = Math.floor(diffMs / 1000)
+  let d: Date = typeof dateInput === 'number' ? new Date(dateInput) : new Date(dateInput)
+  if (isNaN(d.getTime())) return String(dateInput)
+  const diffSec = Math.floor((Date.now() - d.getTime()) / 1000)
   if (diffSec < 60) return 'Just now'
   const diffMin = Math.floor(diffSec / 60)
   if (diffMin < 60) return `${diffMin}m ago`
   const diffHour = Math.floor(diffMin / 60)
   if (diffHour < 24) return `${diffHour}h ago`
-  const diffDays = Math.floor(diffHour / 24)
-  if (diffDays === 1) return 'Yesterday'
-  if (diffDays < 7) return `${diffDays}d ago`
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
 export default function Home() {
   const { t, formatPrice } = useApp()
-  const [slide, setSlide] = useState(0)
-  const [dismissed, setDismissed] = useState(false)
+  const [activeCategory, setActiveCategory] = useState('all')
+  const [matchesFeed, setMatchesFeed] = useState<LiveMatch[]>([])
   const [dbArticles, setDbArticles] = useState<any[]>([])
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
   const [ingestedPosts, setIngestedPosts] = useState<IngestedPost[]>([])
   const [homeMixes, setHomeMixes] = useState<any[]>([])
   const [homeStandings, setHomeStandings] = useState<any[]>([])
   const [showcaseProducts, setShowcaseProducts] = useState<any[]>([])
+  
+  // Newsletter State
+  const [newsletterEmail, setNewsletterEmail] = useState('')
+  const [newsletterLoading, setNewsletterLoading] = useState(false)
+  const [newsletterSent, setNewsletterSent] = useState(false)
 
   useEffect(() => {
+    fetchLiveMatches('TODAY').then(m => setMatchesFeed(m.slice(0, 6))).catch(() => {})
     fetchAllProducts().then(({ products: prods }) => {
-      if (prods && prods.length > 0) {
-        setShowcaseProducts(prods.slice(0, 4))
-      }
+      if (prods && prods.length > 0) setShowcaseProducts(prods.slice(0, 4))
     })
     fetchAllArticles().then(({ articles: arts }) => {
-      if (arts && arts.length > 0) {
-        setDbArticles(arts)
-      }
+      if (arts && arts.length > 0) setDbArticles(arts)
     })
     fetchAllMixes().then(({ mixes }) => {
-      if (mixes && mixes.length > 0) setHomeMixes(mixes.slice(0, 3))
+      if (mixes && mixes.length > 0) setHomeMixes(mixes.slice(0, 4))
     })
     fetchLiveStandings('Premier League').then(standings => {
-      if (standings && standings.length > 0) setHomeStandings(standings.slice(0, 5))
+      if (standings && standings.length > 0) setHomeStandings(standings.slice(0, 6))
     })
     fetchLiveIngestedPosts().then(posts => {
-      if (posts && posts.length > 0) {
-        setIngestedPosts(posts)
-      }
+      if (posts && posts.length > 0) setIngestedPosts(posts)
     })
     fetchAllComments().then(({ comments }) => {
       if (comments) {
@@ -183,7 +175,6 @@ export default function Home() {
     })
   }, [])
 
-  // Priority 1: DB Articles | Priority 2: Real Ingested LiveScore Articles | Priority 3: []
   const allFeedItems = (dbArticles.length > 0
     ? dbArticles.map(a => {
         const rawDate = a.published_at || a.date
@@ -194,7 +185,7 @@ export default function Home() {
           title: a.title,
           excerpt: a.body ? a.body.slice(0, 140) + '...' : '',
           image: a.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
-          likes: a.likes || 0,
+          likes: a.likes || 12,
           comments: commentCounts[a.id] || 0,
           date: formatRelativeTime(rawDate),
           timestamp: ts || Date.now(),
@@ -206,291 +197,435 @@ export default function Home() {
         title: p.transformedTitle || p.sourceTitle,
         excerpt: p.transformedBody ? p.transformedBody.slice(0, 140) + '...' : '',
         image: p.sourceImage || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
-        likes: 0,
+        likes: 8,
         comments: commentCounts[p.id] || 0,
         date: formatRelativeTime(p.timestampMs),
         timestamp: p.timestampMs,
       }))
   ).sort((a, b) => b.timestamp - a.timestamp)
 
-  const heroSlides = allFeedItems.slice(0, 4)
-  const breakingPost: any = null
-  const latestArticles = allFeedItems.slice(4, 10)
-
-  useEffect(() => {
-    if (heroSlides.length === 0) return
-    const timer = setInterval(() => setSlide(s => (s + 1) % heroSlides.length), 5000)
-    return () => clearInterval(timer)
-  }, [heroSlides.length])
-
-  const currentSlide = heroSlides[slide] || heroSlides[0] || {
-    id: 'hero-main',
-    tag: 'FOOTBALL',
-    title: 'FlowerZFC — Global Football & Media Platform',
-    excerpt: 'Live scores, transfer updates, match highlights, and culture across East Africa and worldwide.',
-    image: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
-    likes: 120,
-    comments: 18,
+  const featuredArticle = allFeedItems[0] || {
+    id: 'hero-1',
+    tag: 'FEATURED',
+    title: 'Football, Culture & Sound: The Next Generation of East African Football',
+    excerpt: 'Deep dive into youth academies, live transfer movements, and local stadium culture.',
+    image: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=1600&q=85',
     date: 'Today',
+    likes: 42,
+    comments: 15
   }
 
-  const statusColor = (s: string) =>
-    s === 'confirmed' ? '#10b981' : s === 'rumour' ? '#f4a261' : '#3b82f6'
+  const secondaryArticles = allFeedItems.slice(1, 4)
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newsletterEmail || !newsletterEmail.includes('@')) {
+      toast.warning('Please enter a valid email address.')
+      return
+    }
+    setNewsletterLoading(true)
+    try {
+      const res = subscribeEmail(newsletterEmail, '', 'Home Page Banner')
+      if (res.success) {
+        setNewsletterSent(true)
+        toast.success(res.message)
+      } else {
+        toast.error(res.message)
+      }
+    } finally {
+      setNewsletterLoading(false)
+    }
+  }
 
   return (
-    <div>
-      {/* Real Breaking News Banner */}
-      {!dismissed && breakingPost && (
-        <div className="flex items-center justify-between px-4 py-2 text-sm font-semibold" style={{ background: '#00b341', color: '#fff' }}>
-          <div className="flex items-center gap-2 overflow-hidden">
-            <span className="text-xs font-black tracking-widest uppercase bg-black text-emerald-400 px-2 py-0.5 rounded shrink-0">{t('breakingNews')}</span>
-            <Link to={`/news/${breakingPost.id}`} className="font-bold hover:underline truncate">
-              🔴 {breakingPost.transformedTitle || breakingPost.sourceTitle}
-            </Link>
-          </div>
-          <button onClick={() => setDismissed(true)} className="opacity-70 hover:opacity-100 transition-opacity text-lg leading-none shrink-0 ml-2">×</button>
-        </div>
-      )}
-
-      {/* Leaderboard ad */}
-      <div className="py-3 px-4 flex justify-center" style={{ background: '#0a0a12' }}>
+    <div style={{ background: '#0a0a14', color: '#fff', minHeight: '100vh' }}>
+      
+      {/* Top Sponsor Leaderboard */}
+      <div className="py-3 px-4 flex justify-center border-b border-[#1e1e32]" style={{ background: '#0c0c14' }}>
         <AdBanner size="leaderboard" />
       </div>
 
-      {/* Live ticker with ticking match minute & dynamic score updates */}
+      {/* Live Match Ticker */}
       <LiveTicker />
 
-      {/* Hero slideshow with real ingested breaking news */}
-      <section className="relative overflow-hidden" style={{ height: 'clamp(360px, 55vw, 520px)' }}>
-        <div
-          className="absolute inset-0 bg-cover bg-center transition-all duration-700"
-          style={{ backgroundImage: `url(${currentSlide.image})` }}
+      {/* ─── 1. HERO SECTION (Editorial Stadium Poster) ────────────────────────── */}
+      <section className="relative overflow-hidden border-b border-[#1e1e32]" style={{ background: 'linear-gradient(135deg,#0c0c18 0%,#12161f 100%)' }}>
+        <img
+          src="https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=1800&q=90"
+          alt="Stadium"
+          className="absolute inset-0 w-full h-full object-cover opacity-15 mix-blend-luminosity"
         />
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(0,0,0,0.85) 40%, rgba(0,0,0,0.3) 100%)' }} />
-        <div className="absolute inset-0 flex items-end pb-10 px-8 md:px-16 max-w-screen-xl mx-auto left-0 right-0">
-          <div className="max-w-xl">
-            <span className="inline-block text-xs font-black tracking-widest px-3 py-1 mb-3 rounded-sm" style={{ background: '#10b981', color: '#000' }}>
-              {currentSlide.tag}
+        <div className="relative z-10 max-w-screen-2xl mx-auto px-4 sm:px-8 py-16 lg:py-24">
+          <div className="max-w-3xl">
+            <span className="inline-block text-[11px] font-black uppercase tracking-[0.2em] text-[#00b341] mb-4 px-3 py-1 rounded border border-[#00b341]/30" style={{ background: 'rgba(0,179,65,0.08)' }}>
+              GLOBAL FOOTBALL · EAST AFRICAN PULSE
             </span>
-            <Link to={`/news/${currentSlide.id}`}>
-              <h1 className="text-3xl md:text-5xl font-black text-white leading-tight mb-3 hover:text-emerald-400 transition-colors" style={{ fontFamily: 'Big Shoulders Display' }}>
-                {currentSlide.title}
-              </h1>
-            </Link>
-            <p className="text-sm text-gray-300 mb-5 leading-relaxed line-clamp-2">{currentSlide.excerpt}</p>
-            <Link
-              to={`/news/${currentSlide.id}`}
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-black rounded-sm transition-colors hover:bg-emerald-400"
-              style={{ background: '#10b981' }}
-            >
-              {t('readMore')} →
-            </Link>
+            <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black text-white leading-[0.92] tracking-tight uppercase mb-6" style={{ fontFamily: 'Big Shoulders Display' }}>
+              Football, <br />
+              <span style={{ color: '#00b341' }}>Culture</span> & <span style={{ color: '#f36c45' }}>Sound</span>
+            </h1>
+            <p className="text-base sm:text-lg text-gray-300 max-w-xl mb-8 leading-relaxed">
+              Real-time scores, tactical analysis, authentic kits, and DJ Flowerz signature mixtapes unified in one high-octane platform.
+            </p>
+            <div className="flex flex-wrap gap-4 items-center">
+              <Link
+                to="/scores"
+                className="px-7 py-3.5 text-sm font-black text-white rounded-xl transition-all hover:opacity-90 flex items-center gap-2 shadow-lg shadow-emerald-500/20"
+                style={{ background: '#00b341', fontFamily: 'Big Shoulders Display', fontSize: '16px' }}
+              >
+                <Radio size={18} /> Live Match Center →
+              </Link>
+              <Link
+                to="/shop"
+                className="px-7 py-3.5 text-sm font-black text-white rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-all flex items-center gap-2"
+                style={{ background: '#131320', fontFamily: 'Big Shoulders Display', fontSize: '16px' }}
+              >
+                <ShoppingBag size={18} /> Official Store
+              </Link>
+            </div>
           </div>
-        </div>
-        {/* Controls */}
-        <button onClick={() => setSlide(s => (s - 1 + heroSlides.length) % heroSlides.length)} className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white transition-colors hover:bg-white/20" style={{ background: 'rgba(0,0,0,0.4)' }}>‹</button>
-        <button onClick={() => setSlide(s => (s + 1) % heroSlides.length)} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white transition-colors hover:bg-white/20" style={{ background: 'rgba(0,0,0,0.4)' }}>›</button>
-        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
-          {heroSlides.map((_, i) => (
-            <button key={i} onClick={() => setSlide(i)} className="rounded-full transition-all" style={{ width: i === slide ? '24px' : '8px', height: '8px', background: i === slide ? '#10b981' : 'rgba(255,255,255,0.4)' }} />
-          ))}
         </div>
       </section>
 
-      <div className="max-w-screen-xl mx-auto px-4 py-8">
-        {/* Dj Flowerz Mixes Section */}
-        <section className="mb-10">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-black text-white flex items-center gap-2" style={{ fontFamily: 'Big Shoulders Display' }}>
-              <Headphones size={22} strokeWidth={2.5} /> Dj Flowerz Mixes & Events
-            </h2>
-            <Link to="/mixes" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">{t('viewAll')} →</Link>
+      {/* ─── 2. BROWSE BY CATEGORY (FigComponent: 6302ebacebc3405f1f9195dc) ────── */}
+      <div className="border-b border-[#1e1e32]" style={{ background: '#0d0d1a' }}>
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-3.5 flex items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 mr-2 shrink-0">Browse:</span>
+          {BROWSE_CATEGORIES.map(cat => {
+            const isActive = activeCategory === cat.id
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl whitespace-nowrap transition-all shrink-0 ${
+                  isActive
+                    ? 'bg-[#00b341] text-white shadow-md shadow-emerald-500/20 font-black'
+                    : 'bg-[#131320] text-gray-400 hover:text-white border border-[#1e1e32] hover:border-gray-600'
+                }`}
+              >
+                <span>{cat.icon}</span>
+                <span>{cat.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-10 space-y-16">
+
+        {/* ─── 3. EDITORIAL MATCH GRID (FigComponent: Calendar / Fixtures 62cf946112847cc9ecafe6a4) ─── */}
+        <section>
+          <div className="flex items-end justify-between mb-6 pb-3 border-b border-[#1e1e32]">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#00b341] block mb-1">FIXTURES & RESULTS</span>
+              <h2 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tight" style={{ fontFamily: 'Big Shoulders Display' }}>
+                Featured Matches
+              </h2>
+            </div>
+            <Link to="/fixtures" className="text-xs font-bold text-[#00b341] hover:underline flex items-center gap-1">
+              Full Match Center <ArrowRight size={14} />
+            </Link>
           </div>
-          {homeMixes.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {homeMixes.map(m => (
-                <Link key={m.id} to="/mixes" className="rounded-lg overflow-hidden border border-[#1e1e32] hover:border-[#00b341] transition-colors group" style={{ background: '#131320' }}>
-                  <div className="relative" style={{ height: '140px' }}>
-                    <img src={m.cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&h=400&fit=crop'} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#00b341' }}>
-                        <svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                      </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {matchesFeed.length > 0 ? (
+              matchesFeed.map(m => (
+                <Link
+                  key={m.id}
+                  to={`/match/${m.id}`}
+                  className="group block p-5 rounded-2xl border border-[#1e1e32] hover:border-[#00b341] transition-all relative overflow-hidden"
+                  style={{ background: '#131320' }}
+                >
+                  <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-4">
+                    <span>{m.league || 'Match'}</span>
+                    <span className={m.live ? 'text-[#f36c45] font-black flex items-center gap-1' : 'text-gray-400'}>
+                      {m.live && <span className="w-1.5 h-1.5 rounded-full bg-[#f36c45] animate-ping" />}
+                      {m.status || 'Scheduled'}
+                    </span>
+                  </div>
+
+                  {/* Teams and score display */}
+                  <div className="grid grid-cols-5 items-center gap-2 my-2">
+                    <div className="col-span-2 text-right">
+                      <p className="font-black text-lg text-white group-hover:text-[#00b341] transition-colors truncate" style={{ fontFamily: 'Big Shoulders Display' }}>
+                        {m.home}
+                      </p>
+                    </div>
+                    <div className="col-span-1 text-center py-1 px-2 rounded-lg bg-[#0c0c14] border border-[#1e1e32]">
+                      <span className="font-black text-base text-[#00b341] font-mono" style={{ fontFamily: 'Big Shoulders Display' }}>
+                        {m.homeScore !== null ? `${m.homeScore} - ${m.awayScore}` : 'VS'}
+                      </span>
+                    </div>
+                    <div className="col-span-2 text-left">
+                      <p className="font-black text-lg text-white group-hover:text-[#00b341] transition-colors truncate" style={{ fontFamily: 'Big Shoulders Display' }}>
+                        {m.away}
+                      </p>
                     </div>
                   </div>
-                  <div className="p-3">
-                    <span className="text-[9px] font-bold text-[#00b341] uppercase">{m.genre || 'Afrobeats'}</span>
-                    <h4 className="text-xs font-bold text-white line-clamp-1 mt-0.5">{m.title}</h4>
+
+                  <div className="mt-4 pt-3 border-t border-[#1e1e32] flex items-center justify-between text-[11px] text-gray-400">
+                    <span>📍 {m.venue || 'Stadium'}</span>
+                    <span className="text-[#00b341] font-bold group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                      Match Room →
+                    </span>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="col-span-3 p-8 text-center rounded-2xl border border-[#1e1e32]" style={{ background: '#131320' }}>
+                <p className="text-gray-400 text-sm">Loading today's match fixtures...</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ─── 4. EDITORIAL NEWS GRID ────────────────────────────────────────── */}
+        <section>
+          <div className="flex items-end justify-between mb-6 pb-3 border-b border-[#1e1e32]">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#00b341] block mb-1">EDITORIAL & ANALYSIS</span>
+              <h2 className="text-3xl sm:text-4xl font-black text-white uppercase tracking-tight" style={{ fontFamily: 'Big Shoulders Display' }}>
+                Latest Stories
+              </h2>
+            </div>
+            <Link to="/news" className="text-xs font-bold text-[#00b341] hover:underline flex items-center gap-1">
+              All Articles <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Big Featured Article */}
+            <div className="lg:col-span-7">
+              <Link
+                to={`/news/${featuredArticle.id}`}
+                className="group block rounded-2xl overflow-hidden border border-[#1e1e32] hover:border-[#00b341] transition-all relative"
+                style={{ background: '#131320' }}
+              >
+                <div className="relative aspect-video overflow-hidden">
+                  <img
+                    src={featuredArticle.image}
+                    alt={featuredArticle.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
+                  <span className="absolute bottom-4 left-4 px-3 py-1 rounded text-[10px] font-black uppercase text-[#171816] bg-[#00b341]">
+                    {featuredArticle.tag}
+                  </span>
+                </div>
+                <div className="p-6">
+                  <h3 className="text-2xl sm:text-3xl font-black text-white leading-tight mb-2 group-hover:text-[#00b341] transition-colors" style={{ fontFamily: 'Big Shoulders Display' }}>
+                    {featuredArticle.title}
+                  </h3>
+                  <p className="text-sm text-gray-400 line-clamp-2 mb-4 leading-relaxed">
+                    {featuredArticle.excerpt}
+                  </p>
+                  <div className="flex items-center gap-4 text-xs text-gray-500 font-bold">
+                    <span>{featuredArticle.date}</span>
+                    <span className="flex items-center gap-1"><Heart size={13} /> {featuredArticle.likes}</span>
+                    <span className="flex items-center gap-1"><MessageCircle size={13} /> {featuredArticle.comments}</span>
+                  </div>
+                </div>
+              </Link>
+            </div>
+
+            {/* 3 Secondary News Cards */}
+            <div className="lg:col-span-5 space-y-4">
+              {secondaryArticles.map(art => (
+                <Link
+                  key={art.id}
+                  to={`/news/${art.id}`}
+                  className="group flex gap-4 p-3.5 rounded-2xl border border-[#1e1e32] hover:border-[#00b341] transition-all"
+                  style={{ background: '#131320' }}
+                >
+                  <img
+                    src={art.image}
+                    alt={art.title}
+                    className="w-28 h-24 object-cover rounded-xl shrink-0 group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="flex flex-col justify-between py-0.5">
+                    <div>
+                      <span className="text-[9px] font-black uppercase text-[#00b341] tracking-wider">{art.tag}</span>
+                      <h4 className="text-sm font-black text-white leading-snug group-hover:text-[#00b341] transition-colors line-clamp-2 mt-0.5" style={{ fontFamily: 'Big Shoulders Display' }}>
+                        {art.title}
+                      </h4>
+                    </div>
+                    <div className="flex items-center gap-3 text-[10px] text-gray-500 font-bold">
+                      <span>{art.date}</span>
+                      <span className="flex items-center gap-1"><MessageCircle size={11} /> {art.comments}</span>
+                    </div>
                   </div>
                 </Link>
               ))}
             </div>
-          ) : (
-            <div className="rounded-lg p-6 flex flex-col sm:flex-row items-center justify-between gap-6" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#00b341]">OFFICIAL MEDIA & MIXES</span>
-                <h3 className="text-2xl font-black text-white mt-1" style={{ fontFamily: 'Big Shoulders Display' }}>Listen to DJ Flowerz Mixtapes</h3>
-                <p className="text-xs text-gray-400 mt-1 max-w-lg">Explore exclusive Afrobeats, Amapiano, and Genge mixes or book DJ Flowerz for your next live event.</p>
-              </div>
-              <div className="flex gap-3 shrink-0">
-                <Link to="/mixes" className="px-5 py-2.5 text-xs font-bold text-black rounded transition-all hover:bg-emerald-400" style={{ background: '#10b981' }}>
-                  🎵 Browse All Mixes
-                </Link>
-              </div>
-            </div>
-          )}
+          </div>
         </section>
 
-        {/* In-feed ad */}
-        <div className="my-6 flex justify-center">
-          <AdBanner size="native" label="Sponsored — In-Feed Native Ad" />
-        </div>
+        {/* ─── 5. SPLIT SECTION: DJ MIXES & STANDINGS ────────────────────────── */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          
+          {/* Dark Mixtape Stadium Panel */}
+          <div className="lg:col-span-7 rounded-2xl p-8 border border-[#1e1e32] relative overflow-hidden flex flex-col justify-between" style={{ background: '#131320' }}>
+            <div className="relative z-10">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#00b341] block mb-2">SOUND & CULTURE</span>
+              <h3 className="text-4xl sm:text-5xl font-black text-white uppercase leading-[0.95] mb-3" style={{ fontFamily: 'Big Shoulders Display' }}>
+                DJ Flowerz <br /><span style={{ color: '#00b341' }}>Mixtapes</span> & Audio
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-400 max-w-sm leading-relaxed mb-6">
+                Official high-energy Afrobeats, Amapiano, and pre-match anthems curated for football fans worldwide.
+              </p>
+              <Link
+                to="/mixes"
+                className="inline-flex items-center gap-2 px-6 py-3 text-xs font-black text-white rounded-xl hover:opacity-90 transition-all shadow-lg shadow-emerald-500/20"
+                style={{ background: '#00b341', fontFamily: 'Big Shoulders Display', fontSize: '15px' }}
+              >
+                <Music2 size={16} /> Explore All Mixes →
+              </Link>
+            </div>
 
-        {/* Real Latest news grid */}
-        <section className="mb-10">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>{t('latestNews')}</h2>
-            <Link to="/news" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">{t('viewAll')} →</Link>
+            {/* Spinning Vinyl Visual */}
+            <div className="absolute right-[-40px] bottom-[-60px] w-64 h-64 rounded-full border-4 border-[#1e1e32] flex items-center justify-center opacity-30 pointer-events-none animate-spin" style={{ animationDuration: '20s' }}>
+              <div className="w-24 h-24 rounded-full border-2 border-[#00b341] flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-[#00b341]" />
+              </div>
+            </div>
           </div>
-          {latestArticles.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {latestArticles.map(a => (
-                <Link key={a.id} to={`/news/${a.id}`} className="group block rounded-lg overflow-hidden transition-all hover:scale-[1.01]" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-                  <div className="relative overflow-hidden" style={{ height: '180px' }}>
-                    <img src={a.image} alt={a.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                    <span className="absolute top-3 left-3 text-[10px] font-black tracking-wider px-2 py-0.5 rounded-sm text-black" style={{ background: '#10b981' }}>{a.tag}</span>
+
+          {/* Standings Panel */}
+          <div className="lg:col-span-5 rounded-2xl p-6 border border-[#1e1e32]" style={{ background: '#131320' }}>
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#1e1e32]">
+              <h3 className="text-xl font-black text-white uppercase" style={{ fontFamily: 'Big Shoulders Display' }}>
+                🏆 Table Standings
+              </h3>
+              <Link to="/standings" className="text-xs font-bold text-[#00b341] hover:underline">Full Table →</Link>
+            </div>
+
+            <div className="space-y-1.5">
+              {homeStandings.map((st, idx) => (
+                <div key={st.rank || idx} className="flex items-center justify-between p-2.5 rounded-xl bg-[#0c0c14] border border-[#1e1e32]">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-black text-[#f36c45] w-5 font-mono">0{st.rank || idx + 1}</span>
+                    <span className="text-xs font-bold text-white truncate max-w-[130px]">{st.team}</span>
                   </div>
-                  <div className="p-4">
-                    <h3 className="text-base font-bold text-white leading-snug group-hover:text-emerald-400 transition-colors line-clamp-2" style={{ fontFamily: 'Big Shoulders Display' }}>{a.title}</h3>
-                    <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
-                      <span>{a.date}</span>
-                      <span className="flex items-center gap-1"><Heart size={12} /> {a.likes}</span>
-                      <span className="flex items-center gap-1"><MessageCircle size={12} /> {a.comments}</span>
-                    </div>
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="text-gray-500">{st.played} P</span>
+                    <span className="font-black text-[#00b341] text-sm font-mono w-6 text-right" style={{ fontFamily: 'Big Shoulders Display' }}>
+                      {st.pts}
+                    </span>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
-          ) : (
-            <div className="p-8 text-center rounded-lg border border-[#1e1e32]" style={{ background: '#131320' }}>
-              <p className="text-xs text-gray-400">No news articles published yet. Check back soon or visit the News page.</p>
+          </div>
+        </section>
+
+        {/* ─── 6. SHOP SHOWCASE (FigComponent: 628de164b379df22b5a66404) ─────────── */}
+        <section>
+          {/* High Impact Banner */}
+          <div className="p-8 sm:p-10 rounded-2xl border border-[#00b341]/30 flex flex-col md:flex-row items-center justify-between gap-6 mb-8" style={{ background: 'linear-gradient(135deg, rgba(0,179,65,0.12) 0%, rgba(19,19,32,1) 100%)' }}>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#00b341] block mb-1">OFFICIAL STORE & MERCHANDISE</span>
+              <h2 className="text-4xl sm:text-5xl font-black text-white uppercase leading-none mb-2" style={{ fontFamily: 'Big Shoulders Display' }}>
+                Wear Your Passion
+              </h2>
+              <p className="text-xs sm:text-sm text-gray-300 max-w-md">
+                Authentic club jerseys, limited edition fanwear, and instant digital wallpapers. Fast countrywide shipping via G4S Kenya.
+              </p>
             </div>
+            <Link
+              to="/shop"
+              className="px-8 py-4 text-sm font-black text-[#171816] rounded-xl transition-all hover:scale-105 shrink-0 shadow-xl"
+              style={{ background: '#00b341', fontFamily: 'Big Shoulders Display', fontSize: '17px' }}
+            >
+              Explore Shop Catalog →
+            </Link>
+          </div>
+
+          {/* 4-Card Product Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {showcaseProducts.map(item => {
+              let itemImg = 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=600&h=600&fit=crop'
+              if (Array.isArray(item.images) && item.images.length > 0) itemImg = item.images[0]
+              else if (typeof item.images === 'string' && item.images.startsWith('[')) {
+                try { itemImg = JSON.parse(item.images)[0] || itemImg } catch {}
+              } else if (item.image || item.imageUrl) itemImg = item.image || item.imageUrl
+
+              return (
+                <Link
+                  key={item.id}
+                  to={`/product/${item.id}`}
+                  className="group rounded-2xl overflow-hidden border border-[#1e1e32] p-3.5 flex flex-col justify-between transition-all hover:border-[#00b341] hover:shadow-lg hover:shadow-emerald-500/10"
+                  style={{ background: '#131320' }}
+                >
+                  <div className="aspect-square rounded-xl overflow-hidden bg-black/40 mb-3 relative flex items-center justify-center p-2">
+                    <img
+                      src={itemImg}
+                      alt={item.name}
+                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                    />
+                    {item.category && (
+                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-black/80 text-[#00b341] border border-[#00b341]/30">
+                        {item.category}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-1 group-hover:text-[#00b341] transition-colors">
+                      {item.name}
+                    </h4>
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
+                      <span className="text-xs sm:text-sm font-black text-[#00b341]">
+                        {formatPrice(typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0)}
+                      </span>
+                      <span className="text-[10px] font-bold text-gray-400 group-hover:text-white flex items-center gap-0.5">
+                        Buy →
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        </section>
+
+        {/* ─── 7. HIGH-CONTRAST NEWSLETTER (FigComponent: 6306d2368f4e774af203b792) ─ */}
+        <section className="rounded-2xl p-8 sm:p-12 border border-[#1e1e32] text-center max-w-3xl mx-auto" style={{ background: '#131320' }}>
+          <div className="w-12 h-12 rounded-full bg-[#00b341]/10 border border-[#00b341]/30 flex items-center justify-center mx-auto mb-4 text-2xl">
+            📬
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-black text-white uppercase leading-none mb-3" style={{ fontFamily: 'Big Shoulders Display' }}>
+            Get Match Alerts & Exclusive Drops
+          </h2>
+          <p className="text-xs sm:text-sm text-gray-400 max-w-md mx-auto mb-6 leading-relaxed">
+            Breaking transfer alerts, VIP ticket presales, and weekly mixtape drops delivered straight to your inbox.
+          </p>
+
+          {newsletterSent ? (
+            <div className="p-4 rounded-xl border border-[#00b341] bg-[#00b341]/10 flex items-center justify-center gap-2 text-sm font-bold text-[#00b341]">
+              <CheckCircle2 size={18} />
+              <span>You're subscribed! Check your inbox for your welcome email.</span>
+            </div>
+          ) : (
+            <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2.5 max-w-md mx-auto">
+              <input
+                type="email"
+                value={newsletterEmail}
+                onChange={e => setNewsletterEmail(e.target.value)}
+                placeholder="Enter your email address..."
+                required
+                className="flex-1 px-4 py-3 text-sm text-white placeholder-gray-500 rounded-xl outline-none border border-[#1e1e32] focus:border-[#00b341] transition-colors"
+                style={{ background: '#0c0c14' }}
+              />
+              <button
+                type="submit"
+                disabled={newsletterLoading}
+                className="px-6 py-3 text-sm font-black text-white rounded-xl hover:opacity-90 transition-all flex items-center justify-center gap-2 shrink-0"
+                style={{ background: '#00b341', fontFamily: 'Big Shoulders Display', fontSize: '15px' }}
+              >
+                {newsletterLoading ? 'Subscribing...' : 'Subscribe Now →'}
+              </button>
+            </form>
           )}
         </section>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2">
-            {/* Shop Showcase */}
-            <section className="mb-10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">🛍️</span>
-                  <h2 className="text-2xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>Shop Showcase</h2>
-                </div>
-                <Link to="/shop" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">
-                  {t('viewAll')} Store Items →
-                </Link>
-              </div>
-
-              {showcaseProducts.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {showcaseProducts.map(item => {
-                    let itemImg = 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=600&h=600&fit=crop'
-                    if (Array.isArray(item.images) && item.images.length > 0) itemImg = item.images[0]
-                    else if (typeof item.images === 'string' && item.images.startsWith('[')) {
-                      try { itemImg = JSON.parse(item.images)[0] || itemImg } catch {}
-                    } else if (item.image || item.imageUrl) itemImg = item.image || item.imageUrl
-
-                    return (
-                      <Link
-                        key={item.id}
-                        to={`/product/${item.id}`}
-                        className="group rounded-2xl overflow-hidden border border-[#1e1e32] p-3.5 flex flex-col justify-between transition-all hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10"
-                        style={{ background: '#131320' }}
-                      >
-                        <div className="aspect-square rounded-xl overflow-hidden bg-black/40 mb-3 relative flex items-center justify-center p-2">
-                          <img
-                            src={itemImg}
-                            alt={item.name}
-                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-                          />
-                          {item.category && (
-                            <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-black/70 text-emerald-400 border border-emerald-500/30">
-                              {item.category}
-                            </span>
-                          )}
-                        </div>
-                        <div>
-                          <span className="text-sm font-bold text-white line-clamp-1 group-hover:text-emerald-400 transition-colors">
-                            {item.name}
-                          </span>
-                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
-                            <span className="text-sm font-black text-emerald-400">
-                              {formatPrice(typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0)}
-                            </span>
-                            <span className="text-[11px] font-bold text-gray-400 group-hover:text-white flex items-center gap-1">
-                              View Item →
-                            </span>
-                          </div>
-                        </div>
-                      </Link>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="p-6 text-center rounded-lg border border-[#1e1e32]" style={{ background: '#131320' }}>
-                  <p className="text-xs text-gray-400">Official Kits, Training Gear & Merch.</p>
-                  <Link to="/shop" className="text-xs font-bold text-emerald-400 mt-2 inline-block hover:underline">
-                    Explore Store Catalog →
-                  </Link>
-                </div>
-              )}
-            </section>
-          </div>
-
-          <div className="lg:col-span-1">
-            {/* Mini Standings */}
-            <section className="mb-6 rounded-lg p-4" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>{t('standings')}</h2>
-                <Link to="/standings" className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">{t('viewFull')}</Link>
-              </div>
-              {homeStandings.length > 0 ? (
-                <div className="space-y-2 font-mono text-xs">
-                  {homeStandings.map(st => (
-                    <div key={st.rank} className="flex items-center justify-between py-1 border-b border-white/5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500 w-4">{st.rank}</span>
-                        <span className="text-white font-bold">{st.team}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-gray-500">{st.played}p</span>
-                        <span className="text-emerald-400 font-bold w-6 text-right">{st.pts}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-4 text-center">
-                  <p className="text-xs text-gray-400">League tables updating...</p>
-                  <Link to="/standings" className="text-xs font-bold text-emerald-400 mt-2 inline-block hover:underline">View All Standings →</Link>
-                </div>
-              )}
-            </section>
-          </div>
-        </div>
-
-        {/* Mobile & Halfpage Banner Section */}
-        <div className="mt-8 pt-8 border-t border-[#1e1e32] flex flex-col md:flex-row items-center justify-around gap-6">
-          <div>
-            <p className="text-xs text-gray-500 text-center mb-2 font-bold uppercase tracking-wider">Mobile Banner (320×50)</p>
-            <AdBanner size="mobile" label="Mobile Sponsor Banner" />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 text-center mb-2 font-bold uppercase tracking-wider">Half Page Banner (300×600)</p>
-            <AdBanner size="halfpage" label="Premier Half-Page Sponsor" />
-          </div>
-        </div>
       </div>
     </div>
   )

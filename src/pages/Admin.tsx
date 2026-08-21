@@ -1169,7 +1169,7 @@ export default function Admin() {
     </div>
   )
 
-  const ALL_TABS: { id: AdminTab; icon: string; label: string; badge?: number }[] = [
+  const ALL_TABS: { id: AdminTab; icon: React.ElementType; label: string; badge?: number }[] = [
     { id:'overview',   icon:LayoutDashboard, label:'Overview'                         },
     { id:'orders',     icon:Package,         label:'Orders',     badge:pendingOrders   },
     { id:'products',   icon:ShoppingBag,     label:'Products'                         },
