@@ -11,7 +11,7 @@ import { fetchLiveIngestedPosts, IngestedPost } from '../services/contentIngesti
 import { fetchAllArticles, fetchAllComments, fetchAllMixes, fetchAllProducts } from '../services/supabaseClient'
 import { subscribeEmail } from '../services/newsletterService'
 
-// ─── Default Fallback Data (Guarantees Instant Full Content Rendering) ─────────
+// ─── Default Fallback Data ───────────────────────────────────────────────────
 const DEFAULT_MATCHES: LiveMatch[] = [
   { id: 'm1', home: 'Arsenal', away: 'Chelsea', homeScore: 2, awayScore: 1, minute: 78, live: true, status: "78'", league: 'Premier League', venue: 'Emirates Stadium', leagueId: '1', leagueSlug: 'premier-league', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', date: 'Today' },
   { id: 'm2', home: 'Real Madrid', away: 'Barcelona', homeScore: 3, awayScore: 2, minute: 85, live: true, status: "85'", league: 'La Liga', venue: 'Santiago Bernabéu', leagueId: '2', leagueSlug: 'la-liga', flag: '🇪🇸', date: 'Today' },
@@ -94,10 +94,11 @@ const BROWSE_CATEGORIES = [
   { id: 'shop', label: 'Merch & Kits', icon: '🛍️' },
 ]
 
-// ─── Live Ticker Strip ────────────────────────────────────────────────────────
+// ─── Real Live Ticker Strip ──────────────────────────────────────────────────
 function LiveTicker() {
-  const [matches, setMatches] = useState<LiveMatch[]>(DEFAULT_MATCHES.slice(0, 3))
-  const [liveCount, setLiveCount] = useState(3)
+  const [matches, setMatches] = useState<LiveMatch[]>(DEFAULT_MATCHES.slice(0, 4))
+  const [liveCount, setLiveCount] = useState(0)
+  const [isLiveMode, setIsLiveMode] = useState(false)
   const [goalAlert, setGoalAlert] = useState<string | null>(null)
   const prevScoresRef = useRef<Record<string, { homeScore: number; awayScore: number }>>({})
 
@@ -113,8 +114,13 @@ function LiveTicker() {
     })
     
     if (liveOnly.length > 0) {
+      setIsLiveMode(true)
       setLiveCount(liveOnly.length)
       setMatches(liveOnly)
+    } else {
+      setIsLiveMode(false)
+      setLiveCount(0)
+      setMatches(apiMatches.slice(0, 10))
     }
 
     apiMatches.forEach(m => {
@@ -137,7 +143,7 @@ function LiveTicker() {
     fetchLiveMatches('TODAY').then(processLiveMatches).catch(() => {})
     const interval = setInterval(() => {
       fetchLiveMatches('TODAY').then(processLiveMatches).catch(() => {})
-    }, 15000)
+    }, 10000)
     return () => clearInterval(interval)
   }, [])
 
@@ -151,8 +157,17 @@ function LiveTicker() {
       )}
       <div className="ticker-scroll flex items-center gap-3 px-4 py-2.5 max-w-screen-2xl mx-auto" style={{ overflowX: 'auto' }}>
         <div className="flex items-center gap-2 px-3 py-1 bg-[#20221f] border border-[#3e413c] rounded text-[11px] font-black text-[#c9f35a] shrink-0">
-          <span className="w-2 h-2 rounded-full bg-[#f36c45] animate-ping inline-block" />
-          <span>LIVE NOW ({liveCount})</span>
+          {isLiveMode ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-[#f36c45] animate-ping inline-block" />
+              <span>LIVE NOW ({liveCount})</span>
+            </>
+          ) : (
+            <>
+              <span className="w-2 h-2 rounded-full bg-[#00b341] inline-block" />
+              <span>TODAY'S FIXTURES</span>
+            </>
+          )}
         </div>
 
         {matches.map(m => (
@@ -165,9 +180,9 @@ function LiveTicker() {
             <span className="text-right text-xs text-white font-bold min-w-[60px] truncate">{m.home}</span>
             <div className="text-center px-1">
               <span className="text-[#c9f35a] font-black text-sm font-mono tracking-tight" style={{ fontFamily: 'Big Shoulders Display' }}>
-                {m.homeScore ?? 0} – {m.awayScore ?? 0}
+                {m.homeScore !== null && m.awayScore !== null ? `${m.homeScore} – ${m.awayScore}` : (m.status || 'VS')}
               </span>
-              <span className="block text-[9px] font-bold text-[#f36c45]">{m.status || (m.minute ? `${m.minute}'` : 'LIVE')}</span>
+              <span className="block text-[9px] font-bold text-[#f36c45]">{m.live ? (m.status || `${m.minute}'`) : (m.status || 'Scheduled')}</span>
             </div>
             <span className="text-left text-xs text-white font-bold min-w-[60px] truncate">{m.away}</span>
           </Link>
@@ -294,15 +309,15 @@ export default function Home() {
   return (
     <div style={{ background: '#0a0a14', color: '#fff', minHeight: '100vh' }}>
       
-      {/* Top Sponsor Leaderboard */}
+      {/* ─── 1. TOP SPONSOR LEADERBOARD (728×90) ──────────────────────────────── */}
       <div className="py-3 px-4 flex justify-center border-b border-[#1e1e32]" style={{ background: '#0c0c14' }}>
-        <AdBanner size="leaderboard" />
+        <AdBanner size="leaderboard" label="Top Sponsor — Leaderboard Ad" />
       </div>
 
-      {/* Live Match Ticker */}
+      {/* ─── 2. REAL LIVE MATCH TICKER ────────────────────────────────────────── */}
       <LiveTicker />
 
-      {/* ─── 1. HERO SECTION (Editorial Stadium Poster) ────────────────────────── */}
+      {/* ─── 3. HERO SECTION (Editorial Stadium Poster) ────────────────────────── */}
       <section className="relative overflow-hidden border-b border-[#1e1e32]" style={{ background: 'linear-gradient(135deg,#0c0c18 0%,#12161f 100%)' }}>
         <img
           src="https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=1800&q=90"
@@ -341,7 +356,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── 2. BROWSE BY CATEGORY (FigComponent: 6302ebacebc3405f1f9195dc) ────── */}
+      {/* ─── 4. BROWSE BY CATEGORY (FigComponent: 6302ebacebc3405f1f9195dc) ────── */}
       <div className="border-b border-[#1e1e32]" style={{ background: '#0d0d1a' }}>
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-3.5 flex items-center gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           <span className="text-[10px] font-black uppercase tracking-wider text-gray-500 mr-2 shrink-0">Browse:</span>
@@ -367,7 +382,7 @@ export default function Home() {
 
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-10 space-y-16">
 
-        {/* ─── 3. EDITORIAL MATCH GRID (FigComponent: Calendar / Fixtures 62cf946112847cc9ecafe6a4) ─── */}
+        {/* ─── 5. EDITORIAL MATCH GRID (FigComponent: Calendar / Fixtures 62cf946112847cc9ecafe6a4) ─── */}
         <section>
           <div className="flex items-end justify-between mb-6 pb-3 border-b border-[#1e1e32]">
             <div>
@@ -393,7 +408,7 @@ export default function Home() {
                   <span>{m.league || 'Match'}</span>
                   <span className={m.live ? 'text-[#f36c45] font-black flex items-center gap-1' : 'text-gray-400'}>
                     {m.live && <span className="w-1.5 h-1.5 rounded-full bg-[#f36c45] animate-ping" />}
-                    {m.status || 'Scheduled'}
+                    {m.status || (m.minute ? `${m.minute}'` : 'Scheduled')}
                   </span>
                 </div>
 
@@ -406,7 +421,7 @@ export default function Home() {
                   </div>
                   <div className="col-span-1 text-center py-1 px-2 rounded-lg bg-[#0c0c14] border border-[#1e1e32]">
                     <span className="font-black text-base text-[#00b341] font-mono" style={{ fontFamily: 'Big Shoulders Display' }}>
-                      {m.homeScore !== null ? `${m.homeScore} - ${m.awayScore}` : 'VS'}
+                      {m.homeScore !== null && m.awayScore !== null ? `${m.homeScore} - ${m.awayScore}` : (m.status || 'VS')}
                     </span>
                   </div>
                   <div className="col-span-2 text-left">
@@ -427,7 +442,12 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ─── 4. EDITORIAL NEWS GRID ────────────────────────────────────────── */}
+        {/* ─── 6. IN-FEED NATIVE AD BANNER ───────────────────────────────────── */}
+        <div className="flex justify-center py-2">
+          <AdBanner size="native" label="Sponsored — In-Feed Native Ad" />
+        </div>
+
+        {/* ─── 7. EDITORIAL NEWS GRID ────────────────────────────────────────── */}
         <section>
           <div className="flex items-end justify-between mb-6 pb-3 border-b border-[#1e1e32]">
             <div>
@@ -507,7 +527,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ─── 5. SPLIT SECTION: DJ MIXES & STANDINGS ────────────────────────── */}
+        {/* ─── 8. SPLIT SECTION: DJ MIXES & STANDINGS ────────────────────────── */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
           {/* Dark Mixtape Stadium Panel */}
@@ -565,7 +585,12 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ─── 6. SHOP SHOWCASE (FigComponent: 628de164b379df22b5a66404) ─────────── */}
+        {/* ─── 9. MID-PAGE SPONSOR BILLBOARD ─────────────────────────────────── */}
+        <div className="flex justify-center py-2">
+          <AdBanner size="leaderboard" label="Sponsored — Mid-Page Billboard" />
+        </div>
+
+        {/* ─── 10. SHOP SHOWCASE (FigComponent: 628de164b379df22b5a66404) ────────── */}
         <section>
           {/* High Impact Banner */}
           <div className="p-8 sm:p-10 rounded-2xl border border-[#00b341]/30 flex flex-col md:flex-row items-center justify-between gap-6 mb-8" style={{ background: 'linear-gradient(135deg, rgba(0,179,65,0.12) 0%, rgba(19,19,32,1) 100%)' }}>
@@ -634,7 +659,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ─── 7. HIGH-CONTRAST NEWSLETTER (FigComponent: 6306d2368f4e774af203b792) ─ */}
+        {/* ─── 11. HIGH-CONTRAST NEWSLETTER (FigComponent: 6306d2368f4e774af203b792) ─ */}
         <section className="rounded-2xl p-8 sm:p-12 border border-[#1e1e32] text-center max-w-3xl mx-auto" style={{ background: '#131320' }}>
           <div className="w-12 h-12 rounded-full bg-[#00b341]/10 border border-[#00b341]/30 flex items-center justify-center mx-auto mb-4 text-2xl">
             📬
@@ -672,6 +697,27 @@ export default function Home() {
               </button>
             </form>
           )}
+        </section>
+
+        {/* ─── 12. MULTI-FORMAT SPONSOR SHOWCASE ─────────────────────────────── */}
+        <section className="pt-6 border-t border-[#1e1e32]">
+          <div className="text-center mb-6">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">OFFICIAL PARTNER PLACEMENTS</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center justify-items-center">
+            <div className="w-full flex flex-col items-center">
+              <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Mobile Sponsor (320×50)</p>
+              <AdBanner size="mobile" label="Mobile Sponsor Banner" />
+            </div>
+            <div className="w-full flex flex-col items-center">
+              <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Medium Rectangle (300×250)</p>
+              <AdBanner size="medium" label="Featured Partner" />
+            </div>
+            <div className="w-full flex flex-col items-center">
+              <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Half Page Premier (300×600)</p>
+              <AdBanner size="halfpage" label="Premier Half-Page Sponsor" />
+            </div>
+          </div>
         </section>
 
       </div>
