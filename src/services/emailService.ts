@@ -68,7 +68,8 @@ async function sendEmail(to: string, subject: string, html: string, replyTo?: st
         to,
         subject,
         body: html,
-        from: `${FROM_NAME} <${FROM_EMAIL}>`,
+        from: FROM_EMAIL,
+        name: FROM_NAME,
         ...(replyTo ? { replyTo } : {}),
       }),
     })
@@ -92,7 +93,8 @@ async function sendEmail(to: string, subject: string, html: string, replyTo?: st
         to,
         subject,
         body: html,
-        from: `${FROM_NAME} <${FROM_EMAIL}>`,
+        from: FROM_EMAIL,
+        name: FROM_NAME,
         ...(replyTo ? { replyTo } : {}),
       }),
     })

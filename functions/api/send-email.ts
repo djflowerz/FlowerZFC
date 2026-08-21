@@ -24,7 +24,8 @@ export const onRequestPost = async (context: any) => {
         to: payload.to,
         subject: payload.subject,
         body: payload.body,
-        from: payload.from || 'FlowerZFC <noreply@djflowerz.co.ke>',
+        from: payload.from && payload.from.includes('@') && !payload.from.includes('<') ? payload.from : 'noreply@djflowerz.co.ke',
+        name: 'FlowerZFC',
         ...(payload.replyTo ? { replyTo: payload.replyTo } : {}),
       }),
     })
