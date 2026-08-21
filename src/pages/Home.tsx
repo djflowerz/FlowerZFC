@@ -94,18 +94,23 @@ const BROWSE_CATEGORIES = [
   { id: 'shop', label: 'Merch & Kits', icon: '🛍️' },
 ]
 
-// ─── Real Live Ticker Strip ──────────────────────────────────────────────────
+// ─── Real Live Ticker Strip (Strictly Live Matches Only) ─────────────────────
 function LiveTicker() {
-  const [matches, setMatches] = useState<LiveMatch[]>(DEFAULT_MATCHES.slice(0, 4))
+  const [matches, setMatches] = useState<LiveMatch[]>([])
   const [liveCount, setLiveCount] = useState(0)
-  const [isLiveMode, setIsLiveMode] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [goalAlert, setGoalAlert] = useState<string | null>(null)
   const prevScoresRef = useRef<Record<string, { homeScore: number; awayScore: number }>>({})
 
   const processLiveMatches = (apiMatches: LiveMatch[]) => {
-    if (!apiMatches || apiMatches.length === 0) return
+    setLoading(false)
+    if (!apiMatches || apiMatches.length === 0) {
+      setMatches([])
+      setLiveCount(0)
+      return
+    }
     const liveOnly = apiMatches.filter(m => {
-      const st = (m.status || '').toUpperCase()
+      const st = (m.status || '').toUpperCase().trim()
       if (st === 'FT' || st === 'AET' || st === 'AP' || st === 'POSTPONED' || st === 'CANCELLED' || st === 'ABANDONED' || st === 'NS' || st.includes(':') || st.includes('STARTS')) {
         return false
       }
@@ -113,15 +118,8 @@ function LiveTicker() {
       return st.includes("'") || st === '1H' || st === '2H' || st === 'HT' || st === 'LIVE' || st === 'ET' || st === 'PEN'
     })
     
-    if (liveOnly.length > 0) {
-      setIsLiveMode(true)
-      setLiveCount(liveOnly.length)
-      setMatches(liveOnly)
-    } else {
-      setIsLiveMode(false)
-      setLiveCount(0)
-      setMatches(apiMatches.slice(0, 10))
-    }
+    setLiveCount(liveOnly.length)
+    setMatches(liveOnly)
 
     apiMatches.forEach(m => {
       if (m.homeScore !== null && m.awayScore !== null) {
@@ -140,7 +138,7 @@ function LiveTicker() {
   }
 
   useEffect(() => {
-    fetchLiveMatches('TODAY').then(processLiveMatches).catch(() => {})
+    fetchLiveMatches('TODAY').then(processLiveMatches).catch(() => setLoading(false))
     const interval = setInterval(() => {
       fetchLiveMatches('TODAY').then(processLiveMatches).catch(() => {})
     }, 10000)
@@ -156,37 +154,50 @@ function LiveTicker() {
         </div>
       )}
       <div className="ticker-scroll flex items-center gap-3 px-4 py-2.5 max-w-screen-2xl mx-auto" style={{ overflowX: 'auto' }}>
-        <div className="flex items-center gap-2 px-3 py-1 bg-[#20221f] border border-[#3e413c] rounded text-[11px] font-black text-[#c9f35a] shrink-0">
-          {isLiveMode ? (
+        <div className="flex items-center gap-2 px-3 py-1 bg-[#20221f] border border-[#3e413c] rounded text-[11px] font-black shrink-0" style={{ color: liveCount > 0 ? '#c9f35a' : '#9ca3af' }}>
+          {liveCount > 0 ? (
             <>
               <span className="w-2 h-2 rounded-full bg-[#f36c45] animate-ping inline-block" />
               <span>LIVE NOW ({liveCount})</span>
             </>
           ) : (
             <>
-              <span className="w-2 h-2 rounded-full bg-[#00b341] inline-block" />
-              <span>TODAY'S FIXTURES</span>
+              <span className="w-2 h-2 rounded-full bg-gray-500 inline-block" />
+              <span>LIVE MATCHES ({liveCount})</span>
             </>
           )}
         </div>
 
-        {matches.map(m => (
-          <Link
-            key={m.id}
-            to={`/match/${m.id}`}
-            className="flex-none flex items-center gap-3 px-4 py-1.5 rounded transition-all hover:bg-[#20221f] border border-[#2e302b]"
-            style={{ minWidth: '200px' }}
-          >
-            <span className="text-right text-xs text-white font-bold min-w-[60px] truncate">{m.home}</span>
-            <div className="text-center px-1">
-              <span className="text-[#c9f35a] font-black text-sm font-mono tracking-tight" style={{ fontFamily: 'Big Shoulders Display' }}>
-                {m.homeScore !== null && m.awayScore !== null ? `${m.homeScore} – ${m.awayScore}` : (m.status || 'VS')}
-              </span>
-              <span className="block text-[9px] font-bold text-[#f36c45]">{m.live ? (m.status || `${m.minute}'`) : (m.status || 'Scheduled')}</span>
-            </div>
-            <span className="text-left text-xs text-white font-bold min-w-[60px] truncate">{m.away}</span>
-          </Link>
-        ))}
+        {loading ? (
+          <div className="py-1 text-xs text-gray-400 italic">
+            Connecting to live match telemetry...
+          </div>
+        ) : matches.length > 0 ? (
+          matches.map(m => (
+            <Link
+              key={m.id}
+              to={`/match/${m.id}`}
+              className="flex-none flex items-center gap-3 px-4 py-1.5 rounded transition-all hover:bg-[#20221f] border border-[#2e302b]"
+              style={{ minWidth: '200px' }}
+            >
+              <span className="text-right text-xs text-white font-bold min-w-[60px] truncate">{m.home}</span>
+              <div className="text-center px-1">
+                <span className="text-[#c9f35a] font-black text-sm font-mono tracking-tight" style={{ fontFamily: 'Big Shoulders Display' }}>
+                  {m.homeScore ?? 0} – {m.awayScore ?? 0}
+                </span>
+                <span className="block text-[9px] font-bold text-[#f36c45]">{m.status || (m.minute ? `${m.minute}'` : 'LIVE')}</span>
+              </div>
+              <span className="text-left text-xs text-white font-bold min-w-[60px] truncate">{m.away}</span>
+            </Link>
+          ))
+        ) : (
+          <div className="py-1 text-xs text-gray-400 flex items-center gap-3">
+            <span>No live matches in-play right now. Telemetry appears instantly upon kickoff.</span>
+            <Link to="/scores" className="text-[#00b341] font-bold hover:underline flex items-center gap-1">
+              Open Match Center <ArrowRight size={13} />
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   )
