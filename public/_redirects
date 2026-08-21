@@ -1,4 +1,16 @@
 /api/livescore/* /.netlify/functions/livescore?path=/:splat 200
 /api/ls-cdn/* https://lsm-static-prod.livescore.com/:splat 200!
 /api/ls-commentary/* https://prod-cdn-commentary-api.livescore.com/:splat 200!
+
+# ── Static files — must come BEFORE the SPA catch-all ──────────────────────
+# Google AdSense, SEO, and IAB crawlers must reach these directly.
+/ads.txt /ads.txt 200
+/robots.txt /robots.txt 200
+/sitemap.xml /sitemap.xml 200
+/favicon.ico /favicon.ico 200
+/favicon.svg /favicon.svg 200
+/apple-touch-icon.png /apple-touch-icon.png 200
+
+# ── SPA catch-all (must be LAST) ────────────────────────────────────────────
 /* /index.html 200
+
