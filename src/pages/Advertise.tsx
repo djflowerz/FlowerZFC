@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
 import { sendAdvertiseConfirmation, notifyAdminAdInquiry } from '../services/emailService'
+import { getAdPackages, type AdPackage } from '../services/adPackageService'
 
 const AD_PACKAGES = [
   {
@@ -91,17 +92,14 @@ export default function Advertise() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
 
-  // Load custom admin-configured packages and slots if present
-  const [packages] = useState(() => {
-    try {
-      const raw = localStorage.getItem('flowerzfc_advertise_config')
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (parsed.packages?.length) return parsed.packages
-      }
-    } catch {}
-    return AD_PACKAGES
-  })
+  // Load custom admin-configured packages and slots with real-time reactivity
+  const [packages, setPackages] = useState<AdPackage[]>(getAdPackages)
+
+  useEffect(() => {
+    const handleUpdate = () => setPackages(getAdPackages())
+    window.addEventListener('flowerzfc_ad_packages_updated', handleUpdate)
+    return () => window.removeEventListener('flowerzfc_ad_packages_updated', handleUpdate)
+  }, [])
 
   const [slots] = useState(() => {
     try {

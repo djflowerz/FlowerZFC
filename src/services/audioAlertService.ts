@@ -1,7 +1,23 @@
-// Real-Time Synthesized Audio Alert Engine (Web Audio API)
-// Provides clean, energetic goal chimes and alert sounds without external MP3 dependencies.
+// Real-Time Audio Alert Engine (Real Audio Clips + Web Audio Fallback)
+// Enabled by default; plays real stadium horns, whistles, and crowd celebrations.
 
 const SOUND_KEY = 'flowerzfc_sound_enabled'
+const GOAL_AUDIO_URL = 'https://assets.mixkit.co/active_storage/sfx/2874/2874-preview.mp3'
+const NOTIF_AUDIO_URL = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'
+
+let preloadedGoalAudio: HTMLAudioElement | null = null
+let preloadedNotifAudio: HTMLAudioElement | null = null
+
+if (typeof window !== 'undefined') {
+  try {
+    preloadedGoalAudio = new Audio(GOAL_AUDIO_URL)
+    preloadedGoalAudio.preload = 'auto'
+    preloadedGoalAudio.volume = 0.75
+    preloadedNotifAudio = new Audio(NOTIF_AUDIO_URL)
+    preloadedNotifAudio.preload = 'auto'
+    preloadedNotifAudio.volume = 0.65
+  } catch {}
+}
 
 let audioCtx: AudioContext | null = null
 
@@ -22,7 +38,7 @@ function getAudioContext(): AudioContext | null {
 export function isSoundEnabled(): boolean {
   try {
     const val = localStorage.getItem(SOUND_KEY)
-    // Default to true (or saved preference)
+    // Default to true (enabled by default)
     return val === null ? true : val === 'true'
   } catch {
     return true
@@ -37,10 +53,30 @@ export function setSoundEnabled(enabled: boolean): void {
 }
 
 /**
- * Plays an energetic goal sound (referee whistle + celebratory 3-chord fanfare)
+ * Plays real stadium goal sound (with Web Audio stadium fanfare fallback)
  */
 export function playGoalSound(): void {
   if (!isSoundEnabled()) return
+
+  // 1. Try real audio clip first
+  try {
+    const audio = preloadedGoalAudio || new Audio(GOAL_AUDIO_URL)
+    audio.currentTime = 0
+    audio.volume = 0.8
+    const playPromise = audio.play()
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // Fallback to Web Audio synthesis if autoplay blocked
+        playSynthesizedGoalSound()
+      })
+      return
+    }
+  } catch {
+    playSynthesizedGoalSound()
+  }
+}
+
+function playSynthesizedGoalSound(): void {
   try {
     const ctx = getAudioContext()
     if (!ctx) return
@@ -54,7 +90,7 @@ export function playGoalSound(): void {
     oscWhistle.frequency.setValueAtTime(2600, now)
     oscWhistle.frequency.exponentialRampToValueAtTime(3200, now + 0.1)
     oscWhistle.frequency.exponentialRampToValueAtTime(2800, now + 0.25)
-    gainWhistle.gain.setValueAtTime(0.15, now)
+    gainWhistle.gain.setValueAtTime(0.2, now)
     gainWhistle.gain.exponentialRampToValueAtTime(0.01, now + 0.3)
 
     oscWhistle.connect(gainWhistle)
@@ -62,27 +98,22 @@ export function playGoalSound(): void {
     oscWhistle.start(now)
     oscWhistle.stop(now + 0.3)
 
-    // 2. Triumphant Fanfare Arpeggio: C5 (523Hz) -> E5 (659Hz) -> G5 (784Hz) -> C6 (1046Hz)
-    const notes = [523.25, 659.25, 783.99, 1046.50]
-    notes.forEach((freq, idx) => {
+    // 2. Stadium Air Horn chords: F4 (349Hz), A4 (440Hz), C5 (523Hz)
+    const hornNotes = [349.23, 440.0, 523.25, 698.46]
+    hornNotes.forEach(freq => {
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()
-      const start = now + 0.25 + (idx * 0.12)
-      const dur = idx === notes.length - 1 ? 0.6 : 0.2
-
-      osc.type = 'triangle'
-      osc.frequency.setValueAtTime(freq, start)
-
-      gain.gain.setValueAtTime(0.2, start)
-      gain.gain.exponentialRampToValueAtTime(0.001, start + dur)
-
+      osc.type = 'sawtooth'
+      osc.frequency.setValueAtTime(freq, now + 0.1)
+      gain.gain.setValueAtTime(0.12, now + 0.1)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9)
       osc.connect(gain)
       gain.connect(ctx.destination)
-      osc.start(start)
-      osc.stop(start + dur)
+      osc.start(now + 0.1)
+      osc.stop(now + 0.9)
     })
   } catch (err) {
-    console.warn('[AudioAlertService] Audio playback error:', err)
+    console.warn('[AudioAlertService] Synthesized goal audio error:', err)
   }
 }
 

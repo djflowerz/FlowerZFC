@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { initiatePayment } from '../services/paymentService'
+import { sendTipConfirmation, notifyAdminTipReceived } from '../services/emailService'
 
 const RECIPIENTS = [
   { id: 'site',    label: 'The FlowerZFC Platform',   emoji: '🌐', desc: 'Keep the servers running & site ad-free' },
@@ -10,16 +11,49 @@ const RECIPIENTS = [
   { id: 'dev',    label: 'The Dev Team',               emoji: '💻', desc: 'Help us keep building new features' },
 ]
 
-const PRESET_AMOUNTS = [2, 5, 10, 25]
+export function recordTipTransaction(tip: {
+  from: string
+  amount: number
+  currency: string
+  recipient: string
+  method: string
+  ref: string
+  date?: string
+}) {
+  try {
+    const existing = JSON.parse(localStorage.getItem('flowerzfc_tips') || '[]')
+    const newTip = {
+      id: `tip_${Date.now()}`,
+      from: tip.from || 'Anonymous Fan',
+      amount: tip.amount,
+      currency: tip.currency || 'KES',
+      recipient: tip.recipient || 'The FlowerZFC Platform',
+      method: tip.method || 'M-Pesa / Paystack',
+      date: tip.date || new Date().toLocaleString('en-KE', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      ref: tip.ref,
+      status: 'Paid',
+    }
+    const updated = [newTip, ...existing.filter((t: any) => t.ref !== tip.ref)]
+    localStorage.setItem('flowerzfc_tips', JSON.stringify(updated))
+    window.dispatchEvent(new Event('flowerzfc_tips_updated'))
+  } catch {}
+}
 
 const inputCls = 'w-full px-4 py-3 text-sm text-white placeholder-gray-500 rounded-xl outline-none focus:ring-1 focus:ring-[#00b341] transition-all'
 const inputStyle = { background: '#0c0c14', border: '1px solid #1e1e32' }
 
 export default function Tip() {
-  const { user } = useApp()
+  const { user, selectedCurrency, formatPrice } = useApp()
+
+  const isKes = selectedCurrency === 'KES'
+  const presetAmounts = useMemo(() => {
+    if (selectedCurrency === 'KES') return [50, 100, 250, 500, 1000]
+    if (selectedCurrency === 'UGX' || selectedCurrency === 'TZS') return [2000, 5000, 10000, 20000]
+    return [2, 5, 10, 25]
+  }, [selectedCurrency])
 
   const [recipient, setRecipient] = useState('site')
-  const [presetAmt, setPresetAmt] = useState(5)
+  const [presetAmt, setPresetAmt] = useState<number>(() => isKes ? 100 : 5)
   const [customAmt, setCustomAmt] = useState('')
   const [message, setMessage] = useState('')
   const [anonymous, setAnonymous] = useState(false)
@@ -36,8 +70,11 @@ export default function Tip() {
     if (!canPay) return
     setStep('processing')
 
+    const selectedRecipientObj = RECIPIENTS.find(r => r.id === recipient)
+
     const res = await initiatePayment({
       amount: finalAmount,
+      currency: selectedCurrency || 'KES',
       email: donorEmail || user?.email || 'supporter@flowerz.fc',
       method: 'mpesa', // Paystack popup opens and presents M-Pesa, Card, Bank channels
       reference: orderRef,
@@ -45,6 +82,43 @@ export default function Tip() {
     })
 
     if (res.success) {
+      const donorName = anonymous ? 'Anonymous Supporter' : (user?.name || donorEmail.split('@')[0] || 'Fan Supporter')
+      const donorEmailAddr = donorEmail || user?.email || ''
+
+      // Record tip locally and trigger system events
+      recordTipTransaction({
+        from: donorName,
+        amount: finalAmount,
+        currency: selectedCurrency,
+        recipient: selectedRecipientObj?.label || 'FlowerZFC Platform',
+        method: 'Paystack Verified',
+        ref: orderRef,
+      })
+
+      // Send tip receipt email to donor (if email provided)
+      if (donorEmailAddr) {
+        sendTipConfirmation({
+          to: donorEmailAddr,
+          name: anonymous ? undefined : (user?.name || donorEmailAddr.split('@')[0]),
+          amount: finalAmount,
+          currency: selectedCurrency,
+          recipient: selectedRecipientObj?.label || 'The FlowerZFC Platform',
+          ref: orderRef,
+          message: message || undefined,
+        }).catch(() => {})
+      }
+
+      // Notify admin of new tip received
+      notifyAdminTipReceived({
+        from: donorName,
+        fromEmail: donorEmailAddr || 'anonymous@supporter.fc',
+        amount: finalAmount,
+        currency: selectedCurrency,
+        recipient: selectedRecipientObj?.label || 'The FlowerZFC Platform',
+        ref: orderRef,
+        message: message || undefined,
+      }).catch(() => {})
+
       setStep('done')
     } else {
       setStep('form')
@@ -80,7 +154,7 @@ export default function Tip() {
                 Thank You{!anonymous && user ? `, ${user.name}` : ''}!
               </h2>
               <p className="text-sm text-gray-300 mb-1">
-                Your ${finalAmount.toFixed(2)} tip has been sent to <strong className="text-[#00b341]">{selectedRecipient.label}</strong> via Paystack.
+                Your <strong className="text-[#00b341]">{formatPrice(finalAmount)}</strong> tip has been sent to <strong className="text-[#00b341]">{selectedRecipient.label}</strong> via Paystack.
               </p>
               {message && (
                 <blockquote className="my-4 px-4 py-3 rounded-xl border border-[#1e1e32] text-xs text-gray-400 italic text-left" style={{ background: '#0d0d1e' }}>
@@ -141,10 +215,10 @@ export default function Tip() {
               {/* Step 2: Choose Amount */}
               <div className="p-6 rounded-2xl border border-[#1e1e32]" style={{ background: '#131320' }}>
                 <h2 className="text-lg font-black text-white mb-4" style={{ fontFamily: 'Big Shoulders Display' }}>
-                  2 · Choose Amount
+                  2 · Choose Amount ({selectedCurrency})
                 </h2>
                 <div className="flex flex-wrap gap-3 mb-4">
-                  {PRESET_AMOUNTS.map(amt => (
+                  {presetAmounts.map(amt => (
                     <button
                       key={amt}
                       type="button"
@@ -157,18 +231,18 @@ export default function Tip() {
                         fontFamily: 'Big Shoulders Display',
                       }}
                     >
-                      ${amt}
+                      {formatPrice(amt)}
                     </button>
                   ))}
                   <div className="relative flex-1 min-w-[120px]">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">{selectedCurrency}</span>
                     <input
                       value={customAmt}
                       onChange={e => { setCustomAmt(e.target.value); setPresetAmt(0) }}
-                      placeholder="Custom amount"
+                      placeholder={`Custom (${selectedCurrency})`}
                       type="number"
                       min="1"
-                      className="w-full pl-8 pr-4 py-3 text-sm text-white placeholder-gray-500 rounded-xl outline-none focus:ring-1 focus:ring-[#00b341]"
+                      className="w-full pl-14 pr-4 py-3 text-sm text-white placeholder-gray-500 rounded-xl outline-none focus:ring-1 focus:ring-[#00b341]"
                       style={inputStyle}
                     />
                   </div>
@@ -177,7 +251,7 @@ export default function Tip() {
                 {finalAmount > 0 && (
                   <div className="p-3 rounded-xl text-center border border-[#00b341]/30" style={{ background: 'rgba(0,179,65,0.06)' }}>
                     <span className="text-3xl font-black text-[#00b341]" style={{ fontFamily: 'Big Shoulders Display' }}>
-                      ${finalAmount.toFixed(2)}
+                      {formatPrice(finalAmount)}
                     </span>
                     <span className="text-xs text-gray-400 block mt-0.5">→ {selectedRecipient.emoji} {selectedRecipient.label}</span>
                   </div>
@@ -232,7 +306,7 @@ export default function Tip() {
                 className="w-full py-4 text-base font-black text-white rounded-2xl shadow-2xl transition-all disabled:opacity-40 hover:opacity-90 hover:scale-[1.01]"
                 style={{ background: '#00b341', fontFamily: 'Big Shoulders Display', fontSize: '18px' }}
               >
-                ☕ Send ${finalAmount.toFixed(2)} Tip via Paystack →
+                ☕ Send {formatPrice(finalAmount)} Tip via Paystack →
               </button>
 
               <p className="text-center text-[10px] text-gray-600">

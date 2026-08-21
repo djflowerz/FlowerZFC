@@ -14,3 +14,6 @@ logs/
 
 # Local Netlify folder
 .netlify
+
+# Wrangler build artifacts (contain compiled secrets — never commit)
+.wrangler/

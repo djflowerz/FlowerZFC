@@ -1199,3 +1199,93 @@ export async function sendTestNewsletter(params: {
 
   return sendEmail(testEmail, `[TEST] ${subject}`, baseTemplate(`Test: ${subject}`, htmlBody))
 }
+
+// ─── Tip Confirmation (Donor Receipt) ─────────────────────────────────────────
+export async function sendTipConfirmation(params: {
+  to: string
+  name?: string
+  amount: number
+  currency?: string
+  recipient: string
+  ref: string
+  message?: string
+}): Promise<boolean> {
+  const { to, name, amount, currency = 'KES', recipient, ref, message } = params
+  const firstName = name || 'Supporter'
+  const amountFmt = `${currency} ${amount.toLocaleString()}`
+
+  const body = `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="font-size:50px;margin-bottom:8px;">☕</div>
+      <h1 style="font-size:24px;font-weight:900;color:#fff;margin-bottom:4px;">Thank You, ${firstName}!</h1>
+      <p style="color:#9ca3af;font-size:13px;">Your tip has been successfully sent to <strong style="color:${BRAND_GREEN};">${recipient}</strong> via Paystack.</p>
+    </div>
+
+    <div class="card">
+      <div style="font-size:13px;color:#d1d5db;line-height:2;">
+        <div><strong>Tip Amount:</strong> <span style="color:${BRAND_GREEN};font-weight:900;font-size:16px;">${amountFmt}</span></div>
+        <div><strong>Sent To:</strong> ${recipient}</div>
+        <div><strong>Payment Method:</strong> M-Pesa / Paystack</div>
+        <div><strong>Reference:</strong> <span style="font-family:monospace;color:${BRAND_LIME};">${ref}</span></div>
+        <div><strong>Date:</strong> ${new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+        ${message ? `<div style="margin-top:10px;padding:10px 14px;background:#0a0a14;border-radius:8px;border-left:3px solid ${BRAND_GREEN};"><strong style="color:${BRAND_GREEN};">Your message:</strong><br/><em style="color:#d1d5db;">"${message}"</em></div>` : ''}
+      </div>
+    </div>
+
+    <div style="background:rgba(0,179,65,0.07);border:1px solid rgba(0,179,65,0.25);border-radius:12px;padding:16px;margin-bottom:20px;text-align:center;">
+      <p style="color:#d1d5db;font-size:13px;margin-bottom:8px;">💚 Your support keeps FlowerZFC running ad-free and fuels the team's passion for football &amp; music.</p>
+      <p style="color:#6b7280;font-size:11px;">If you have questions, contact us at <a href="mailto:support@djflowerz.co.ke">support@djflowerz.co.ke</a></p>
+    </div>
+
+    <div style="text-align:center;margin-bottom:12px;">
+      <a href="${SITE_URL}/#/tip" class="btn">Send Another Tip ☕</a>
+    </div>
+    <div style="text-align:center;">
+      <a href="${SITE_URL}" class="btn-ghost">Back to FlowerZFC →</a>
+    </div>`
+
+  return sendEmail(
+    to,
+    `☕ Tip Receipt — ${amountFmt} sent to ${recipient} [${ref}]`,
+    baseTemplate(`Your ${amountFmt} tip to ${recipient} was received. Ref: ${ref}`, body)
+  )
+}
+
+// ─── Admin Notification: New Tip Received ─────────────────────────────────────
+export async function notifyAdminTipReceived(params: {
+  from: string
+  fromEmail: string
+  amount: number
+  currency?: string
+  recipient: string
+  ref: string
+  message?: string
+}): Promise<boolean> {
+  const { from, fromEmail, amount, currency = 'KES', recipient, ref, message } = params
+  const amountFmt = `${currency} ${amount.toLocaleString()}`
+
+  const body = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:40px;margin-bottom:6px;">💰</div>
+      <h1 style="font-size:20px;font-weight:900;color:#fff;">New Tip Received!</h1>
+    </div>
+    <div class="card">
+      <div style="font-size:13px;color:#d1d5db;line-height:2;">
+        <div><strong>From:</strong> ${from} (${fromEmail})</div>
+        <div><strong>Amount:</strong> <span style="color:${BRAND_GREEN};font-weight:900;">${amountFmt}</span></div>
+        <div><strong>Recipient:</strong> ${recipient}</div>
+        <div><strong>Reference:</strong> <span style="font-family:monospace;color:${BRAND_LIME};">${ref}</span></div>
+        <div><strong>Date:</strong> ${new Date().toLocaleString('en-GB')}</div>
+        ${message ? `<div style="margin-top:10px;padding:10px;background:#0a0a14;border-radius:8px;border-left:3px solid ${BRAND_GREEN};"><em style="color:#d1d5db;">"${message}"</em></div>` : ''}
+      </div>
+    </div>
+    <div style="text-align:center;">
+      <a href="${SITE_URL}/#/admin" class="btn">View Admin Dashboard →</a>
+    </div>`
+
+  return sendEmail(
+    ADMIN_EMAIL,
+    `💰 New Tip: ${amountFmt} from ${from} [${ref}]`,
+    baseTemplate(`${from} sent a tip of ${amountFmt} to ${recipient}`, body)
+  )
+}
