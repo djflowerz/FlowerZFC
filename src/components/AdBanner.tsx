@@ -3,16 +3,17 @@ import { useLocation } from 'react-router-dom'
 import { fetchActiveAdForSlot, type AdSlotRow } from '../services/supabaseClient'
 
 interface Props {
-  size: 'leaderboard' | 'rectangle' | 'skyscraper' | 'mobile' | 'halfpage' | 'native'
+  size: 'leaderboard' | 'rectangle' | 'medium' | 'skyscraper' | 'mobile' | 'halfpage' | 'native'
   label?: string
   page?: string
   className?: string
   adSlotId?: string // Optional specific Google AdSense Slot ID
 }
 
-const SIZES = {
+const SIZES: Record<string, { w: string; maxW: string; h: string; label: string }> = {
   leaderboard: { w: '100%', maxW: '728px', h: '90px',  label: '728×90 — Leaderboard' },
   rectangle:   { w: '300px', maxW: '100%', h: '250px', label: '300×250 — Medium Rectangle' },
+  medium:      { w: '300px', maxW: '100%', h: '250px', label: '300×250 — Medium Rectangle' },
   skyscraper:  { w: '160px', maxW: '160px', h: '600px', label: '160×600 — Wide Skyscraper' },
   halfpage:    { w: '300px', maxW: '100%', h: '600px', label: '300×600 — Half Page' },
   mobile:      { w: '100%', maxW: '320px', h: '50px',  label: '320×50 — Mobile Banner' },
@@ -30,6 +31,7 @@ const AD_SPONSORS = [
 const SIZE_TO_LABEL: Record<string, string> = {
   leaderboard: '728x90',
   rectangle: '300x250',
+  medium: '300x250',
   skyscraper: '160x600',
   halfpage: '300x600',
   mobile: '320x50',
@@ -56,7 +58,7 @@ function getPageNameFromPath(pathname: string): string {
 }
 
 export default function AdBanner({ size, label, page, className = '', adSlotId }: Props) {
-  const cfg = SIZES[size]
+  const cfg = SIZES[size] || SIZES.rectangle
   const location = useLocation()
   const [sponsor] = useState(() => AD_SPONSORS[Math.floor(Math.random() * AD_SPONSORS.length)])
   const [adsenseEnabled, setAdsenseEnabled] = useState<boolean>(true)
