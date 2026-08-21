@@ -61,13 +61,16 @@ function LegalPage({ title, content }: { title: string; content: string }) {
 
 import StickyAnchorAd from './components/StickyAnchorAd'
 import LoginPromptModal from './components/LoginPromptModal'
+import ErrorBoundary from './components/ErrorBoundary'
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Header />
       <main style={{ paddingTop: '56px', minHeight: '100vh', paddingBottom: '70px' }}>
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </main>
       <CookieBanner />
       <LoginPromptModal />
@@ -80,10 +83,11 @@ function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <AppProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Layout><Home /></Layout>} />
+    <ErrorBoundary>
+      <AppProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Layout><Home /></Layout>} />
           <Route path="/scores" element={<Layout><Scores /></Layout>} />
           <Route path="/scores/:id" element={<Layout><MatchDetail /></Layout>} />
           <Route path="/match/:id" element={<Layout><MatchDetail /></Layout>} />
@@ -137,5 +141,6 @@ export default function App() {
         toastStyle={{ fontFamily: "'Hanken Grotesk', 'Noto Sans', system-ui, sans-serif" }}
       />
     </AppProvider>
+    </ErrorBoundary>
   )
 }

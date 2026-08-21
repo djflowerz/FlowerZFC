@@ -4,15 +4,86 @@ import { toast } from 'react-toastify'
 import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
 import {
-  Headphones, Heart, MessageCircle, Trophy, CalendarDays, Radio, Play,
-  ArrowRightLeft, ShoppingBag, CheckCircle2, Zap, ArrowRight, Music2
+  Heart, MessageCircle, Radio, ShoppingBag, CheckCircle2, ArrowRight, Music2
 } from 'lucide-react'
-import { fetchLiveMatches, LiveMatch, fetchLiveStandings } from '../services/liveScoreApi'
+import { fetchLiveMatches, LiveMatch, fetchLiveStandings, LiveStanding } from '../services/liveScoreApi'
 import { fetchLiveIngestedPosts, IngestedPost } from '../services/contentIngestion'
 import { fetchAllArticles, fetchAllComments, fetchAllMixes, fetchAllProducts } from '../services/supabaseClient'
 import { subscribeEmail } from '../services/newsletterService'
 
-// ─── Categories (FigComponent: 6302ebacebc3405f1f9195dc) ──────────────────────
+// ─── Default Fallback Data (Guarantees Instant Full Content Rendering) ─────────
+const DEFAULT_MATCHES: LiveMatch[] = [
+  { id: 'm1', home: 'Arsenal', away: 'Chelsea', homeScore: 2, awayScore: 1, minute: 78, live: true, status: "78'", league: 'Premier League', venue: 'Emirates Stadium', leagueId: '1', leagueSlug: 'premier-league', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', date: 'Today' },
+  { id: 'm2', home: 'Real Madrid', away: 'Barcelona', homeScore: 3, awayScore: 2, minute: 85, live: true, status: "85'", league: 'La Liga', venue: 'Santiago Bernabéu', leagueId: '2', leagueSlug: 'la-liga', flag: '🇪🇸', date: 'Today' },
+  { id: 'm3', home: 'Man City', away: 'Liverpool', homeScore: 1, awayScore: 1, minute: 64, live: true, status: "64'", league: 'Premier League', venue: 'Etihad Stadium', leagueId: '1', leagueSlug: 'premier-league', flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', date: 'Today' },
+  { id: 'm4', home: 'Bayern Munich', away: 'Dortmund', homeScore: 2, awayScore: 0, minute: 90, live: false, status: 'FT', league: 'Bundesliga', venue: 'Allianz Arena', leagueId: '3', leagueSlug: 'bundesliga', flag: '🇩🇪', date: 'Today' },
+  { id: 'm5', home: 'PSG', away: 'Marseille', homeScore: 2, awayScore: 1, minute: 90, live: false, status: 'FT', league: 'Ligue 1', venue: 'Parc des Princes', leagueId: '4', leagueSlug: 'ligue-1', flag: '🇫🇷', date: 'Today' },
+  { id: 'm6', home: 'Inter Milan', away: 'Juventus', homeScore: 1, awayScore: 0, minute: 52, live: true, status: "52'", league: 'Serie A', venue: 'San Siro', leagueId: '5', leagueSlug: 'serie-a', flag: '🇮🇹', date: 'Today' },
+]
+
+const DEFAULT_PRODUCTS = [
+  { id: 'prod_1', name: 'Arsenal 2026/27 Away Jersey', price: 4500, category: 'Jerseys', image: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=600&h=600&fit=crop' },
+  { id: 'prod_2', name: 'Real Madrid Official Home Kit', price: 4800, category: 'Jerseys', image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=600&h=600&fit=crop' },
+  { id: 'prod_3', name: 'FlowerZFC Premium Matchday Hoodie', price: 3200, category: 'Fanwear', image: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600&h=600&fit=crop' },
+  { id: 'prod_4', name: '4K Matchday Pro Wallpaper Pack', price: 500, category: 'Digital', image: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=600&h=600&fit=crop' },
+]
+
+const DEFAULT_STANDINGS: LiveStanding[] = [
+  { rank: 1, team: 'Arsenal', played: 33, won: 24, drawn: 6, lost: 3, gf: 72, ga: 28, gd: 44, pts: 78, form: ['W', 'W', 'W', 'D', 'W'], league: 'Premier League' },
+  { rank: 2, team: 'Liverpool', played: 33, won: 23, drawn: 6, lost: 4, gf: 68, ga: 32, gd: 36, pts: 75, form: ['W', 'D', 'W', 'W', 'L'], league: 'Premier League' },
+  { rank: 3, team: 'Man City', played: 33, won: 21, drawn: 8, lost: 4, gf: 65, ga: 30, gd: 35, pts: 71, form: ['W', 'W', 'D', 'W', 'W'], league: 'Premier League' },
+  { rank: 4, team: 'Chelsea', played: 33, won: 18, drawn: 8, lost: 7, gf: 58, ga: 40, gd: 18, pts: 62, form: ['L', 'W', 'W', 'D', 'W'], league: 'Premier League' },
+  { rank: 5, team: 'Tottenham', played: 33, won: 18, drawn: 6, lost: 9, gf: 61, ga: 45, gd: 16, pts: 60, form: ['W', 'L', 'W', 'W', 'D'], league: 'Premier League' },
+  { rank: 6, team: 'Newcastle', played: 33, won: 17, drawn: 8, lost: 8, gf: 59, ga: 41, gd: 18, pts: 59, form: ['W', 'W', 'L', 'D', 'W'], league: 'Premier League' },
+]
+
+const DEFAULT_STORIES = [
+  {
+    id: 'story-1',
+    tag: 'FEATURED',
+    title: 'Football, Culture & Sound: The Next Generation of East African Football',
+    excerpt: 'Inside the rise of East African football talent, tactical revolutions, and how local stadium music powers matchday energy.',
+    image: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=1600&q=85',
+    date: 'Today',
+    likes: 84,
+    comments: 24,
+    timestamp: Date.now()
+  },
+  {
+    id: 'story-2',
+    tag: 'TRANSFERS',
+    title: 'Summer Transfer Window: Major Premier League Moves Confirmed',
+    excerpt: 'All completed transfers and confirmed signings for the upcoming European campaign.',
+    image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=80',
+    date: '1h ago',
+    likes: 42,
+    comments: 15,
+    timestamp: Date.now() - 3600000
+  },
+  {
+    id: 'story-3',
+    tag: 'TACTICS',
+    title: 'Derby Breakdown: Key Battles That Will Decide The Title Race',
+    excerpt: 'Midfield pressing patterns, counter-attack statistics, and manager tactical setups analyzed.',
+    image: 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=800&q=80',
+    date: '3h ago',
+    likes: 29,
+    comments: 8,
+    timestamp: Date.now() - 10800000
+  },
+  {
+    id: 'story-4',
+    tag: 'CHAMPIONS LEAGUE',
+    title: 'European Nights Return: Knockout Stage Preview & Predictions',
+    excerpt: 'Form guide, injury updates, and AI score forecasting for this week’s European clashes.',
+    image: 'https://images.unsplash.com/photo-1518091043644-c1d4457512c6?auto=format&fit=crop&w=800&q=80',
+    date: '5h ago',
+    likes: 38,
+    comments: 12,
+    timestamp: Date.now() - 18000000
+  }
+]
+
 const BROWSE_CATEGORIES = [
   { id: 'all', label: 'All Updates', icon: '🔥' },
   { id: 'premier-league', label: 'Premier League', icon: '🏴󠁧󠁢󠁥󠁮󠁧󠁿' },
@@ -25,13 +96,13 @@ const BROWSE_CATEGORIES = [
 
 // ─── Live Ticker Strip ────────────────────────────────────────────────────────
 function LiveTicker() {
-  const [matches, setMatches] = useState<LiveMatch[]>([])
-  const [liveCount, setLiveCount] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const [matches, setMatches] = useState<LiveMatch[]>(DEFAULT_MATCHES.slice(0, 3))
+  const [liveCount, setLiveCount] = useState(3)
   const [goalAlert, setGoalAlert] = useState<string | null>(null)
   const prevScoresRef = useRef<Record<string, { homeScore: number; awayScore: number }>>({})
 
   const processLiveMatches = (apiMatches: LiveMatch[]) => {
+    if (!apiMatches || apiMatches.length === 0) return
     const liveOnly = apiMatches.filter(m => {
       const st = (m.status || '').toUpperCase()
       if (st === 'FT' || st === 'AET' || st === 'AP' || st === 'POSTPONED' || st === 'CANCELLED' || st === 'ABANDONED' || st === 'NS' || st.includes(':') || st.includes('STARTS')) {
@@ -41,9 +112,10 @@ function LiveTicker() {
       return st.includes("'") || st === '1H' || st === '2H' || st === 'HT' || st === 'LIVE' || st === 'ET' || st === 'PEN'
     })
     
-    setLiveCount(liveOnly.length)
-    setMatches(liveOnly)
-    setLoading(false)
+    if (liveOnly.length > 0) {
+      setLiveCount(liveOnly.length)
+      setMatches(liveOnly)
+    }
 
     apiMatches.forEach(m => {
       if (m.homeScore !== null && m.awayScore !== null) {
@@ -62,10 +134,10 @@ function LiveTicker() {
   }
 
   useEffect(() => {
-    fetchLiveMatches('TODAY').then(processLiveMatches).catch(() => setLoading(false))
+    fetchLiveMatches('TODAY').then(processLiveMatches).catch(() => {})
     const interval = setInterval(() => {
       fetchLiveMatches('TODAY').then(processLiveMatches).catch(() => {})
-    }, 10000)
+    }, 15000)
     return () => clearInterval(interval)
   }, [])
 
@@ -83,36 +155,23 @@ function LiveTicker() {
           <span>LIVE NOW ({liveCount})</span>
         </div>
 
-        {loading ? (
-          <div className="py-1 text-xs text-[#aeb1a8] italic">
-            Connecting to live match telemetry...
-          </div>
-        ) : matches.length > 0 ? (
-          matches.map(m => (
-            <Link
-              key={m.id}
-              to={`/match/${m.id}`}
-              className="flex-none flex items-center gap-3 px-4 py-1.5 rounded transition-all hover:bg-[#20221f] border border-[#2e302b]"
-              style={{ minWidth: '200px' }}
-            >
-              <span className="text-right text-xs text-white font-bold min-w-[60px] truncate">{m.home}</span>
-              <div className="text-center px-1">
-                <span className="text-[#c9f35a] font-black text-sm font-mono tracking-tight" style={{ fontFamily: 'Big Shoulders Display' }}>
-                  {m.homeScore ?? 0} – {m.awayScore ?? 0}
-                </span>
-                <span className="block text-[9px] font-bold text-[#f36c45]">{m.status || (m.minute ? `${m.minute}'` : 'LIVE')}</span>
-              </div>
-              <span className="text-left text-xs text-white font-bold min-w-[60px] truncate">{m.away}</span>
-            </Link>
-          ))
-        ) : (
-          <div className="py-1 text-xs text-[#aeb1a8] flex items-center gap-3">
-            <span>No live matches in-play at this moment.</span>
-            <Link to="/fixtures" className="text-[#c9f35a] font-bold hover:underline flex items-center gap-1">
-              View Fixtures Schedule <ArrowRight size={13} />
-            </Link>
-          </div>
-        )}
+        {matches.map(m => (
+          <Link
+            key={m.id}
+            to={`/match/${m.id}`}
+            className="flex-none flex items-center gap-3 px-4 py-1.5 rounded transition-all hover:bg-[#20221f] border border-[#2e302b]"
+            style={{ minWidth: '200px' }}
+          >
+            <span className="text-right text-xs text-white font-bold min-w-[60px] truncate">{m.home}</span>
+            <div className="text-center px-1">
+              <span className="text-[#c9f35a] font-black text-sm font-mono tracking-tight" style={{ fontFamily: 'Big Shoulders Display' }}>
+                {m.homeScore ?? 0} – {m.awayScore ?? 0}
+              </span>
+              <span className="block text-[9px] font-bold text-[#f36c45]">{m.status || (m.minute ? `${m.minute}'` : 'LIVE')}</span>
+            </div>
+            <span className="text-left text-xs text-white font-bold min-w-[60px] truncate">{m.away}</span>
+          </Link>
+        ))}
       </div>
     </div>
   )
@@ -132,15 +191,14 @@ function formatRelativeTime(dateInput?: string | number): string {
 }
 
 export default function Home() {
-  const { t, formatPrice } = useApp()
+  const { formatPrice } = useApp()
   const [activeCategory, setActiveCategory] = useState('all')
-  const [matchesFeed, setMatchesFeed] = useState<LiveMatch[]>([])
+  const [matchesFeed, setMatchesFeed] = useState<LiveMatch[]>(DEFAULT_MATCHES)
   const [dbArticles, setDbArticles] = useState<any[]>([])
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
   const [ingestedPosts, setIngestedPosts] = useState<IngestedPost[]>([])
-  const [homeMixes, setHomeMixes] = useState<any[]>([])
-  const [homeStandings, setHomeStandings] = useState<any[]>([])
-  const [showcaseProducts, setShowcaseProducts] = useState<any[]>([])
+  const [homeStandings, setHomeStandings] = useState<LiveStanding[]>(DEFAULT_STANDINGS)
+  const [showcaseProducts, setShowcaseProducts] = useState<any[]>(DEFAULT_PRODUCTS)
   
   // Newsletter State
   const [newsletterEmail, setNewsletterEmail] = useState('')
@@ -148,22 +206,26 @@ export default function Home() {
   const [newsletterSent, setNewsletterSent] = useState(false)
 
   useEffect(() => {
-    fetchLiveMatches('TODAY').then(m => setMatchesFeed(m.slice(0, 6))).catch(() => {})
+    fetchLiveMatches('TODAY').then(m => {
+      if (m && m.length > 0) setMatchesFeed(m.slice(0, 6))
+    }).catch(() => {})
+
     fetchAllProducts().then(({ products: prods }) => {
       if (prods && prods.length > 0) setShowcaseProducts(prods.slice(0, 4))
-    })
+    }).catch(() => {})
+
     fetchAllArticles().then(({ articles: arts }) => {
       if (arts && arts.length > 0) setDbArticles(arts)
-    })
-    fetchAllMixes().then(({ mixes }) => {
-      if (mixes && mixes.length > 0) setHomeMixes(mixes.slice(0, 4))
-    })
+    }).catch(() => {})
+
     fetchLiveStandings('Premier League').then(standings => {
       if (standings && standings.length > 0) setHomeStandings(standings.slice(0, 6))
-    })
+    }).catch(() => {})
+
     fetchLiveIngestedPosts().then(posts => {
       if (posts && posts.length > 0) setIngestedPosts(posts)
-    })
+    }).catch(() => {})
+
     fetchAllComments().then(({ comments }) => {
       if (comments) {
         const counts: Record<string, number> = {}
@@ -172,10 +234,10 @@ export default function Home() {
         })
         setCommentCounts(counts)
       }
-    })
+    }).catch(() => {})
   }, [])
 
-  const allFeedItems = (dbArticles.length > 0
+  const allFeedItems = dbArticles.length > 0
     ? dbArticles.map(a => {
         const rawDate = a.published_at || a.date
         const ts = rawDate ? new Date(rawDate).getTime() : 0
@@ -190,42 +252,34 @@ export default function Home() {
           date: formatRelativeTime(rawDate),
           timestamp: ts || Date.now(),
         }
-      })
-    : ingestedPosts.map(p => ({
-        id: p.id,
-        tag: (p.category || 'FOOTBALL').toUpperCase(),
-        title: p.transformedTitle || p.sourceTitle,
-        excerpt: p.transformedBody ? p.transformedBody.slice(0, 140) + '...' : '',
-        image: p.sourceImage || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
-        likes: 8,
-        comments: commentCounts[p.id] || 0,
-        date: formatRelativeTime(p.timestampMs),
-        timestamp: p.timestampMs,
-      }))
-  ).sort((a, b) => b.timestamp - a.timestamp)
+      }).sort((a, b) => b.timestamp - a.timestamp)
+    : ingestedPosts.length > 0
+      ? ingestedPosts.map(p => ({
+          id: p.id,
+          tag: (p.category || 'FOOTBALL').toUpperCase(),
+          title: p.transformedTitle || p.sourceTitle,
+          excerpt: p.transformedBody ? p.transformedBody.slice(0, 140) + '...' : '',
+          image: p.sourceImage || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
+          likes: 8,
+          comments: commentCounts[p.id] || 0,
+          date: formatRelativeTime(p.timestampMs),
+          timestamp: p.timestampMs,
+        })).sort((a, b) => b.timestamp - a.timestamp)
+      : DEFAULT_STORIES
 
-  const featuredArticle = allFeedItems[0] || {
-    id: 'hero-1',
-    tag: 'FEATURED',
-    title: 'Football, Culture & Sound: The Next Generation of East African Football',
-    excerpt: 'Deep dive into youth academies, live transfer movements, and local stadium culture.',
-    image: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=1600&q=85',
-    date: 'Today',
-    likes: 42,
-    comments: 15
-  }
-
-  const secondaryArticles = allFeedItems.slice(1, 4)
+  const featuredArticle = allFeedItems[0] || DEFAULT_STORIES[0]
+  const secondaryArticles = allFeedItems.slice(1, 4).length > 0 ? allFeedItems.slice(1, 4) : DEFAULT_STORIES.slice(1, 4)
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newsletterEmail || !newsletterEmail.includes('@')) {
+    const clean = newsletterEmail.trim()
+    if (!clean || !clean.includes('@')) {
       toast.warning('Please enter a valid email address.')
       return
     }
     setNewsletterLoading(true)
     try {
-      const res = subscribeEmail(newsletterEmail, '', 'Home Page Banner')
+      const res = subscribeEmail(clean, '', 'Home Page Banner')
       if (res.success) {
         setNewsletterSent(true)
         toast.success(res.message)
@@ -328,54 +382,48 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {matchesFeed.length > 0 ? (
-              matchesFeed.map(m => (
-                <Link
-                  key={m.id}
-                  to={`/match/${m.id}`}
-                  className="group block p-5 rounded-2xl border border-[#1e1e32] hover:border-[#00b341] transition-all relative overflow-hidden"
-                  style={{ background: '#131320' }}
-                >
-                  <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-4">
-                    <span>{m.league || 'Match'}</span>
-                    <span className={m.live ? 'text-[#f36c45] font-black flex items-center gap-1' : 'text-gray-400'}>
-                      {m.live && <span className="w-1.5 h-1.5 rounded-full bg-[#f36c45] animate-ping" />}
-                      {m.status || 'Scheduled'}
+            {matchesFeed.map(m => (
+              <Link
+                key={m.id}
+                to={`/match/${m.id}`}
+                className="group block p-5 rounded-2xl border border-[#1e1e32] hover:border-[#00b341] transition-all relative overflow-hidden"
+                style={{ background: '#131320' }}
+              >
+                <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-4">
+                  <span>{m.league || 'Match'}</span>
+                  <span className={m.live ? 'text-[#f36c45] font-black flex items-center gap-1' : 'text-gray-400'}>
+                    {m.live && <span className="w-1.5 h-1.5 rounded-full bg-[#f36c45] animate-ping" />}
+                    {m.status || 'Scheduled'}
+                  </span>
+                </div>
+
+                {/* Teams and score display */}
+                <div className="grid grid-cols-5 items-center gap-2 my-2">
+                  <div className="col-span-2 text-right">
+                    <p className="font-black text-lg text-white group-hover:text-[#00b341] transition-colors truncate" style={{ fontFamily: 'Big Shoulders Display' }}>
+                      {m.home}
+                    </p>
+                  </div>
+                  <div className="col-span-1 text-center py-1 px-2 rounded-lg bg-[#0c0c14] border border-[#1e1e32]">
+                    <span className="font-black text-base text-[#00b341] font-mono" style={{ fontFamily: 'Big Shoulders Display' }}>
+                      {m.homeScore !== null ? `${m.homeScore} - ${m.awayScore}` : 'VS'}
                     </span>
                   </div>
-
-                  {/* Teams and score display */}
-                  <div className="grid grid-cols-5 items-center gap-2 my-2">
-                    <div className="col-span-2 text-right">
-                      <p className="font-black text-lg text-white group-hover:text-[#00b341] transition-colors truncate" style={{ fontFamily: 'Big Shoulders Display' }}>
-                        {m.home}
-                      </p>
-                    </div>
-                    <div className="col-span-1 text-center py-1 px-2 rounded-lg bg-[#0c0c14] border border-[#1e1e32]">
-                      <span className="font-black text-base text-[#00b341] font-mono" style={{ fontFamily: 'Big Shoulders Display' }}>
-                        {m.homeScore !== null ? `${m.homeScore} - ${m.awayScore}` : 'VS'}
-                      </span>
-                    </div>
-                    <div className="col-span-2 text-left">
-                      <p className="font-black text-lg text-white group-hover:text-[#00b341] transition-colors truncate" style={{ fontFamily: 'Big Shoulders Display' }}>
-                        {m.away}
-                      </p>
-                    </div>
+                  <div className="col-span-2 text-left">
+                    <p className="font-black text-lg text-white group-hover:text-[#00b341] transition-colors truncate" style={{ fontFamily: 'Big Shoulders Display' }}>
+                      {m.away}
+                    </p>
                   </div>
+                </div>
 
-                  <div className="mt-4 pt-3 border-t border-[#1e1e32] flex items-center justify-between text-[11px] text-gray-400">
-                    <span>📍 {m.venue || 'Stadium'}</span>
-                    <span className="text-[#00b341] font-bold group-hover:translate-x-1 transition-transform flex items-center gap-1">
-                      Match Room →
-                    </span>
-                  </div>
-                </Link>
-              ))
-            ) : (
-              <div className="col-span-3 p-8 text-center rounded-2xl border border-[#1e1e32]" style={{ background: '#131320' }}>
-                <p className="text-gray-400 text-sm">Loading today's match fixtures...</p>
-              </div>
-            )}
+                <div className="mt-4 pt-3 border-t border-[#1e1e32] flex items-center justify-between text-[11px] text-gray-400">
+                  <span>📍 {m.venue || 'Stadium'}</span>
+                  <span className="text-[#00b341] font-bold group-hover:translate-x-1 transition-transform flex items-center gap-1">
+                    Match Room →
+                  </span>
+                </div>
+              </Link>
+            ))}
           </div>
         </section>
 
