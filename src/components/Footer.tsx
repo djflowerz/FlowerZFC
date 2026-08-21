@@ -16,18 +16,27 @@ const LANGS: { code: Lang; flag: string; label: string }[] = [
 export default function Footer() {
   const { t, lang, setLang } = useApp()
   const [email, setEmail] = useState('')
-  const [subscribed, setSubscribed] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const handleSubscribe = (e?: React.FormEvent) => {
+  const handleSubscribe = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
-    if (!email.trim()) return
-    const res = subscribeEmail(email.trim(), '', 'Footer')
-    if (res.success) {
-      setSubscribed(true)
-      toast.success(res.message)
-      setEmail('')
-    } else {
-      toast.error(res.message)
+    const clean = email.trim()
+    if (!clean || !clean.includes('@')) {
+      toast.warning('Please enter a valid email address.')
+      return
+    }
+    setLoading(true)
+    try {
+      const res = subscribeEmail(clean, '', 'Footer')
+      if (res.success) {
+        setSubscribed(true)
+        toast.success(res.message)
+        setEmail('')
+      } else {
+        toast.error(res.message)
+      }
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -54,7 +63,7 @@ export default function Footer() {
               <a href="https://youtube.com" target="_blank" rel="noreferrer" className="hover:text-emerald-400 transition-colors p-1" aria-label="YouTube">
                 <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
               </a>
-              <a href="https://wa.me/254700000000" target="_blank" rel="noreferrer" className="hover:text-emerald-400 transition-colors p-1" aria-label="WhatsApp">
+              <a href="https://wa.me/254789783258" target="_blank" rel="noreferrer" className="hover:text-emerald-400 transition-colors p-1" aria-label="WhatsApp">
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
               </a>
             </div>

@@ -57,8 +57,32 @@ a{color:${BRAND_GREEN};text-decoration:none;}
 
 // ─── Core send function ────────────────────────────────────────────────────────
 async function sendEmail(to: string, subject: string, html: string, replyTo?: string): Promise<boolean> {
+  // 1. Try serverless Cloudflare Pages Function endpoint first (no CORS, secure)
   try {
-    const res = await fetch(PLUNK_API, {
+    const res = await fetch('/api/send-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        to,
+        subject,
+        body: html,
+        from: `${FROM_NAME} <${FROM_EMAIL}>`,
+        ...(replyTo ? { replyTo } : {}),
+      }),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      if (data.success !== false) return true
+    }
+  } catch {
+    // Fallback below
+  }
+
+  // 2. Direct API fallback
+  try {
+    const res = await fetch('https://next-api.useplunk.com/v1/send', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${PLUNK_SECRET}`,
