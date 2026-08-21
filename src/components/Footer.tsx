@@ -16,6 +16,7 @@ const LANGS: { code: Lang; flag: string; label: string }[] = [
 export default function Footer() {
   const { t, lang, setLang } = useApp()
   const [email, setEmail] = useState('')
+  const [subscribed, setSubscribed] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const handleSubscribe = async (e?: React.FormEvent) => {
