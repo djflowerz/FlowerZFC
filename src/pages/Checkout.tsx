@@ -5,6 +5,7 @@ import { initiatePayment } from '../services/paymentService'
 import ReceiptPrinter from '../components/ReceiptPrinter'
 import { createOrder, fetchAllProducts, verifyPaidReceipt } from '../services/supabaseClient'
 import { getSiteSettings } from '../services/siteSettings'
+import { sendOrderConfirmation, notifyAdminNewOrder } from '../services/emailService'
 
 type Step = 'contact' | 'shipping' | 'payment' | 'verifying' | 'confirmation' | 'failed'
 type DeliveryMethod = 'home' | 'pickup'
@@ -268,13 +269,20 @@ export default function Checkout() {
         ? `🏪 Store Pickup Hub: ${chosenHub?.name}`
         : `${shipping.address1}, ${shipping.address2 ? `${shipping.address2}, ` : ''}${shipping.city}, ${shipping.region}, ${shipping.country}`
 
+      const orderItems = (cart.length > 0 ? cart : savedCartItems).map(c => ({
+        name: c.name,
+        price: c.price,
+        qty: c.quantity,
+        size: c.size,
+      }))
+
       await createOrder({
         id: orderNum,
         customer_name: shipping.name || 'Customer',
         email: shipping.email || 'customer@flowerz.fc',
         phone: shipping.phone || '',
         shipping_address: addressString,
-        items: JSON.stringify((cart.length > 0 ? cart : savedCartItems).map(c => ({ name: c.name, price: c.price, qty: c.quantity, size: c.size }))),
+        items: JSON.stringify(orderItems),
         total: grandTotalKes,
         method: isKenya ? 'paystack_kes' : 'paystack_usd',
         status: 'paid',
@@ -282,6 +290,31 @@ export default function Checkout() {
         shippingCourier: isAllDigital ? 'Digital' : deliveryMethod === 'pickup' ? 'Store Pickup' : isKenya ? 'G4S Kenya Tracked' : 'DHL Express Worldwide',
         shippingCostKes: shippingFee,
       } as any)
+
+      // 1. Send Order Confirmation Email to Customer
+      if (shipping.email && shipping.email.includes('@')) {
+        sendOrderConfirmation({
+          to: shipping.email,
+          customerName: shipping.name || 'Customer',
+          orderId: orderNum,
+          items: orderItems,
+          total: grandTotalKes,
+          shippingAddress: addressString,
+          isDigital: isAllDigital,
+        }).catch(console.error)
+      }
+
+      // 2. Notify Admin of New Order
+      notifyAdminNewOrder({
+        orderId: orderNum,
+        customerName: shipping.name || 'Customer',
+        customerEmail: shipping.email || 'customer@flowerz.fc',
+        customerPhone: shipping.phone,
+        items: orderItems,
+        total: grandTotalKes,
+        shippingAddress: addressString,
+        paymentMethod: isKenya ? 'Paystack (KES M-Pesa / Card)' : 'Paystack (USD Card)',
+      }).catch(console.error)
     } catch (e) {
       console.error('Failed to write order to Supabase:', e)
     }

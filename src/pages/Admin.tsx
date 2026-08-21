@@ -9,12 +9,14 @@ import { getAuthUser, loginWithEmail, hasTabAccessRole, setAuthSession, SUPER_AD
 import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, updateProduct, createProduct, uploadProductImage, compressImageToDataUrl, fetchAllAdSlots, saveAdSlotToDb, deleteAdSlotFromDb, uploadAdCreative, updateUserRoleAndStatus, uploadMixCover, type ArticleRow, type CommentRow, type TicketRow, type MixRow, type AdSlotRow } from '../services/supabaseClient'
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
+import { LayoutDashboard, Package, ShoppingBag, Newspaper, Headphones, Ticket, Users, Wallet, BarChart3, MessageSquare, Megaphone, Mail, Settings2, Server, Settings as SettingsIcon, Satellite } from 'lucide-react'
 import {
   saveArticle, saveArticles, getAllArticles, deleteArticle as storeDeleteArticle, deleteArticles as storeDeleteArticles, clearArticleStore,
   type StoredArticle
 } from '../services/articleStore'
 import { getSubscribers, deleteSubscriber as nlDeleteSubscriber, subscribeEmail as nlSubscribeEmail, unsubscribeEmail, type NewsletterSubscriber } from '../services/newsletterService'
 import { getSiteSettings, saveSiteSettings, type SiteSettings, DEFAULT_SITE_SETTINGS } from '../services/siteSettings'
+import { sendShippingUpdate, sendBroadcastNewsletter, sendTestNewsletter } from '../services/emailService'
 
 // ─── SECURITY: No API keys, key prefixes, or secrets are rendered anywhere in this file.
 //               The admin gate is a client-side UX layer only. Production deployments
@@ -1168,22 +1170,22 @@ export default function Admin() {
   )
 
   const ALL_TABS: { id: AdminTab; icon: string; label: string; badge?: number }[] = [
-    { id:'overview',   icon:'📊', label:'Overview'                         },
-    { id:'orders',     icon:'🛒', label:'Orders',     badge:pendingOrders   },
-    { id:'products',   icon:'👕', label:'Products'                         },
-    { id:'articles',   icon:'📰', label:'Articles'                         },
-    { id:'mixes',      icon:'🎧', label:'Mixes'                            },
-    { id:'tickets',    icon:'🎟️', label:'Tickets'                         },
-    { id:'users',      icon:'👥', label:'Users'                            },
-    { id:'financials', icon:'💰', label:'Financials'                       },
-    { id:'analytics',  icon:'📈', label:'Analytics'                        },
-    { id:'comments',   icon:'💬', label:'Comments',  badge:flaggedComments  },
-    { id:'ads',        icon:'📢', label:'Ad Slots'                         },
-    { id:'comms',      icon:'📧', label:'Comms'                            },
-    { id:'platform',   icon:'⚽', label:'Platform'                         },
-    { id:'system',     icon:'🖥️', label:'System'                          },
-    { id:'settings',   icon:'⚙️', label:'Settings'                         },
-    { id:'scores',     icon:'📡', label:'Scores Data'                       },
+    { id:'overview',   icon:LayoutDashboard, label:'Overview'                         },
+    { id:'orders',     icon:Package,         label:'Orders',     badge:pendingOrders   },
+    { id:'products',   icon:ShoppingBag,     label:'Products'                         },
+    { id:'articles',   icon:Newspaper,       label:'Articles'                         },
+    { id:'mixes',      icon:Headphones,      label:'Mixes'                            },
+    { id:'tickets',    icon:Ticket,          label:'Tickets'                         },
+    { id:'users',      icon:Users,           label:'Users'                            },
+    { id:'financials', icon:Wallet,          label:'Financials'                       },
+    { id:'analytics',  icon:BarChart3,       label:'Analytics'                        },
+    { id:'comments',   icon:MessageSquare,   label:'Comments',  badge:flaggedComments  },
+    { id:'ads',        icon:Megaphone,       label:'Ad Slots'                         },
+    { id:'comms',      icon:Mail,            label:'Comms'                            },
+    { id:'platform',   icon:Settings2,       label:'Platform'                         },
+    { id:'system',     icon:Server,          label:'System'                          },
+    { id:'settings',   icon:SettingsIcon,    label:'Settings'                         },
+    { id:'scores',     icon:Satellite,       label:'Scores Data'                       },
   ]
 
   const TABS = ALL_TABS.filter(t => hasTabAccessRole(userRole, t.id))
@@ -1225,7 +1227,7 @@ export default function Admin() {
               <button key={t.id} onClick={() => setTab(t.id)}
                 className="flex items-center gap-1.5 px-3.5 py-2 text-[11px] font-bold rounded-xl whitespace-nowrap transition-all shrink-0"
                 style={{ background: tab === t.id ? '#00b341' : '#131320', color: tab === t.id ? '#fff' : '#6b7280', border: `1px solid ${tab === t.id ? '#00b341' : '#1e1e32'}` }}>
-                {t.icon} {t.label}
+                <t.icon size={15} strokeWidth={2.25} /> {t.label}
                 {!!t.badge && t.badge > 0 && (
                   <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: tab === t.id ? 'rgba(0,0,0,.25)' : '#ef4444', color: '#fff' }}>{t.badge}</span>
                 )}
@@ -3143,18 +3145,45 @@ export default function Admin() {
                   )}
 
                   <div className="flex gap-3 pt-2">
-                    <button onClick={() => {
+                    <button onClick={async () => {
                       if (!composeSub) return toast('⚠️ Enter a subject line first.', 'warning')
-                      toast(`📧 Test ${commsMode === 'email' ? 'email' : 'push'} sent to admin inbox!`, 'info')
+                      if (commsMode === 'email') {
+                        toast('📧 Sending test email via Plunk...', 'info')
+                        const ok = await sendTestNewsletter({
+                          subject: composeSub,
+                          bodyText: composeBody || 'This is a test broadcast preview.',
+                          bannerUrl: newsletterBanner,
+                          testEmail: user?.email || 'support@djflowerz.co.ke',
+                        })
+                        if (ok) toast('✅ Test email delivered to admin inbox!', 'success')
+                        else toast('⚠️ Could not send test email. Check API key.', 'error')
+                      } else {
+                        toast('🔔 Test push notification broadcasted!', 'info')
+                      }
                     }} className="px-5 py-3 text-xs font-bold text-gray-300 rounded-xl border border-[#1e1e32] hover:border-gray-500 transition-all">
                       📩 Send Test to Me
                     </button>
-                    <button onClick={() => {
+                    <button onClick={async () => {
                       if (!composeSub || !composeBody) return toast('⚠️ Please complete both subject and body.', 'warning')
+                      const activeSubs = subs.filter(s => s.status === 'Active')
+                      
+                      if (commsMode === 'email') {
+                        toast(`🚀 Dispatching email to ${activeSubs.length} subscribers via Plunk...`, 'info')
+                        const recipientEmails = activeSubs.map(s => s.email)
+                        sendBroadcastNewsletter({
+                          subject: composeSub,
+                          bodyText: composeBody,
+                          bannerUrl: newsletterBanner,
+                          recipients: recipientEmails,
+                        }).then(({ sent, failed }) => {
+                          toast(`✅ Newsletter sent to ${sent} subscribers!`, 'success')
+                        }).catch(console.error)
+                      }
+
                       const newCampaign = {
                         id: `se-${Date.now()}`,
                         subject: composeSub,
-                        sentTo: subs.filter(s => s.status === 'Active').length,
+                        sentTo: activeSubs.length,
                         date: new Date().toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
                         opens: 0
                       }
@@ -4589,6 +4618,27 @@ export default function Admin() {
                     <button type="button" key={s.step} onClick={() => {
                       setDetailOrder(p => p ? { ...p, status: s.step } : p)
                       setOrders(prev => prev.map(x => x.id === detailOrder.id ? { ...x, status: s.step } : x))
+                      
+                      // Dispatch shipping email update to customer
+                      if (detailOrder.email && detailOrder.email.includes('@')) {
+                        const emailStatusMap: Record<string, 'processing' | 'shipped' | 'delivered'> = {
+                          Processing: 'processing',
+                          Shipped: 'shipped',
+                          Fulfilled: 'delivered',
+                        }
+                        const targetStatus = emailStatusMap[s.step]
+                        if (targetStatus) {
+                          sendShippingUpdate({
+                            to: detailOrder.email,
+                            customerName: detailOrder.customer || 'Customer',
+                            orderId: detailOrder.id,
+                            trackingNumber: detailOrder.tracking,
+                            status: targetStatus,
+                          }).then(ok => {
+                            if (ok) toast(`📧 Order update email sent to ${detailOrder.email}`, 'info')
+                          }).catch(console.error)
+                        }
+                      }
                     }} className={`p-2 rounded-xl border text-center transition-all ${
                       isCurrent ? 'border-[#00b341] bg-[#00b341]/10 text-white shadow-lg' : isPassed ? 'border-[#00b341]/50 text-gray-300 bg-[#00b341]/5' : 'border-[#1e1e32] bg-[#131320] text-gray-500 hover:border-gray-500'
                     }`}>

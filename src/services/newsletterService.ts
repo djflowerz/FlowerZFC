@@ -1,3 +1,5 @@
+import { sendNewsletterWelcome } from './emailService'
+
 // Real-Time Persistent Newsletter & Subscriber Management Service
 export interface NewsletterSubscriber {
   id: string
@@ -86,6 +88,8 @@ export function subscribeEmail(
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
     window.dispatchEvent(new CustomEvent('flowerzfc_subscribers_updated', { detail: { subscriber: sub } }))
+    // Send branded welcome email via Plunk
+    sendNewsletterWelcome({ to: cleanEmail, name: sub.name }).catch(console.error)
   } catch { /* ignore */ }
 
   return {

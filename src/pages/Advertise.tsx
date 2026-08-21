@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
+import { sendAdvertiseConfirmation, notifyAdminAdInquiry } from '../services/emailService'
 
 const AD_PACKAGES = [
   {
@@ -87,6 +88,7 @@ export default function Advertise() {
   const { t } = useApp()
   const [form, setForm] = useState({ name: '', company: '', email: '', phone: '', budget: '', package: '', message: '' })
   const [sent, setSent] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
 
   // Load custom admin-configured packages and slots if present
@@ -117,8 +119,34 @@ export default function Advertise() {
     document.getElementById('contact-form')?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  const send = () => {
-    if (form.name && form.email) setSent(true)
+  const send = async () => {
+    if (!form.name || !form.email) return
+    setIsSubmitting(true)
+    try {
+      // 1. Send confirmation to advertiser
+      sendAdvertiseConfirmation({
+        to: form.email,
+        name: form.name,
+        company: form.company,
+        packageSelected: form.package,
+        budget: form.budget,
+      }).catch(console.error)
+
+      // 2. Notify Admin
+      notifyAdminAdInquiry({
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        company: form.company,
+        packageSelected: form.package,
+        budget: form.budget,
+        message: form.message,
+      }).catch(console.error)
+
+      setSent(true)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -385,11 +413,18 @@ export default function Advertise() {
                 />
                 <button
                   onClick={send}
-                  disabled={!form.name || !form.email}
-                  className="w-full py-3.5 text-sm font-black text-white rounded-xl transition-all hover:opacity-90 disabled:opacity-40"
+                  disabled={!form.name || !form.email || isSubmitting}
+                  className="w-full py-3.5 text-sm font-black text-white rounded-xl transition-all hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-2"
                   style={{ background: '#00b341', fontFamily: 'Big Shoulders Display', fontSize: '16px' }}
                 >
-                  {t('sendInquiry')} →
+                  {isSubmitting ? (
+                    <>
+                      <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      <span>Sending Inquiry...</span>
+                    </>
+                  ) : (
+                    <>{t('sendInquiry')} →</>
+                  )}
                 </button>
               </div>
 
