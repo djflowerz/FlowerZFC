@@ -1,9 +1,41 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useApp, type Lang } from '../context/AppContext'
 import CartDrawer from './CartDrawer'
 import NotificationManager from './NotificationManager'
-import { ShieldCheck, PenLine, Headset } from 'lucide-react'
+import {
+  ShieldCheck,
+  PenLine,
+  Headset,
+  Radio,
+  CalendarDays,
+  Trophy,
+  Newspaper,
+  Tv,
+  Headphones,
+  ShoppingBag,
+  Coffee,
+  Megaphone,
+  Repeat,
+  Globe,
+  Shield,
+  Bookmark,
+  Target,
+  Settings as SettingsIcon,
+  LogOut,
+  LogIn,
+  UserPlus,
+  Search as SearchIcon,
+  Menu as MenuIcon,
+  X as CloseIcon,
+  Sun,
+  Moon,
+  ChevronRight,
+  Info,
+  Mail,
+  HelpCircle,
+  Sparkles,
+} from 'lucide-react'
 
 const LANGS: { code: Lang; flag: string; label: string }[] = [
   { code: 'en', flag: '🇬🇧', label: 'EN' },
@@ -14,24 +46,27 @@ const LANGS: { code: Lang; flag: string; label: string }[] = [
   { code: 'ar', flag: '🇸🇦', label: 'AR' },
 ]
 
+const CURRENCIES = [
+  { code: 'KES', label: 'KES' },
+  { code: 'USD', label: 'USD $' },
+  { code: 'GBP', label: 'GBP £' },
+  { code: 'EUR', label: 'EUR €' },
+]
+
 export default function Header() {
-  const { t, lang, setLang, darkMode, toggleDark, cartCount, user, authLoading, logout, currency, setCurrency } = useApp()
+  const { t, lang, setLang, darkMode, toggleDark, cartCount, user, logout, currency, setCurrency } = useApp()
   const [langOpen, setLangOpen] = useState(false)
   const [currencyOpen, setCurrencyOpen] = useState(false)
-  const CURRENCIES = [
-    { code: 'USD', label: 'USD $' },
-    { code: 'KES', label: 'KES' },
-    { code: 'GBP', label: 'GBP £' },
-    { code: 'EUR', label: 'EUR €' },
-  ]
   const [menuOpen, setMenuOpen] = useState(false)
   const [cartOpen, setCartOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQ, setSearchQ] = useState('')
+  const [drawerSearchQ, setDrawerSearchQ] = useState('')
   const navigate = useNavigate()
+  const location = useLocation()
 
-  const navLinks = [
+  const desktopNavLinks = [
     { to: '/scores', label: t('scores') },
     { to: '/fixtures', label: t('fixtures') },
     { to: '/standings', label: t('standings') },
@@ -42,135 +77,173 @@ export default function Header() {
     { to: '/shop', label: t('shop') },
   ]
 
+  const handleSearchSubmit = (query: string) => {
+    if (!query.trim()) return
+    navigate(`/search?q=${encodeURIComponent(query.trim())}`)
+    setSearchOpen(false)
+    setMenuOpen(false)
+    setSearchQ('')
+    setDrawerSearchQ('')
+  }
+
+  const isActive = (path: string) => {
+    if (path === '/') return location.pathname === '/'
+    return location.pathname.startsWith(path)
+  }
+
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 border-b" style={{ background: '#0a0a12', borderColor: '#1e1e32' }}>
+      <header className="fixed top-0 left-0 right-0 z-50 border-b backdrop-blur-md" style={{ background: 'rgba(10, 10, 18, 0.95)', borderColor: '#1e1e32' }}>
         {/* Top bar */}
-        <div className="flex items-center justify-between px-4 lg:px-8 h-14 max-w-[1700px] mx-auto">
-          {/* Logo with Brand Green Badge */}
-          <Link to="/" className="flex items-center gap-2 shrink-0">
-            <div className="w-8 h-8 rounded flex items-center justify-center text-white font-black text-sm" style={{ background: '#00b341', fontFamily: 'Big Shoulders Display' }}>
+        <div className="flex items-center justify-between px-3 sm:px-4 lg:px-8 h-14 max-w-[1700px] mx-auto">
+          {/* Logo with Brand Badge */}
+          <Link to="/" className="flex items-center gap-2 shrink-0 group">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-sm shadow-md transition-transform group-hover:scale-105" style={{ background: '#00b341', fontFamily: 'Big Shoulders Display' }}>
               FZ
             </div>
-            <span className="text-white font-black text-xl tracking-tight hidden sm:block" style={{ fontFamily: 'Big Shoulders Display' }}>
-              FlowerZ<span style={{ color: '#00b341' }}>FC</span>
-            </span>
+            <div className="flex flex-col leading-none">
+              <span className="text-white font-black text-lg sm:text-xl tracking-tight" style={{ fontFamily: 'Big Shoulders Display' }}>
+                FlowerZ<span style={{ color: '#00b341' }}>FC</span>
+              </span>
+              <span className="text-[8px] font-bold text-gray-400 tracking-wider uppercase hidden sm:block">Live Scores &amp; Media</span>
+            </div>
           </Link>
 
-          {/* Desktop nav */}
+          {/* Desktop Navigation Links */}
           <nav className="hidden lg:flex items-center gap-1">
-            {navLinks.map(l => (
-              <Link
-                key={l.to}
-                to={l.to}
-                className="px-3 py-1.5 text-sm font-medium rounded transition-colors hover:text-white"
-                style={{ color: '#9a9ab0', fontFamily: 'Hanken Grotesk' }}
-              >
-                {l.label}
-              </Link>
-            ))}
+            {desktopNavLinks.map(l => {
+              const active = isActive(l.to)
+              return (
+                <Link
+                  key={l.to}
+                  to={l.to}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all ${
+                    active ? 'text-white bg-white/10 font-bold' : 'text-[#9a9ab0] hover:text-white hover:bg-white/5'
+                  }`}
+                  style={{ fontFamily: 'Hanken Grotesk' }}
+                >
+                  {l.label}
+                </Link>
+              )
+            })}
           </nav>
 
-          {/* Right controls */}
-          <div className="flex items-center gap-2">
-            {/* Advertise — desktop */}
+          {/* Controls Right */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Advertise — Desktop Pill */}
             <Link
               to="/advertise"
-              className="hidden md:flex items-center px-3 py-1 text-xs font-semibold border rounded transition-colors hover:bg-[#00b341] hover:text-white"
-              style={{ borderColor: '#00b341', color: '#00b341', borderRadius: '3px' }}
+              className="hidden md:flex items-center gap-1 px-3 py-1 text-xs font-bold border rounded-lg transition-all hover:bg-[#00b341] hover:text-black shadow-sm"
+              style={{ borderColor: '#00b341', color: '#00b341' }}
             >
-              {t('advertise')}
+              <Megaphone size={13} />
+              <span>{t('advertise')}</span>
             </Link>
 
-            {/* Search */}
+            {/* Quick Tip / Support Button — Desktop */}
+            <Link
+              to="/tip"
+              className="hidden xl:flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 transition-all"
+            >
+              <Coffee size={13} />
+              <span>Tip</span>
+            </Link>
+
+            {/* Search Toggle */}
             <button
               onClick={() => setSearchOpen(true)}
-              className="p-2 rounded hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors text-gray-300 hover:text-white"
               aria-label="Search"
+              title="Search"
             >
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-              </svg>
+              <SearchIcon size={18} />
             </button>
 
             {/* Notifications Bell */}
             <NotificationManager />
 
-            {/* Language Dropdown */}
+            {/* Language Selector (Desktop) */}
             <div className="relative hidden md:block">
               <button
                 onClick={() => setLangOpen(o => !o)}
-                className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-gray-400 hover:text-white transition-colors"
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
               >
-                {LANGS.find(l => l.code === lang)?.flag} {lang.toUpperCase()}
-                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="m6 9 6 6 6-6"/></svg>
+                <span>{LANGS.find(l => l.code === lang)?.flag}</span>
+                <span>{lang.toUpperCase()}</span>
+                <ChevronRight size={12} className={`transition-transform ${langOpen ? 'rotate-90' : ''}`} />
               </button>
               {langOpen && (
-                <div className="absolute right-0 top-full mt-1 rounded shadow-xl z-50 py-1 min-w-[120px]" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
+                <div className="absolute right-0 top-full mt-1.5 rounded-xl shadow-2xl z-50 py-1.5 min-w-[140px] border border-[#1e1e32]" style={{ background: '#131320' }}>
                   {LANGS.map(l => (
                     <button
                       key={l.code}
                       onClick={() => { setLang(l.code); setLangOpen(false) }}
-                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-white/10 ${lang === l.code ? 'text-[#00b341] font-semibold' : 'text-gray-400'}`}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors hover:bg-white/10 ${lang === l.code ? 'text-[#00b341] font-bold bg-[#00b341]/10' : 'text-gray-300'}`}
                     >
-                      {l.flag} {l.label}
+                      <span className="flex items-center gap-2">{l.flag} {l.label}</span>
+                      {lang === l.code && <span className="text-xs">✓</span>}
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Currency Dropdown */}
+            {/* Currency Selector (Desktop) */}
             <div className="relative hidden md:block">
               <button
                 onClick={() => setCurrencyOpen(o => !o)}
-                className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-gray-400 hover:text-white transition-colors"
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
               >
-                {currency}
-                <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="m6 9 6 6 6-6"/></svg>
+                <span>{currency}</span>
+                <ChevronRight size={12} className={`transition-transform ${currencyOpen ? 'rotate-90' : ''}`} />
               </button>
               {currencyOpen && (
-                <div className="absolute right-0 top-full mt-1 rounded shadow-xl z-50 py-1 min-w-[120px]" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
+                <div className="absolute right-0 top-full mt-1.5 rounded-xl shadow-2xl z-50 py-1.5 min-w-[130px] border border-[#1e1e32]" style={{ background: '#131320' }}>
                   {CURRENCIES.map(c => (
                     <button
                       key={c.code}
                       onClick={() => { setCurrency(c.code); setCurrencyOpen(false) }}
-                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors hover:bg-white/10 ${currency === c.code ? 'text-[#00b341] font-semibold' : 'text-gray-400'}`}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-xs transition-colors hover:bg-white/10 ${currency === c.code ? 'text-[#00b341] font-bold bg-[#00b341]/10' : 'text-gray-300'}`}
                     >
-                      {c.label}
+                      <span>{c.label}</span>
+                      {currency === c.code && <span className="text-xs">✓</span>}
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Dark mode */}
-            <button onClick={toggleDark} className="p-2 text-gray-400 hover:text-white transition-colors">
-              {darkMode ? '☀️' : '🌙'}
+            {/* Dark Mode Toggle */}
+            <button
+              onClick={toggleDark}
+              className="p-2 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+              title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle Theme"
+            >
+              {darkMode ? <Sun size={17} className="text-amber-400" /> : <Moon size={17} className="text-blue-300" />}
             </button>
 
-            {/* Cart */}
+            {/* Cart Button */}
             <button
               onClick={() => setCartOpen(true)}
-              className="relative p-2 text-gray-400 hover:text-white transition-colors"
-              aria-label="Cart"
+              className="relative p-2 text-gray-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+              aria-label="Shopping Cart"
+              title="View Cart"
             >
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
-              </svg>
+              <ShoppingBag size={18} />
               {cartCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[10px] flex items-center justify-center font-bold" style={{ background: '#00b341' }}>
+                <span className="absolute 0 top-0.5 right-0.5 min-w-[18px] h-[18px] px-1 rounded-full text-black text-[10px] flex items-center justify-center font-black animate-pulse" style={{ background: '#00b341' }}>
                   {cartCount}
                 </span>
               )}
             </button>
 
-            {/* Account / Sign In condition: If user is signed in, show profile avatar. If NOT signed in, show Sign In button! */}
+            {/* Account / User Menu (Desktop) */}
             {user ? (
-              <div className="relative">
+              <div className="relative hidden md:block">
                 <button
                   onClick={() => setAccountOpen(o => !o)}
-                  className="flex items-center gap-2 p-0.5 rounded-full transition-colors border border-[#00b341]/40 hover:border-[#00b341]"
+                  className="flex items-center gap-1.5 p-1 rounded-full transition-all border border-[#00b341]/40 hover:border-[#00b341] hover:shadow-lg hover:shadow-[#00b341]/20"
                   aria-label="User Account"
                 >
                   {user.avatar_url ? (
@@ -182,67 +255,118 @@ export default function Header() {
                   )}
                 </button>
                 {accountOpen && (
-                  <div className="absolute right-0 top-full mt-1 rounded-xl shadow-2xl z-50 py-1 min-w-[200px]" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-                    <div className="px-3 py-2 border-b border-white/10">
+                  <div className="absolute right-0 top-full mt-2 rounded-2xl shadow-2xl z-50 py-2 min-w-[220px] border border-[#1e1e32]" style={{ background: '#131320' }}>
+                    <div className="px-4 py-2.5 border-b border-white/10">
                       <div className="text-xs font-bold text-white truncate">{user.name}</div>
                       <div className="text-[10px] text-gray-400 truncate">{user.email}</div>
+                      <span className="inline-block mt-1 px-1.5 py-0.5 text-[9px] font-mono font-bold uppercase rounded bg-[#00b341]/20 text-[#00b341]">
+                        {user.role}
+                      </span>
                     </div>
-                    <Link to="/account/teams" className="block px-3 py-2 text-sm text-gray-300 hover:bg-white/10 transition-colors" onClick={() => setAccountOpen(false)}>{t('myTeams')}</Link>
-                    <Link to="/account/saved" className="block px-3 py-2 text-sm text-gray-300 hover:bg-white/10 transition-colors" onClick={() => setAccountOpen(false)}>{t('savedArticles')}</Link>
-                    <Link to="/account/predictions" className="block px-3 py-2 text-sm text-gray-300 hover:bg-white/10 transition-colors" onClick={() => setAccountOpen(false)}>{t('myPredictions')}</Link>
-                    <Link to="/account/settings" className="block px-3 py-2 text-sm text-gray-300 hover:bg-white/10 transition-colors" onClick={() => setAccountOpen(false)}>{t('settings')}</Link>
+                    <div className="py-1">
+                      <Link to="/account/teams" className="flex items-center gap-2 px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => setAccountOpen(false)}>
+                        <Shield size={14} className="text-[#00b341]" /> {t('myTeams')}
+                      </Link>
+                      <Link to="/account/saved" className="flex items-center gap-2 px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => setAccountOpen(false)}>
+                        <Bookmark size={14} className="text-blue-400" /> {t('savedArticles')}
+                      </Link>
+                      <Link to="/account/predictions" className="flex items-center gap-2 px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => setAccountOpen(false)}>
+                        <Target size={14} className="text-amber-400" /> {t('myPredictions')}
+                      </Link>
+                      <Link to="/account/settings" className="flex items-center gap-2 px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => setAccountOpen(false)}>
+                        <SettingsIcon size={14} className="text-gray-400" /> {t('settings')}
+                      </Link>
+                    </div>
                     <div className="border-t border-white/10 my-1" />
                     {user.role === 'super_admin' && (
-                      <Link to="/admin" className="flex items-center gap-2 px-3 py-2 text-sm font-bold hover:bg-[#00b341]/10 transition-colors" style={{ color: '#00b341' }} onClick={() => setAccountOpen(false)}>
+                      <Link to="/admin" className="flex items-center gap-2 px-4 py-2 text-xs font-bold hover:bg-[#00b341]/10 transition-colors" style={{ color: '#00b341' }} onClick={() => setAccountOpen(false)}>
                         <ShieldCheck size={15} strokeWidth={2.5} /> Admin Dashboard
                       </Link>
                     )}
                     {user.role === 'editor' && (
-                      <Link to="/editor-dashboard" className="flex items-center gap-2 px-3 py-2 text-sm font-bold hover:bg-blue-500/10 transition-colors" style={{ color: '#3b82f6' }} onClick={() => setAccountOpen(false)}>
+                      <Link to="/editor-dashboard" className="flex items-center gap-2 px-4 py-2 text-xs font-bold hover:bg-blue-500/10 transition-colors" style={{ color: '#3b82f6' }} onClick={() => setAccountOpen(false)}>
                         <PenLine size={15} strokeWidth={2.5} /> Editor Dashboard
                       </Link>
                     )}
                     {user.role === 'support' && (
-                      <Link to="/support-dashboard" className="flex items-center gap-2 px-3 py-2 text-sm font-bold hover:bg-purple-500/10 transition-colors" style={{ color: '#a855f7' }} onClick={() => setAccountOpen(false)}>
+                      <Link to="/support-dashboard" className="flex items-center gap-2 px-4 py-2 text-xs font-bold hover:bg-purple-500/10 transition-colors" style={{ color: '#a855f7' }} onClick={() => setAccountOpen(false)}>
                         <Headset size={15} strokeWidth={2.5} /> Support Dashboard
                       </Link>
                     )}
                     <div className="border-t border-white/10 my-1" />
-                    <button onClick={async () => { await logout(); setAccountOpen(false) }} className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-white/10 transition-colors">{t('logout')}</button>
+                    <button
+                      onClick={async () => { await logout(); setAccountOpen(false) }}
+                      className="w-full text-left flex items-center gap-2 px-4 py-2 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
+                    >
+                      <LogOut size={14} />
+                      <span>{t('logout')}</span>
+                    </button>
                   </div>
                 )}
               </div>
             ) : (
               <Link
                 to="/login"
-                className="px-3.5 py-1.5 text-xs font-bold text-black rounded transition-colors hover:opacity-80"
+                className="hidden md:flex items-center gap-1 px-3.5 py-1.5 text-xs font-black text-black rounded-lg transition-all hover:opacity-90 shadow-sm"
                 style={{ background: '#00b341' }}
               >
-                {t('login')}
+                <LogIn size={13} />
+                <span>{t('login')}</span>
               </Link>
             )}
 
-            {/* Mobile hamburger */}
+            {/* Mobile Hamburger Menu Toggle Button */}
             <button
-              className="lg:hidden p-2 text-gray-400 hover:text-white transition-colors"
+              className={`lg:hidden p-2 rounded-lg transition-all flex items-center justify-center ${
+                menuOpen ? 'bg-[#00b341] text-black shadow-md' : 'text-gray-300 hover:text-white hover:bg-white/10'
+              }`}
               onClick={() => setMenuOpen(o => !o)}
-              aria-label="Toggle Navigation Menu"
+              aria-label="Toggle Mobile Navigation Menu"
+              aria-expanded={menuOpen}
             >
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                {menuOpen ? <path d="M18 6 6 18M6 6l12 12"/> : <path d="M4 6h16M4 12h16M4 18h16"/>}
-              </svg>
+              {menuOpen ? <CloseIcon size={20} strokeWidth={2.5} /> : <MenuIcon size={22} strokeWidth={2.2} />}
             </button>
           </div>
         </div>
 
-        {/* Mobile drawer */}
+        {/* ─── Premium Mobile Menu Drawer ─────────────────────────────────── */}
         {menuOpen && (
-          <div className="lg:hidden border-t max-h-[calc(100vh-56px)] overflow-y-auto" style={{ background: '#0a0a12', borderColor: '#1e1e32' }}>
-            
-            {/* Mobile User Profile Section */}
-            <div className="p-4 border-b border-white/10">
+          <div
+            className="lg:hidden border-t max-h-[calc(100vh-56px)] overflow-y-auto overscroll-contain animate-fadeIn pb-10"
+            style={{ background: '#0a0a14', borderColor: '#1e1e32' }}
+          >
+            {/* 1. Quick Mobile Search Bar */}
+            <div className="p-3 border-b border-white/5 bg-[#0e0e1a]">
+              <form
+                onSubmit={e => {
+                  e.preventDefault()
+                  handleSearchSubmit(drawerSearchQ)
+                }}
+                className="relative flex items-center"
+              >
+                <SearchIcon size={16} className="absolute left-3 text-gray-400" />
+                <input
+                  type="text"
+                  value={drawerSearchQ}
+                  onChange={e => setDrawerSearchQ(e.target.value)}
+                  placeholder="Search matches, news, jerseys, mixes..."
+                  className="w-full pl-9 pr-14 py-2.5 text-xs text-white placeholder-gray-500 rounded-xl outline-none border focus:border-[#00b341] transition-all"
+                  style={{ background: '#131322', borderColor: '#1e1e32' }}
+                />
+                <button
+                  type="submit"
+                  className="absolute right-1.5 px-2.5 py-1 text-[10px] font-bold text-black rounded-lg transition-all"
+                  style={{ background: '#00b341' }}
+                >
+                  Go
+                </button>
+              </form>
+            </div>
+
+            {/* 2. User Profile / Welcome Card */}
+            <div className="p-3 border-b border-white/5">
               {user ? (
-                <div className="p-3.5 rounded-xl border border-[#00b341]/30 bg-[#131320] space-y-3">
+                <div className="p-3.5 rounded-2xl border border-[#00b341]/30 bg-[#121222] shadow-lg space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <Link to="/account" onClick={() => setMenuOpen(false)} className="flex items-center gap-3 min-w-0 flex-1">
                       {user.avatar_url ? (
@@ -253,166 +377,513 @@ export default function Header() {
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <div className="font-bold text-sm text-white truncate flex items-center gap-2">
+                        <div className="font-bold text-xs sm:text-sm text-white truncate flex items-center gap-1.5">
                           <span>{user.name}</span>
-                          <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-[#00b341]/20 text-[#00b341] uppercase shrink-0">
+                          <span className="text-[8px] px-1.5 py-0.5 rounded font-mono font-bold bg-[#00b341]/20 text-[#00b341] uppercase shrink-0">
                             {user.role}
                           </span>
                         </div>
-                        <div className="text-xs text-gray-400 truncate">{user.email}</div>
+                        <div className="text-[11px] text-gray-400 truncate">{user.email}</div>
                       </div>
                     </Link>
                     <button
                       onClick={async () => { await logout(); setMenuOpen(false) }}
-                      className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors shrink-0"
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors shrink-0 flex items-center gap-1"
                     >
-                      {t('logout')}
+                      <LogOut size={12} />
+                      <span>{t('logout')}</span>
                     </button>
                   </div>
 
                   {/* Quick Profile Shortcuts */}
-                  <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-white/5 text-xs font-semibold text-gray-300">
-                    <Link to="/account/teams" onClick={() => setMenuOpen(false)} className="px-2 py-1.5 rounded bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-1.5">
-                      <span>🛡️</span> My Teams
+                  <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-white/10 text-xs font-semibold text-gray-300">
+                    <Link to="/account/teams" onClick={() => setMenuOpen(false)} className="px-2.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-2 transition-colors">
+                      <Shield size={14} className="text-[#00b341]" />
+                      <span>My Teams</span>
                     </Link>
-                    <Link to="/account/saved" onClick={() => setMenuOpen(false)} className="px-2 py-1.5 rounded bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-1.5">
-                      <span>📌</span> Saved News
+                    <Link to="/account/saved" onClick={() => setMenuOpen(false)} className="px-2.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-2 transition-colors">
+                      <Bookmark size={14} className="text-blue-400" />
+                      <span>Saved News</span>
                     </Link>
-                    <Link to="/account/predictions" onClick={() => setMenuOpen(false)} className="px-2 py-1.5 rounded bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-1.5">
-                      <span>🎯</span> Predictions
+                    <Link to="/account/predictions" onClick={() => setMenuOpen(false)} className="px-2.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-2 transition-colors">
+                      <Target size={14} className="text-amber-400" />
+                      <span>Predictions</span>
                     </Link>
-                    <Link to="/account/settings" onClick={() => setMenuOpen(false)} className="px-2 py-1.5 rounded bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-1.5">
-                      <span>⚙️</span> Settings
+                    <Link to="/account/settings" onClick={() => setMenuOpen(false)} className="px-2.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-2 transition-colors">
+                      <SettingsIcon size={14} className="text-gray-400" />
+                      <span>Settings</span>
                     </Link>
                   </div>
+
+                  {/* Staff / Admin Dashboard Access */}
+                  {user.role === 'super_admin' && (
+                    <Link
+                      to="/admin"
+                      onClick={() => setMenuOpen(false)}
+                      className="w-full py-2 px-3 rounded-xl flex items-center justify-between text-xs font-bold text-white transition-all shadow-md"
+                      style={{ background: 'linear-gradient(135deg, #008731 0%, #00b341 100%)' }}
+                    >
+                      <span className="flex items-center gap-2">
+                        <ShieldCheck size={16} /> Super Admin Dashboard
+                      </span>
+                      <ChevronRight size={14} />
+                    </Link>
+                  )}
+                  {user.role === 'editor' && (
+                    <Link
+                      to="/editor-dashboard"
+                      onClick={() => setMenuOpen(false)}
+                      className="w-full py-2 px-3 rounded-xl flex items-center justify-between text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 transition-colors shadow-md"
+                    >
+                      <span className="flex items-center gap-2">
+                        <PenLine size={16} /> Editor Dashboard
+                      </span>
+                      <ChevronRight size={14} />
+                    </Link>
+                  )}
+                  {user.role === 'support' && (
+                    <Link
+                      to="/support-dashboard"
+                      onClick={() => setMenuOpen(false)}
+                      className="w-full py-2 px-3 rounded-xl flex items-center justify-between text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 transition-colors shadow-md"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Headset size={16} /> Support Dashboard
+                      </span>
+                      <ChevronRight size={14} />
+                    </Link>
+                  )}
                 </div>
               ) : (
-                <div className="p-3.5 rounded-xl border border-white/10 bg-[#131320] text-center space-y-2.5">
-                  <p className="text-xs text-gray-300 font-medium">Sign in to save teams, enter predictions, and customize match alerts.</p>
-                  <div className="flex gap-2">
+                <div className="p-4 rounded-2xl border border-white/10 bg-[#121222] space-y-2.5 text-center shadow-lg">
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-xl">⚽</span>
+                    <h3 className="text-sm font-black text-white" style={{ fontFamily: 'Big Shoulders Display', letterSpacing: '0.5px' }}>
+                      Welcome to FlowerZFC
+                    </h3>
+                  </div>
+                  <p className="text-[11px] text-gray-400 leading-snug">
+                    Sign in to save teams, enter match predictions &amp; customize goal notifications.
+                  </p>
+                  <div className="flex gap-2 pt-1">
                     <Link
                       to="/login"
                       onClick={() => setMenuOpen(false)}
-                      className="flex-1 py-2 text-xs font-black text-black rounded-lg transition-opacity hover:opacity-90"
+                      className="flex-1 py-2 text-xs font-black text-black rounded-xl transition-all hover:opacity-90 shadow-md flex items-center justify-center gap-1.5"
                       style={{ background: '#00b341' }}
                     >
-                      {t('login')}
+                      <LogIn size={13} />
+                      <span>{t('login')}</span>
                     </Link>
                     <Link
                       to="/login?mode=signup"
                       onClick={() => setMenuOpen(false)}
-                      className="flex-1 py-2 text-xs font-bold text-white rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
+                      className="flex-1 py-2 text-xs font-bold text-white rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center gap-1.5"
                     >
-                      {t('signup')}
+                      <UserPlus size={13} />
+                      <span>{t('signup')}</span>
                     </Link>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Language and Currency */}
-            <div className="px-4 py-3 flex gap-2 border-b border-white/10">
-              <div className="flex-1">
-                <p className="text-[10px] font-bold text-gray-500 uppercase mb-1.5">Language</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {LANGS.map(l => (
-                    <button
-                      key={l.code}
-                      onClick={() => setLang(l.code)}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${lang === l.code ? 'text-[#00b341] font-semibold bg-[#00b341]/10' : 'text-gray-400 bg-white/5'}`}
-                    >
-                      {l.flag} {l.label}
-                    </button>
-                  ))}
+            {/* 3. Categorized Mobile Navigation Grid */}
+            <div className="px-3 py-3 space-y-4">
+              {/* SECTION: MATCH CENTER */}
+              <div>
+                <div className="flex items-center gap-1.5 px-1 mb-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#00b341]">⚽ Match Center</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Link
+                    to="/scores"
+                    onClick={() => setMenuOpen(false)}
+                    className={`p-3 rounded-xl border transition-all flex items-center gap-2.5 ${
+                      isActive('/scores')
+                        ? 'bg-[#00b341]/15 border-[#00b341] text-white shadow-sm'
+                        : 'bg-[#121220] border-[#1e1e32] text-gray-300 hover:text-white hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-red-500/10 text-red-400 flex items-center justify-center shrink-0">
+                      <Radio size={16} className="animate-pulse" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate flex items-center gap-1">
+                        <span>Live Scores</span>
+                      </div>
+                      <div className="text-[9px] text-[#00b341] font-semibold">Real-time alerts</div>
+                    </div>
+                  </Link>
+
+                  <Link
+                    to="/fixtures"
+                    onClick={() => setMenuOpen(false)}
+                    className={`p-3 rounded-xl border transition-all flex items-center gap-2.5 ${
+                      isActive('/fixtures')
+                        ? 'bg-[#00b341]/15 border-[#00b341] text-white shadow-sm'
+                        : 'bg-[#121220] border-[#1e1e32] text-gray-300 hover:text-white hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
+                      <CalendarDays size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate">Fixtures</div>
+                      <div className="text-[9px] text-gray-400">Match calendar</div>
+                    </div>
+                  </Link>
+
+                  <Link
+                    to="/standings"
+                    onClick={() => setMenuOpen(false)}
+                    className={`p-3 rounded-xl border transition-all flex items-center gap-2.5 ${
+                      isActive('/standings')
+                        ? 'bg-[#00b341]/15 border-[#00b341] text-white shadow-sm'
+                        : 'bg-[#121220] border-[#1e1e32] text-gray-300 hover:text-white hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+                      <Trophy size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate">Standings</div>
+                      <div className="text-[9px] text-gray-400">League tables</div>
+                    </div>
+                  </Link>
+
+                  <Link
+                    to="/transfers"
+                    onClick={() => setMenuOpen(false)}
+                    className={`p-3 rounded-xl border transition-all flex items-center gap-2.5 ${
+                      isActive('/transfers')
+                        ? 'bg-[#00b341]/15 border-[#00b341] text-white shadow-sm'
+                        : 'bg-[#121220] border-[#1e1e32] text-gray-300 hover:text-white hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+                      <Repeat size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate flex items-center gap-1">
+                        <span>Transfers</span>
+                        <span className="text-[8px] px-1 rounded bg-red-500/20 text-red-400 font-bold">HOT</span>
+                      </div>
+                      <div className="text-[9px] text-gray-400">Done deals</div>
+                    </div>
+                  </Link>
+
+                  <Link
+                    to="/predictions"
+                    onClick={() => setMenuOpen(false)}
+                    className={`p-3 rounded-xl border transition-all flex items-center gap-2.5 ${
+                      isActive('/predictions')
+                        ? 'bg-[#00b341]/15 border-[#00b341] text-white shadow-sm'
+                        : 'bg-[#121220] border-[#1e1e32] text-gray-300 hover:text-white hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0">
+                      <Target size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate">Predictions</div>
+                      <div className="text-[9px] text-purple-400 font-semibold">Play &amp; Win</div>
+                    </div>
+                  </Link>
+
+                  <Link
+                    to="/quiz"
+                    onClick={() => setMenuOpen(false)}
+                    className={`p-3 rounded-xl border transition-all flex items-center gap-2.5 ${
+                      isActive('/quiz')
+                        ? 'bg-[#00b341]/15 border-[#00b341] text-white shadow-sm'
+                        : 'bg-[#121220] border-[#1e1e32] text-gray-300 hover:text-white hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center shrink-0">
+                      <HelpCircle size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate">Football Quiz</div>
+                      <div className="text-[9px] text-gray-400">Test IQ</div>
+                    </div>
+                  </Link>
                 </div>
               </div>
-              <div className="flex-1">
-                <p className="text-[10px] font-bold text-gray-500 uppercase mb-1.5">Currency</p>
-                <div className="flex flex-wrap gap-1.5">
+
+              {/* SECTION: MEDIA & ENTERTAINMENT */}
+              <div>
+                <div className="flex items-center gap-1.5 px-1 mb-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#00b341]">🎧 Media &amp; News</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <Link
+                    to="/news"
+                    onClick={() => setMenuOpen(false)}
+                    className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
+                      isActive('/news')
+                        ? 'bg-[#00b341]/15 border-[#00b341] text-white'
+                        : 'bg-[#121220] border-[#1e1e32] text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+                      <Newspaper size={16} />
+                    </div>
+                    <span className="text-xs font-bold">News</span>
+                  </Link>
+
+                  <Link
+                    to="/videos"
+                    onClick={() => setMenuOpen(false)}
+                    className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
+                      isActive('/videos')
+                        ? 'bg-[#00b341]/15 border-[#00b341] text-white'
+                        : 'bg-[#121220] border-[#1e1e32] text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center">
+                      <Tv size={16} />
+                    </div>
+                    <span className="text-xs font-bold">Videos</span>
+                  </Link>
+
+                  <Link
+                    to="/mixes"
+                    onClick={() => setMenuOpen(false)}
+                    className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
+                      isActive('/mixes')
+                        ? 'bg-[#00b341]/15 border-[#00b341] text-white'
+                        : 'bg-[#121220] border-[#1e1e32] text-gray-300 hover:text-white'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center">
+                      <Headphones size={16} />
+                    </div>
+                    <span className="text-xs font-bold">DJ Mixes</span>
+                  </Link>
+                </div>
+              </div>
+
+              {/* SECTION: STORE & COMMUNITY */}
+              <div>
+                <div className="flex items-center gap-1.5 px-1 mb-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#00b341]">🛍️ Store &amp; Platform</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Link
+                    to="/shop"
+                    onClick={() => setMenuOpen(false)}
+                    className={`p-3 rounded-xl border transition-all flex items-center gap-2.5 ${
+                      isActive('/shop')
+                        ? 'bg-[#00b341]/15 border-[#00b341] text-white shadow-sm'
+                        : 'bg-[#121220] border-[#1e1e32] text-gray-300 hover:text-white hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-lime-500/10 text-lime-400 flex items-center justify-center shrink-0">
+                      <ShoppingBag size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate">Official Store</div>
+                      <div className="text-[9px] text-gray-400">Jerseys &amp; Hardware</div>
+                    </div>
+                  </Link>
+
+                  <Link
+                    to="/tip"
+                    onClick={() => setMenuOpen(false)}
+                    className={`p-3 rounded-xl border transition-all flex items-center gap-2.5 ${
+                      isActive('/tip')
+                        ? 'bg-amber-500/15 border-amber-500 text-white shadow-sm'
+                        : 'bg-[#121220] border-[#1e1e32] text-gray-300 hover:text-white hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+                      <Coffee size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate flex items-center gap-1">
+                        <span>Send Tip</span>
+                        <span className="text-[8px] px-1 rounded bg-amber-500/20 text-amber-400 font-bold">☕</span>
+                      </div>
+                      <div className="text-[9px] text-amber-400 font-semibold">Support DJ &amp; Site</div>
+                    </div>
+                  </Link>
+
+                  <Link
+                    to="/advertise"
+                    onClick={() => setMenuOpen(false)}
+                    className={`p-3 rounded-xl border transition-all flex items-center gap-2.5 ${
+                      isActive('/advertise')
+                        ? 'bg-[#00b341]/15 border-[#00b341] text-white shadow-sm'
+                        : 'bg-[#121220] border-[#1e1e32] text-gray-300 hover:text-white hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-[#00b341] flex items-center justify-center shrink-0">
+                      <Megaphone size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate">Advertise</div>
+                      <div className="text-[9px] text-gray-400">Promote your brand</div>
+                    </div>
+                  </Link>
+
+                  <Link
+                    to="/east-africa"
+                    onClick={() => setMenuOpen(false)}
+                    className={`p-3 rounded-xl border transition-all flex items-center gap-2.5 ${
+                      isActive('/east-africa')
+                        ? 'bg-[#00b341]/15 border-[#00b341] text-white shadow-sm'
+                        : 'bg-[#121220] border-[#1e1e32] text-gray-300 hover:text-white hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center shrink-0">
+                      <Globe size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold truncate">East Africa</div>
+                      <div className="text-[9px] text-gray-400">FKF &amp; CECAFA</div>
+                    </div>
+                  </Link>
+                </div>
+              </div>
+
+              {/* SECTION: ABOUT & CONTACT */}
+              <div className="flex items-center gap-2 pt-1 text-xs">
+                <Link
+                  to="/about"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Info size={13} />
+                  <span>About Us</span>
+                </Link>
+                <Link
+                  to="/contact"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Mail size={13} />
+                  <span>Contact &amp; Booking</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* 4. Language, Currency & Theme Controls Drawer Footer */}
+            <div className="mt-2 mx-3 p-3.5 rounded-2xl border border-white/5 bg-[#0e0e1a] space-y-3">
+              {/* Currency Selector */}
+              <div>
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <Sparkles size={11} className="text-[#00b341]" /> Currency
+                </div>
+                <div className="grid grid-cols-4 gap-1.5">
                   {CURRENCIES.map(c => (
                     <button
                       key={c.code}
                       onClick={() => setCurrency(c.code)}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${currency === c.code ? 'text-[#00b341] font-semibold bg-[#00b341]/10' : 'text-gray-400 bg-white/5'}`}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
+                        currency === c.code
+                          ? 'bg-[#00b341] text-black shadow-sm'
+                          : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                      }`}
                     >
-                      {c.label}
+                      {c.code}
                     </button>
                   ))}
                 </div>
               </div>
-            </div>
 
-            {/* Main Links */}
-            <nav className="px-4 py-3 flex flex-col gap-1">
-              {navLinks.map(l => (
-                <Link
-                  key={l.to}
-                  to={l.to}
-                  className="py-2.5 px-3 text-sm font-medium text-gray-300 hover:text-white hover:bg-white/10 rounded transition-colors"
-                  onClick={() => setMenuOpen(false)}
+              {/* Language Selector */}
+              <div>
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <Globe size={11} className="text-blue-400" /> Language
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                  {LANGS.map(l => (
+                    <button
+                      key={l.code}
+                      onClick={() => setLang(l.code)}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-all ${
+                        lang === l.code
+                          ? 'bg-[#00b341]/20 border border-[#00b341] text-[#00b341] font-bold'
+                          : 'bg-white/5 border border-transparent text-gray-400 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <span>{l.flag}</span>
+                      <span>{l.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Theme Toggle Button */}
+              <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                <span className="text-xs text-gray-400">Appearance Mode</span>
+                <button
+                  onClick={toggleDark}
+                  className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-white flex items-center gap-2 transition-colors border border-white/10"
                 >
-                  {l.label}
-                </Link>
-              ))}
-              <Link to="/advertise" className="py-2.5 px-3 text-sm font-medium text-[#00b341] hover:bg-white/10 rounded transition-colors" onClick={() => setMenuOpen(false)}>{t('advertise')}</Link>
-              <Link to="/about" className="py-2.5 px-3 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors" onClick={() => setMenuOpen(false)}>{t('about')}</Link>
-              <Link to="/contact" className="py-2.5 px-3 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors" onClick={() => setMenuOpen(false)}>{t('contact')}</Link>
-              
-              {/* Role Dashboards */}
-              {user?.role === 'super_admin' && (
-                <>
-                  <div className="border-t border-white/10 my-1" />
-                  <Link to="/admin" className="py-2.5 px-3 text-sm font-bold flex items-center gap-2 rounded transition-colors hover:bg-[#00b341]/10" style={{ color: '#00b341' }} onClick={() => setMenuOpen(false)}>
-                    <ShieldCheck size={15} strokeWidth={2.5} /> Admin Dashboard
-                  </Link>
-                </>
-              )}
-              {user?.role === 'editor' && (
-                <>
-                  <div className="border-t border-white/10 my-1" />
-                  <Link to="/editor-dashboard" className="py-2.5 px-3 text-sm font-bold flex items-center gap-2 rounded transition-colors hover:bg-blue-500/10" style={{ color: '#3b82f6' }} onClick={() => setMenuOpen(false)}>
-                    <PenLine size={15} strokeWidth={2.5} /> Editor Dashboard
-                  </Link>
-                </>
-              )}
-              {user?.role === 'support' && (
-                <>
-                  <div className="border-t border-white/10 my-1" />
-                  <Link to="/support-dashboard" className="py-2.5 px-3 text-sm font-bold flex items-center gap-2 rounded transition-colors hover:bg-purple-500/10" style={{ color: '#a855f7' }} onClick={() => setMenuOpen(false)}>
-                    <Headset size={15} strokeWidth={2.5} /> Support Dashboard
-                  </Link>
-                </>
-              )}
-            </nav>
+                  {darkMode ? (
+                    <>
+                      <Sun size={13} className="text-amber-400" />
+                      <span>Dark Theme</span>
+                    </>
+                  ) : (
+                    <>
+                      <Moon size={13} className="text-blue-400" />
+                      <span>Light Theme</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </header>
 
-      {/* Search overlay */}
+      {/* Fullscreen Search Overlay */}
       {searchOpen && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-24 px-4" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={() => setSearchOpen(false)}>
+        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 px-4 backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={() => setSearchOpen(false)}>
           <div className="w-full max-w-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-3 rounded-lg px-4 py-3" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
-              <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#666" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <form
+              onSubmit={e => {
+                e.preventDefault()
+                handleSearchSubmit(searchQ)
+              }}
+              className="flex items-center gap-3 rounded-2xl px-4 py-3.5 shadow-2xl border border-[#00b341]/50"
+              style={{ background: '#131320' }}
+            >
+              <SearchIcon size={20} className="text-[#00b341]" />
               <input
                 autoFocus
                 value={searchQ}
                 onChange={e => setSearchQ(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && searchQ) { navigate(`/search?q=${encodeURIComponent(searchQ)}`); setSearchOpen(false) } if (e.key === 'Escape') setSearchOpen(false) }}
-                placeholder={t('search') + '...'}
-                className="flex-1 bg-transparent text-white text-lg outline-none placeholder:text-gray-600"
+                placeholder={t('search') + ' matches, clubs, news, jerseys, mixes...'}
+                className="flex-1 bg-transparent text-white text-base sm:text-lg outline-none placeholder:text-gray-500"
               />
-              <button onClick={() => setSearchOpen(false)} className="text-gray-500 hover:text-white transition-colors text-sm">{t('close')}</button>
-            </div>
+              <button
+                type="submit"
+                className="px-3 py-1.5 text-xs font-black text-black rounded-lg transition-all"
+                style={{ background: '#00b341' }}
+              >
+                Search
+              </button>
+              <button
+                type="button"
+                onClick={() => setSearchOpen(false)}
+                className="text-gray-400 hover:text-white transition-colors text-xs font-semibold px-2 py-1"
+              >
+                {t('close')}
+              </button>
+            </form>
           </div>
         </div>
       )}
 
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
 
-      {/* Click-away for dropdowns */}
-      {(langOpen || accountOpen) && (
-        <div className="fixed inset-0 z-40" onClick={() => { setLangOpen(false); setAccountOpen(false) }} />
+      {/* Backdrop for click-away */}
+      {(langOpen || currencyOpen || accountOpen) && (
+        <div className="fixed inset-0 z-40" onClick={() => { setLangOpen(false); setCurrencyOpen(false); setAccountOpen(false) }} />
       )}
     </>
   )
