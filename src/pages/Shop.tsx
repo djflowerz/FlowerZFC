@@ -180,12 +180,13 @@ export default function Shop() {
             printing_enabled: p.printing_enabled ?? false,
             printing_price: p.printing_price || 0,
           }
-
         })
 
-        setProductList(formatted.length > 0 ? formatted : DEFAULT_SHOP_PRODUCTS)
-      } else {
+        setProductList(formatted)
+      } else if (error) {
         setProductList(DEFAULT_SHOP_PRODUCTS)
+      } else {
+        setProductList([])
       }
     }).catch(() => {
       setProductList(DEFAULT_SHOP_PRODUCTS)

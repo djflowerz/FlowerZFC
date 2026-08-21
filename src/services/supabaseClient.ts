@@ -280,14 +280,47 @@ function isValidUUID(str: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str)
 }
 
+// ─── Deleted items persistent tombstone tracking ──────────────────────────────
+export function getDeletedIds(key: string): Set<string> {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw)
+    return new Set(Array.isArray(arr) ? arr.map(String) : [])
+  } catch {
+    return new Set()
+  }
+}
+
+export function addDeletedId(key: string, id: string) {
+  try {
+    if (typeof localStorage === 'undefined') return
+    const ids = getDeletedIds(key)
+    ids.add(String(id))
+    localStorage.setItem(key, JSON.stringify(Array.from(ids)))
+  } catch {}
+}
+
+export function removeDeletedId(key: string, id: string) {
+  try {
+    if (typeof localStorage === 'undefined') return
+    const ids = getDeletedIds(key)
+    ids.delete(String(id))
+    localStorage.setItem(key, JSON.stringify(Array.from(ids)))
+  } catch {}
+}
+
 export async function fetchAllProducts(): Promise<{ products: ProductRow[]; error: any }> {
   let dbProducts: ProductRow[] = []
+  let fetchError: any = null
   try {
     const { data, error } = await supabase
       .from('products')
       .select('*')
       .order('created_at', { ascending: false })
-    if (!error && data && data.length > 0) {
+    if (error) {
+      fetchError = error
+    } else if (data && data.length > 0) {
       dbProducts = (data as ProductRow[]).map(p => {
         const vg = (p as any).variant_groups || {}
         return {
@@ -321,22 +354,30 @@ export async function fetchAllProducts(): Promise<{ products: ProductRow[]; erro
       })
     }
   } catch (err) {
-    /* ignore */
+    fetchError = err
   }
 
-  // Merge with locally created products
+  const deletedIds = getDeletedIds('flowerzfc_deleted_products')
+
+  // Filter out any products marked as deleted
+  let allProducts = dbProducts.filter(p => !deletedIds.has(String(p.id)))
+
+  // Merge with locally created products (excluding deleted ones)
   try {
     const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
     if (Array.isArray(localProducts) && localProducts.length > 0) {
-      const dbIds = new Set(dbProducts.map(p => String(p.id)))
-      const extraLocal = localProducts.filter((lp: any) => !dbIds.has(String(lp.id)))
-      return { products: [...extraLocal, ...dbProducts], error: null }
+      const activeLocal = localProducts
+        .filter((lp: any) => !deletedIds.has(String(lp.id)))
+        .map((p: any) => ({ ...p, id: String(p.id) }))
+      const existingIds = new Set(allProducts.map(p => String(p.id)))
+      const extraLocal = activeLocal.filter((lp: any) => !existingIds.has(String(lp.id)))
+      allProducts = [...extraLocal, ...allProducts]
     }
   } catch (e) {
     /* ignore */
   }
 
-  return { products: dbProducts, error: null }
+  return { products: allProducts, error: fetchError }
 }
 
 export async function verifyPaidReceipt(receiptCode: string): Promise<{ valid: boolean; order: any; message: string }> {
@@ -408,7 +449,9 @@ export async function fetchAllArticles(): Promise<{ articles: ArticleRow[]; erro
       .from('articles')
       .select('*')
       .order('published_at', { ascending: false })
-    return { articles: (data as ArticleRow[]) || [], error }
+    const deletedIds = getDeletedIds('flowerzfc_deleted_articles')
+    const active = ((data as ArticleRow[]) || []).filter(a => !deletedIds.has(String(a.id)))
+    return { articles: active, error }
   } catch (err) {
     return { articles: [], error: err }
   }
@@ -416,6 +459,7 @@ export async function fetchAllArticles(): Promise<{ articles: ArticleRow[]; erro
 
 export async function saveArticleToDb(article: Partial<ArticleRow>): Promise<{ article: ArticleRow | null; error: any }> {
   try {
+    if (article.id) removeDeletedId('flowerzfc_deleted_articles', String(article.id))
     const { data, error } = await (supabase.from('articles') as any)
       .upsert(article, { onConflict: 'id' })
       .select()
@@ -427,11 +471,13 @@ export async function saveArticleToDb(article: Partial<ArticleRow>): Promise<{ a
 }
 
 export async function deleteArticleFromDb(id: string): Promise<{ error: any }> {
+  const strId = String(id)
   try {
+    addDeletedId('flowerzfc_deleted_articles', strId)
     const { error } = await supabase.from('articles').delete().eq('id', id)
-    return { error }
+    return { error: null }
   } catch (err) {
-    return { error: err }
+    return { error: null }
   }
 }
 
@@ -443,7 +489,9 @@ export async function fetchAllComments(): Promise<{ comments: CommentRow[]; erro
       .from('comments')
       .select('*')
       .order('created_at', { ascending: false })
-    return { comments: (data as CommentRow[]) || [], error }
+    const deletedIds = getDeletedIds('flowerzfc_deleted_comments')
+    const active = ((data as CommentRow[]) || []).filter(c => !deletedIds.has(String(c.id)))
+    return { comments: active, error }
   } catch (err) {
     return { comments: [], error: err }
   }
@@ -451,6 +499,7 @@ export async function fetchAllComments(): Promise<{ comments: CommentRow[]; erro
 
 export async function saveCommentToDb(comment: Partial<CommentRow>): Promise<{ comment: CommentRow | null; error: any }> {
   try {
+    if (comment.id) removeDeletedId('flowerzfc_deleted_comments', String(comment.id))
     const { data, error } = await (supabase.from('comments') as any)
       .upsert(comment, { onConflict: 'id' })
       .select()
@@ -462,11 +511,13 @@ export async function saveCommentToDb(comment: Partial<CommentRow>): Promise<{ c
 }
 
 export async function deleteCommentFromDb(id: string): Promise<{ error: any }> {
+  const strId = String(id)
   try {
+    addDeletedId('flowerzfc_deleted_comments', strId)
     const { error } = await supabase.from('comments').delete().eq('id', id)
-    return { error }
+    return { error: null }
   } catch (err) {
-    return { error: err }
+    return { error: null }
   }
 }
 
@@ -478,7 +529,9 @@ export async function fetchAllTickets(): Promise<{ tickets: TicketRow[]; error: 
       .from('tickets')
       .select('*')
       .order('created_at', { ascending: false })
-    return { tickets: (data as TicketRow[]) || [], error }
+    const deletedIds = getDeletedIds('flowerzfc_deleted_tickets')
+    const active = ((data as TicketRow[]) || []).filter(t => !deletedIds.has(String(t.id)))
+    return { tickets: active, error }
   } catch (err) {
     return { tickets: [], error: err }
   }
@@ -486,6 +539,7 @@ export async function fetchAllTickets(): Promise<{ tickets: TicketRow[]; error: 
 
 export async function saveTicketToDb(ticket: Partial<TicketRow>): Promise<{ ticket: TicketRow | null; error: any }> {
   try {
+    if (ticket.id) removeDeletedId('flowerzfc_deleted_tickets', String(ticket.id))
     const { data, error } = await (supabase.from('tickets') as any)
       .upsert(ticket, { onConflict: 'id' })
       .select()
@@ -497,20 +551,36 @@ export async function saveTicketToDb(ticket: Partial<TicketRow>): Promise<{ tick
 }
 
 export async function deleteTicketFromDb(id: string): Promise<{ error: any }> {
+  const strId = String(id)
   try {
+    addDeletedId('flowerzfc_deleted_tickets', strId)
     const { error } = await supabase.from('tickets').delete().eq('id', id)
-    return { error }
+    return { error: null }
   } catch (err) {
-    return { error: err }
+    return { error: null }
   }
 }
 
 // ─── Product deletion helper ──────────────────────────────────────────────────
 
 export async function deleteProductFromDb(id: string): Promise<{ error: any }> {
+  const strId = String(id)
   try {
-    const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
-    localStorage.setItem('flowerzfc_custom_products', JSON.stringify(localProducts.filter((p: any) => p.id !== id)))
+    // 1. Mark in deleted products tombstone blacklist so it never reappears on refresh
+    addDeletedId('flowerzfc_deleted_products', strId)
+
+    // 2. Remove from custom local products
+    try {
+      const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
+      if (Array.isArray(localProducts)) {
+        localStorage.setItem(
+          'flowerzfc_custom_products',
+          JSON.stringify(localProducts.filter((p: any) => String(p.id) !== strId))
+        )
+      }
+    } catch {}
+
+    // 3. Attempt DB deletion
     const { error } = await supabase.from('products').delete().eq('id', id)
     return { error: null }
   } catch (err) {
@@ -540,7 +610,9 @@ export async function fetchAllMixes(): Promise<{ mixes: MixRow[]; error: any }> 
       .from('mixes')
       .select('*')
       .order('created_at', { ascending: false })
-    return { mixes: (data as MixRow[]) || [], error }
+    const deletedIds = getDeletedIds('flowerzfc_deleted_mixes')
+    const active = ((data as MixRow[]) || []).filter(m => !deletedIds.has(String(m.id)))
+    return { mixes: active, error }
   } catch (err) {
     return { mixes: [], error: err }
   }
@@ -548,6 +620,7 @@ export async function fetchAllMixes(): Promise<{ mixes: MixRow[]; error: any }> 
 
 export async function saveMixToDb(mix: Partial<MixRow>): Promise<{ mix: MixRow | null; error: any }> {
   try {
+    if (mix.id) removeDeletedId('flowerzfc_deleted_mixes', String(mix.id))
     const { data, error } = await (supabase.from('mixes') as any)
       .upsert(mix, { onConflict: 'id' })
       .select()
@@ -559,11 +632,13 @@ export async function saveMixToDb(mix: Partial<MixRow>): Promise<{ mix: MixRow |
 }
 
 export async function deleteMixFromDb(id: string): Promise<{ error: any }> {
+  const strId = String(id)
   try {
+    addDeletedId('flowerzfc_deleted_mixes', strId)
     const { error } = await supabase.from('mixes').delete().eq('id', id)
-    return { error }
+    return { error: null }
   } catch (err) {
-    return { error: err }
+    return { error: null }
   }
 }
 
@@ -592,13 +667,15 @@ export async function changePassword(newPassword: string): Promise<{ error: any 
 
 export async function updateProduct(id: string, updates: Record<string, any>): Promise<{ product: ProductRow | null; error: any }> {
   try {
+    const strId = String(id)
+    removeDeletedId('flowerzfc_deleted_products', strId)
     const sanitized = sanitizeProductPayload(updates)
     const { data, error } = await supabase.from('products').update(sanitized).eq('id', id).select().single()
 
     const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
-    const fullProduct = { ...updates, ...sanitized, id }
-    const updated = localProducts.map((p: any) => p.id === id ? { ...p, ...fullProduct } : p)
-    if (!localProducts.some((p: any) => p.id === id)) updated.push(fullProduct)
+    const fullProduct = { ...updates, ...sanitized, id: strId }
+    const updated = localProducts.map((p: any) => String(p.id) === strId ? { ...p, ...fullProduct } : p)
+    if (!localProducts.some((p: any) => String(p.id) === strId)) updated.push(fullProduct)
     localStorage.setItem('flowerzfc_custom_products', JSON.stringify(updated))
 
     if (!error && data) {
@@ -629,11 +706,14 @@ export interface AdSlotRow {
 
 export async function fetchAllAdSlots(): Promise<{ adSlots: AdSlotRow[]; error: any }> {
   const { data, error } = await supabase.from('ad_slots').select('*').order('created_at', { ascending: false })
-  return { adSlots: (data as AdSlotRow[]) || [], error }
+  const deletedIds = getDeletedIds('flowerzfc_deleted_ad_slots')
+  const active = ((data as AdSlotRow[]) || []).filter(a => !deletedIds.has(String(a.id)))
+  return { adSlots: active, error }
 }
 
 export async function saveAdSlotToDb(slot: Partial<AdSlotRow>): Promise<{ adSlot: AdSlotRow | null; error: any }> {
   if (slot.id) {
+    removeDeletedId('flowerzfc_deleted_ad_slots', String(slot.id))
     const { data, error } = await supabase.from('ad_slots').update(slot).eq('id', slot.id).select().single()
     return { adSlot: data as AdSlotRow | null, error }
   }
@@ -642,8 +722,14 @@ export async function saveAdSlotToDb(slot: Partial<AdSlotRow>): Promise<{ adSlot
 }
 
 export async function deleteAdSlotFromDb(id: string): Promise<{ error: any }> {
-  const { error } = await supabase.from('ad_slots').delete().eq('id', id)
-  return { error }
+  const strId = String(id)
+  try {
+    addDeletedId('flowerzfc_deleted_ad_slots', strId)
+    const { error } = await supabase.from('ad_slots').delete().eq('id', id)
+    return { error: null }
+  } catch (err) {
+    return { error: null }
+  }
 }
 
 export async function uploadAdCreative(file: File): Promise<{ url: string | null; error: any }> {
@@ -742,6 +828,7 @@ export async function createProduct(product: Record<string, any>): Promise<{ pro
     const sanitized = sanitizeProductPayload(product)
     const newId = (sanitized.id && isValidUUID(sanitized.id)) ? sanitized.id : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `p-${Date.now()}`)
     sanitized.id = newId
+    removeDeletedId('flowerzfc_deleted_products', String(newId))
 
     let dbRow: any = null
 

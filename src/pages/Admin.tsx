@@ -340,7 +340,7 @@ export default function Admin() {
 
     // 2. Fetch real products from Supabase products table
     fetchAllProducts().then(({ products: realProds, error }) => {
-      if (!error && realProds && realProds.length > 0) {
+      if (!error && Array.isArray(realProds)) {
         const mappedProds: Product[] = realProds.map((p: any) => {
           let parsedImages: string[] = []
           if (Array.isArray(p.images)) {
