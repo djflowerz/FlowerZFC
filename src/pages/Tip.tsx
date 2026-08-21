@@ -47,13 +47,13 @@ export default function Tip() {
 
   const isKes = selectedCurrency === 'KES'
   const presetAmounts = useMemo(() => {
-    if (selectedCurrency === 'KES') return [50, 100, 250, 500, 1000]
-    if (selectedCurrency === 'UGX' || selectedCurrency === 'TZS') return [2000, 5000, 10000, 20000]
-    return [2, 5, 10, 25]
+    if (selectedCurrency === 'KES') return [10, 20, 50, 100, 250, 500]
+    if (selectedCurrency === 'UGX' || selectedCurrency === 'TZS') return [500, 1000, 2000, 5000, 10000, 20000]
+    return [1, 2, 5, 10, 25, 50]
   }, [selectedCurrency])
 
   const [recipient, setRecipient] = useState('site')
-  const [presetAmt, setPresetAmt] = useState<number>(() => isKes ? 100 : 5)
+  const [presetAmt, setPresetAmt] = useState<number>(() => isKes ? 50 : 5)
   const [customAmt, setCustomAmt] = useState('')
   const [message, setMessage] = useState('')
   const [anonymous, setAnonymous] = useState(false)
