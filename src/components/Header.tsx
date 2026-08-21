@@ -37,6 +37,7 @@ import {
   Sparkles,
   Coins,
   Check,
+  Heart,
 } from 'lucide-react'
 
 const LANGS: { code: Lang; flag: string; label: string; name: string }[] = [
@@ -288,6 +289,9 @@ export default function Header() {
                       <Link to="/account/saved" className="flex items-center gap-2 px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => setAccountOpen(false)}>
                         <Bookmark size={14} className="text-blue-400" /> {t('savedArticles')}
                       </Link>
+                      <Link to="/account/wishlist" className="flex items-center gap-2 px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => setAccountOpen(false)}>
+                        <Heart size={14} className="text-red-400" /> My Wishlist
+                      </Link>
                       <Link to="/account/predictions" className="flex items-center gap-2 px-4 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white transition-colors" onClick={() => setAccountOpen(false)}>
                         <Target size={14} className="text-amber-400" /> {t('myPredictions')}
                       </Link>
@@ -414,7 +418,7 @@ export default function Header() {
                   </div>
 
                   {/* Quick Profile Shortcuts */}
-                  <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-white/10 text-xs font-semibold text-gray-300">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-2 border-t border-white/10 text-xs font-semibold text-gray-300">
                     <Link to="/account/teams" onClick={() => setMenuOpen(false)} className="px-2.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-2 transition-colors">
                       <Shield size={14} className="text-[#00b341]" />
                       <span>My Teams</span>
@@ -423,11 +427,15 @@ export default function Header() {
                       <Bookmark size={14} className="text-blue-400" />
                       <span>Saved News</span>
                     </Link>
+                    <Link to="/account/wishlist" onClick={() => setMenuOpen(false)} className="px-2.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-2 transition-colors">
+                      <Heart size={14} className="text-red-400" />
+                      <span>Wishlist</span>
+                    </Link>
                     <Link to="/account/predictions" onClick={() => setMenuOpen(false)} className="px-2.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-2 transition-colors">
                       <Target size={14} className="text-amber-400" />
                       <span>Predictions</span>
                     </Link>
-                    <Link to="/account/settings" onClick={() => setMenuOpen(false)} className="px-2.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-2 transition-colors">
+                    <Link to="/account/settings" onClick={() => setMenuOpen(false)} className="px-2.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white flex items-center gap-2 transition-colors col-span-2 sm:col-span-1">
                       <SettingsIcon size={14} className="text-gray-400" />
                       <span>Settings</span>
                     </Link>

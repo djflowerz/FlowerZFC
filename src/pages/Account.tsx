@@ -1,16 +1,18 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useParams, Navigate, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Shield, FileText, Target, Settings as SettingsIcon, LogOut, Volume2 } from 'lucide-react'
+import { Shield, FileText, Target, Settings as SettingsIcon, LogOut, Volume2, Heart, ShoppingBag, Trash2 } from 'lucide-react'
 import {
-  uploadAvatar, upsertProfile, changePassword, supabase
+  uploadAvatar, upsertProfile, changePassword, supabase, fetchAllProducts
 } from '../services/supabaseClient'
+import { getProductPath } from '../services/productUtils'
 import { subscribeEmail, unsubscribeEmail, isEmailSubscribed } from '../services/newsletterService'
 import { isSoundEnabled, setSoundEnabled, playTestSound } from '../services/audioAlertService'
 
 const SECTIONS = [
   { to: '/account/teams', label: 'My Teams', Icon: Shield },
   { to: '/account/saved', label: 'Saved Articles', Icon: FileText },
+  { to: '/account/wishlist', label: 'My Wishlist', Icon: Heart },
   { to: '/account/predictions', label: 'My Predictions', Icon: Target },
   { to: '/account/settings', label: 'Settings', Icon: SettingsIcon },
 ]
@@ -78,6 +80,48 @@ export default function Account() {
 
   const [predictions, setPredictions] = useState<any[]>([])
   const [predictionsLoading, setPredictionsLoading] = useState(true)
+
+  const [wishlistItems, setWishlistItems] = useState<any[]>([])
+  const [wishlistLoading, setWishlistLoading] = useState(true)
+
+  const loadWishlistData = () => {
+    setWishlistLoading(true)
+    try {
+      const ids: string[] = JSON.parse(localStorage.getItem('flowerzfc_wishlist') || '[]')
+      if (ids.length === 0) {
+        setWishlistItems([])
+        setWishlistLoading(false)
+        return
+      }
+      fetchAllProducts().then(({ products }) => {
+        if (products && products.length > 0) {
+          const matched = products.filter((p: any) => ids.includes(String(p.id)))
+          setWishlistItems(matched)
+        } else {
+          setWishlistItems([])
+        }
+      }).finally(() => setWishlistLoading(false))
+    } catch {
+      setWishlistItems([])
+      setWishlistLoading(false)
+    }
+  }
+
+  const removeWishlistItem = (prodId: string) => {
+    try {
+      const ids: string[] = JSON.parse(localStorage.getItem('flowerzfc_wishlist') || '[]')
+      const updated = ids.filter(id => id !== prodId)
+      localStorage.setItem('flowerzfc_wishlist', JSON.stringify(updated))
+      setWishlistItems(prev => prev.filter(p => String(p.id) !== prodId))
+      window.dispatchEvent(new Event('flowerzfc_wishlist_updated'))
+    } catch {}
+  }
+
+  useEffect(() => {
+    loadWishlistData()
+    window.addEventListener('flowerzfc_wishlist_updated', loadWishlistData)
+    return () => window.removeEventListener('flowerzfc_wishlist_updated', loadWishlistData)
+  }, [])
 
   useEffect(() => {
     if (!user) return
@@ -345,6 +389,71 @@ export default function Account() {
                       <button onClick={() => removeSavedArticle(a.id)} className="text-xs text-gray-600 hover:text-red-400 transition-colors">Remove</button>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {section === 'wishlist' && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>
+                  My Wishlist ({wishlistItems.length})
+                </h2>
+                <Link to="/shop" className="text-xs font-bold text-[#00b341] hover:underline flex items-center gap-1">
+                  <span>Browse Shop</span> →
+                </Link>
+              </div>
+
+              {wishlistLoading ? (
+                <p className="text-sm text-gray-500">Loading your saved items...</p>
+              ) : wishlistItems.length === 0 ? (
+                <div className="p-8 text-center rounded-2xl border border-white/5 bg-[#121222]">
+                  <p className="text-4xl mb-3">🤍</p>
+                  <p className="text-sm font-bold text-white mb-1">Your wishlist is empty</p>
+                  <p className="text-xs text-gray-400 mb-4">You haven't saved any jerseys or gear yet. Items you heart on the store will appear here.</p>
+                  <Link to="/shop" className="px-4 py-2 text-xs font-black text-black rounded-lg inline-block" style={{ background: '#00b341' }}>
+                    Explore Merch Store
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {wishlistItems.map(p => {
+                    const firstImage = Array.isArray(p.images) ? p.images[0] : (p.image || 'https://images.unsplash.com/photo-1551958219-acbc5dbf7f1e?w=600&h=600&fit=crop')
+                    return (
+                      <div key={p.id} className="p-3 rounded-2xl border border-white/10 bg-[#131322] flex items-center gap-3">
+                        <Link to={getProductPath(p)} className="w-16 h-16 rounded-xl bg-black/40 p-1 flex items-center justify-center shrink-0">
+                          <img src={firstImage} alt={p.name} className="w-full h-full object-contain" />
+                        </Link>
+                        <div className="min-w-0 flex-1">
+                          <Link to={getProductPath(p)} className="text-xs font-bold text-white hover:text-[#00b341] transition-colors truncate block">
+                            {p.name}
+                          </Link>
+                          <div className="text-xs font-mono font-bold text-[#00b341] mt-0.5">
+                            KES {Number(p.price || 0).toLocaleString()}
+                          </div>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Link
+                              to={getProductPath(p)}
+                              className="px-2.5 py-1 text-[10px] font-bold text-black rounded-md"
+                              style={{ background: '#00b341' }}
+                            >
+                              View Item
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => removeWishlistItem(String(p.id))}
+                              className="p-1 text-gray-500 hover:text-red-400 transition-colors text-[10px] flex items-center gap-1"
+                              title="Remove from Wishlist"
+                            >
+                              <Trash2 size={12} />
+                              <span>Remove</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>

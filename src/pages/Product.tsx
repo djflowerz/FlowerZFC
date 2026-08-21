@@ -4,6 +4,8 @@ import { useApp } from '../context/AppContext'
 import { fetchAllProducts, verifyPaidReceipt } from '../services/supabaseClient'
 import { initiatePayment } from '../services/paymentService'
 import { getSiteSettings } from '../services/siteSettings'
+import { matchProduct, getProductPath, getProductSlug } from '../services/productUtils'
+import { Share2, Copy, Check, Heart, MessageCircle } from 'lucide-react'
 import type { ProductType } from './Shop'
 
 function StarRating({ rating, reviews }: { rating: number; reviews: number }) {
@@ -53,14 +55,9 @@ export default function Product() {
   const [selectedAddons, setSelectedAddons] = useState<string[]>([])
   const [selectedLeagueBadge, setSelectedLeagueBadge] = useState('none')
   const [selectedTournamentBadge, setSelectedTournamentBadge] = useState('none')
-  const [isWishlisted, setIsWishlisted] = useState(() => {
-    try {
-      const list = JSON.parse(localStorage.getItem('flowerzfc_wishlist') || '[]')
-      return list.includes(id)
-    } catch {
-      return false
-    }
-  })
+  const [isWishlisted, setIsWishlisted] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [shareModalOpen, setShareModalOpen] = useState(false)
   const [buyNowLoading, setBuyNowLoading] = useState(false)
   const [buyNowError, setBuyNowError] = useState('')
 
@@ -145,8 +142,16 @@ export default function Product() {
         }))
       }
       setAllProducts(formatted)
-      const found = formatted.find(p => String(p.id) === String(id))
+      const found = matchProduct(formatted, id)
       setProduct(found || null)
+      if (found) {
+        try {
+          const list = JSON.parse(localStorage.getItem('flowerzfc_wishlist') || '[]')
+          setIsWishlisted(list.includes(String(found.id)))
+        } catch {
+          setIsWishlisted(false)
+        }
+      }
       if (found?.sizes && found.sizes.length > 0) {
         setSize(found.sizes[0])
       }
@@ -268,18 +273,57 @@ Please confirm order availability and payment details.`
   }
 
   const toggleWishlist = () => {
+    if (!product) return
+    const prodId = String(product.id)
     try {
       const list = JSON.parse(localStorage.getItem('flowerzfc_wishlist') || '[]')
       let updated: string[] = []
-      if (list.includes(id)) {
-        updated = list.filter((x: string) => x !== id)
+      if (list.includes(prodId)) {
+        updated = list.filter((x: string) => x !== prodId)
         setIsWishlisted(false)
       } else {
-        updated = [...list, id]
+        updated = [...list, prodId]
         setIsWishlisted(true)
       }
       localStorage.setItem('flowerzfc_wishlist', JSON.stringify(updated))
+      window.dispatchEvent(new Event('flowerzfc_wishlist_updated'))
     } catch {}
+  }
+
+  const handleShare = async (platform?: 'whatsapp' | 'twitter' | 'native' | 'copy') => {
+    if (!product) return
+    const currentUrl = window.location.origin + getProductPath(product)
+    const shareTitle = `${product.name} | FlowerZFC Official Store`
+    const shareText = `Check out ${product.name} on FlowerZFC Store for ${formatPrice(product.price)}!`
+
+    if (platform === 'whatsapp') {
+      window.open(`https://wa.me/?text=${encodeURIComponent(shareText + '\n' + currentUrl)}`, '_blank')
+      return
+    }
+    if (platform === 'twitter') {
+      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(currentUrl)}`, '_blank')
+      return
+    }
+    if (platform === 'copy') {
+      try {
+        await navigator.clipboard.writeText(currentUrl)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2500)
+      } catch {}
+      return
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: currentUrl,
+        })
+        return
+      } catch {}
+    }
+    setShareModalOpen(true)
   }
 
   const executeDigitalPayment = async (targetEmail: string) => {
@@ -523,6 +567,45 @@ Please confirm order availability and payment details.`
                       )}
                     </div>
                   )}
+
+                  {/* Wishlist & Share Action Bar (Digital) */}
+                  <div className="pt-3 border-t border-[#1e1e32] flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={toggleWishlist}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer hover:border-gray-500"
+                      style={{
+                        background: isWishlisted ? 'rgba(239, 68, 68, 0.12)' : '#131322',
+                        borderColor: isWishlisted ? '#ef4444' : '#1e1e32',
+                        color: isWishlisted ? '#ef4444' : '#d1d5db',
+                      }}
+                    >
+                      <Heart size={14} fill={isWishlisted ? '#ef4444' : 'none'} className={isWishlisted ? 'text-red-500' : 'text-gray-400'} />
+                      <span>{isWishlisted ? 'Saved in Wishlist' : 'Add to Wishlist'}</span>
+                    </button>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleShare('whatsapp')}
+                        className="px-2.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-all text-xs font-bold flex items-center gap-1.5"
+                        title="Share on WhatsApp"
+                      >
+                        <MessageCircle size={14} />
+                        <span className="hidden sm:inline">WhatsApp</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleShare('copy')}
+                        className="px-2.5 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-all text-xs font-bold flex items-center gap-1.5"
+                        title="Copy Product Link"
+                      >
+                        {copied ? <Check size={14} className="text-[#00b341]" /> : <Copy size={14} />}
+                        <span>{copied ? 'Copied!' : 'Copy Link'}</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -711,18 +794,54 @@ Please confirm order availability and payment details.`
                     </button>
                   </div>
 
-                  {/* Add to Wishlist */}
-                  {/* Add to Wishlist */}
-                  <button
-                    type="button"
-                    onClick={toggleWishlist}
-                    className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors pt-1 cursor-pointer"
-                  >
-                    <span className={isWishlisted ? 'text-red-500' : 'text-gray-400'}>
-                      {isWishlisted ? '❤️' : '🤍'}
-                    </span>
-                    <span>{isWishlisted ? 'Saved in Wishlist' : 'Add to wishlist'}</span>
-                  </button>
+                  {/* Wishlist & Share Action Bar */}
+                  <div className="pt-3 border-t border-[#1e1e32] flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={toggleWishlist}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer hover:border-gray-500"
+                      style={{
+                        background: isWishlisted ? 'rgba(239, 68, 68, 0.12)' : '#131322',
+                        borderColor: isWishlisted ? '#ef4444' : '#1e1e32',
+                        color: isWishlisted ? '#ef4444' : '#d1d5db',
+                      }}
+                    >
+                      <Heart size={14} fill={isWishlisted ? '#ef4444' : 'none'} className={isWishlisted ? 'text-red-500' : 'text-gray-400'} />
+                      <span>{isWishlisted ? 'Saved in Wishlist' : 'Add to Wishlist'}</span>
+                    </button>
+
+                    {/* Share Buttons */}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleShare('whatsapp')}
+                        className="px-2.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-all text-xs font-bold flex items-center gap-1.5"
+                        title="Share on WhatsApp"
+                      >
+                        <MessageCircle size={14} />
+                        <span className="hidden sm:inline">WhatsApp</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleShare('copy')}
+                        className="px-2.5 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-all text-xs font-bold flex items-center gap-1.5"
+                        title="Copy Product Link"
+                      >
+                        {copied ? <Check size={14} className="text-[#00b341]" /> : <Copy size={14} />}
+                        <span>{copied ? 'Copied!' : 'Copy Link'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleShare('native')}
+                        className="p-2 rounded-xl bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-all text-xs font-bold flex items-center gap-1"
+                        title="More Sharing Options"
+                      >
+                        <Share2 size={14} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -944,6 +1063,58 @@ Please confirm order availability and payment details.`
                 style={{ background: '#6366f1', fontFamily: 'Big Shoulders Display' }}
               >
                 <span>Continue to Paystack →</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Modal Dialog */}
+      {shareModalOpen && product && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.85)' }} onClick={() => setShareModalOpen(false)}>
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 p-5 shadow-2xl space-y-4 animate-scaleIn" style={{ background: '#111122' }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Share2 size={18} className="text-[#00b341]" />
+                <h3 className="text-base font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>Share this Product</h3>
+              </div>
+              <button type="button" onClick={() => setShareModalOpen(false)} className="text-gray-400 hover:text-white text-xs font-bold">✕</button>
+            </div>
+
+            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/5">
+              <img src={product.images[0]} alt={product.name} className="w-12 h-12 object-contain rounded-lg bg-black/40 p-1" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-white truncate">{product.name}</p>
+                <p className="text-xs font-mono font-bold text-[#00b341]">{formatPrice(product.price)}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => { handleShare('whatsapp'); setShareModalOpen(false) }}
+                className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-all text-xs font-bold flex items-center justify-center gap-2"
+              >
+                <MessageCircle size={16} />
+                <span>WhatsApp</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { handleShare('twitter'); setShareModalOpen(false) }}
+                className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500/20 transition-all text-xs font-bold flex items-center justify-center gap-2"
+              >
+                <span>𝕏 Twitter</span>
+              </button>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => handleShare('copy')}
+                className="w-full py-2.5 px-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-gray-200 text-xs font-bold flex items-center justify-center gap-2 transition-all"
+              >
+                {copied ? <Check size={15} className="text-[#00b341]" /> : <Copy size={15} />}
+                <span>{copied ? 'Link Copied to Clipboard!' : 'Copy Direct Link'}</span>
               </button>
             </div>
           </div>

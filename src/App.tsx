@@ -105,6 +105,7 @@ export default function App() {
           <Route path="/mixes" element={<Layout><Mixes /></Layout>} />
           <Route path="/shop" element={<Layout><Shop /></Layout>} />
           <Route path="/shop/:id" element={<Layout><Product /></Layout>} />
+          <Route path="/product/:id" element={<Layout><Product /></Layout>} />
           <Route path="/checkout" element={<Layout><Checkout /></Layout>} />
           <Route path="/predictions" element={<Layout><Predictions /></Layout>} />
           <Route path="/advertise" element={<Layout><Advertise /></Layout>} />

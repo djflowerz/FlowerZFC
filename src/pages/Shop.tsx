@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Truck, RotateCcw, Lock, Globe } from 'lucide-react'
+import { Truck, RotateCcw, Lock, Globe, Heart } from 'lucide-react'
 import AdBanner from '../components/AdBanner'
 import { fetchAllProducts } from '../services/supabaseClient'
+import { getProductPath } from '../services/productUtils'
 
 export interface ProductType {
   id: string
@@ -118,12 +119,41 @@ function StarRating({ rating }: { rating: number }) {
 
 export default function Shop() {
   const { t, addToCart, formatPrice } = useApp()
-  const [activeCategory, setActiveCategory] = useState('All')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const [activeCategory, setActiveCategory] = useState(tabParam === 'wishlist' ? 'Wishlist' : 'All')
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [search, setSearch] = useState('')
   const [quickAdded, setQuickAdded] = useState<string | null>(null)
   const [productList, setProductList] = useState<ProductType[]>([])
   const [loading, setLoading] = useState(true)
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('flowerzfc_wishlist') || '[]')
+    } catch {
+      return []
+    }
+  })
+
+  useEffect(() => {
+    const syncWishlist = () => {
+      try {
+        setWishlist(JSON.parse(localStorage.getItem('flowerzfc_wishlist') || '[]'))
+      } catch {}
+    }
+    window.addEventListener('flowerzfc_wishlist_updated', syncWishlist)
+    window.addEventListener('storage', syncWishlist)
+    return () => {
+      window.removeEventListener('flowerzfc_wishlist_updated', syncWishlist)
+      window.removeEventListener('storage', syncWishlist)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tabParam === 'wishlist') {
+      setActiveCategory('Wishlist')
+    }
+  }, [tabParam])
 
   useEffect(() => {
     fetchAllProducts().then(({ products, error }) => {
@@ -200,7 +230,12 @@ export default function Shop() {
 
   const filtered = useMemo(() => {
     let list = productList.filter(p => {
-      const matchCat = activeCategory === 'All' || p.category === activeCategory
+      const matchCat = activeCategory === 'All' 
+        ? true 
+        : activeCategory === 'Wishlist' 
+          ? wishlist.includes(String(p.id))
+          : p.category === activeCategory
+
       const matchSearch = search.trim() === '' || p.name.toLowerCase().includes(search.toLowerCase())
       return matchCat && matchSearch
     })
@@ -208,7 +243,25 @@ export default function Shop() {
     if (sortBy === 'price-desc') list = [...list].sort((a, b) => b.price - a.price)
     if (sortBy === 'popular') list = [...list].sort((a, b) => b.reviews - a.reviews)
     return list
-  }, [productList, activeCategory, sortBy, search])
+  }, [productList, activeCategory, wishlist, sortBy, search])
+
+  const toggleWishlistCard = (e: React.MouseEvent, p: ProductType) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const prodId = String(p.id)
+    try {
+      const list = JSON.parse(localStorage.getItem('flowerzfc_wishlist') || '[]')
+      let updated: string[] = []
+      if (list.includes(prodId)) {
+        updated = list.filter((x: string) => x !== prodId)
+      } else {
+        updated = [...list, prodId]
+      }
+      localStorage.setItem('flowerzfc_wishlist', JSON.stringify(updated))
+      setWishlist(updated)
+      window.dispatchEvent(new Event('flowerzfc_wishlist_updated'))
+    } catch {}
+  }
 
   const handleQuickAdd = (e: React.MouseEvent, p: ProductType) => {
     e.preventDefault()
@@ -229,7 +282,7 @@ export default function Shop() {
               <h1 className="text-4xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>
                 FlowerZFC Merch Shop
               </h1>
-              <p className="text-xs text-gray-400 mt-1">Official jerseys, apparel & accessories. Ships across East Africa & worldwide.</p>
+              <p className="text-xs text-gray-400 mt-1">Official jerseys, apparel &amp; accessories. Ships across East Africa &amp; worldwide.</p>
             </div>
 
             {/* Search */}
@@ -259,12 +312,12 @@ export default function Shop() {
         {/* Filters Row */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           {/* Category Chips */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
             {categories.map(c => (
               <button
                 key={c}
                 onClick={() => setActiveCategory(c)}
-                className="px-4 py-2 text-xs font-bold rounded-full transition-all"
+                className="px-4 py-2 text-xs font-bold rounded-full transition-all cursor-pointer"
                 style={{
                   background: activeCategory === c ? '#00b341' : '#131320',
                   color: activeCategory === c ? '#fff' : '#9ca3af',
@@ -274,6 +327,24 @@ export default function Shop() {
                 {c}
               </button>
             ))}
+
+            {/* Wishlist Tab */}
+            <button
+              onClick={() => setActiveCategory('Wishlist')}
+              className={`px-4 py-2 text-xs font-bold rounded-full transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeCategory === 'Wishlist'
+                  ? 'bg-red-500 text-white border border-red-500 shadow-md shadow-red-500/20'
+                  : 'bg-[#131320] text-gray-400 border border-[#1e1e32] hover:border-red-500/50 hover:text-red-400'
+              }`}
+            >
+              <Heart size={13} fill={activeCategory === 'Wishlist' || wishlist.length > 0 ? '#ef4444' : 'none'} className={wishlist.length > 0 ? 'text-red-500' : ''} />
+              <span>Wishlist</span>
+              {wishlist.length > 0 && (
+                <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full ${activeCategory === 'Wishlist' ? 'bg-white text-red-600' : 'bg-red-500/20 text-red-400'}`}>
+                  {wishlist.length}
+                </span>
+              )}
+            </button>
           </div>
 
           {/* Right: Count + Sort */}
@@ -295,86 +366,114 @@ export default function Shop() {
 
         {/* Product Grid */}
         {filtered.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-4xl mb-3">🛍️</p>
-            <p className="text-gray-400">No products found. Try a different search or category.</p>
+          <div className="text-center py-20 bg-[#131320]/40 rounded-3xl border border-white/5 p-8">
+            <p className="text-4xl mb-3">{activeCategory === 'Wishlist' ? '❤️' : '🛍️'}</p>
+            <h3 className="text-base font-bold text-white mb-1">
+              {activeCategory === 'Wishlist' ? 'Your Wishlist is Empty' : 'No products found'}
+            </h3>
+            <p className="text-xs text-gray-400 mb-5">
+              {activeCategory === 'Wishlist'
+                ? 'Save your favorite jerseys and gear to your wishlist by clicking the heart icon on any product.'
+                : 'Try adjusting your search query or selecting a different category.'}
+            </p>
+            {activeCategory === 'Wishlist' && (
+              <button
+                onClick={() => setActiveCategory('All')}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold text-black"
+                style={{ background: '#00b341' }}
+              >
+                Explore All Products →
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-            {filtered.map(p => (
-              <Link
-                key={p.id}
-                to={`/shop/${p.id}`}
-                className="group block rounded-2xl overflow-hidden transition-all duration-300 hover:border-[#00b341] hover:-translate-y-1 hover:shadow-2xl"
-                style={{ background: '#131320', border: '1px solid #1e1e32' }}
-              >
-                {/* Image */}
-                <div className="relative overflow-hidden flex items-center justify-center p-3" style={{ height: '240px', background: '#0b0b14' }}>
-                  <img
-                    src={p.images[0]}
-                    alt={p.name}
-                    className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
-                  />
-                  {/* Badge */}
-                  {p.badge && (
-                    <span
-                      className="absolute top-3 left-3 text-[9px] font-black px-2 py-0.5 rounded-full text-white"
-                      style={{ background: BADGE_COLORS[p.badge] || '#00b341' }}
-                    >
-                      {p.badge}
-                    </span>
-                  )}
-                  {/* Digital Product Badge */}
-                  {p.type === 'digital' && (
-                    <span className="absolute top-3 left-3 text-[9px] font-black px-2 py-0.5 rounded-full text-white flex items-center gap-1" style={{ background: '#6366f1', marginTop: p.badge ? '22px' : '0' }}>
-                      💾 DIGITAL
-                    </span>
-                  )}
-                  {/* Sale tag */}
-                  {p.originalPrice && (
-                    <span className="absolute top-3 right-3 text-[9px] font-black px-2 py-0.5 rounded-full text-white bg-red-500">
-                      SALE
-                    </span>
-                  )}
-
-                  {/* Quick Add / Quick Download overlay */}
+            {filtered.map(p => {
+              const isSaved = wishlist.includes(String(p.id))
+              return (
+                <Link
+                  key={p.id}
+                  to={getProductPath(p)}
+                  className="group block rounded-2xl overflow-hidden transition-all duration-300 hover:border-[#00b341] hover:-translate-y-1 hover:shadow-2xl relative"
+                  style={{ background: '#131320', border: '1px solid #1e1e32' }}
+                >
+                  {/* Heart / Wishlist button */}
                   <button
-                    onClick={e => handleQuickAdd(e, p)}
-                    className="absolute bottom-0 left-0 right-0 py-2.5 text-xs font-black text-white opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-full group-hover:translate-y-0"
-                    style={{ background: quickAdded === p.id ? '#22c55e' : p.type === 'digital' ? '#6366f1' : '#00b341' }}
+                    type="button"
+                    onClick={e => toggleWishlistCard(e, p)}
+                    className="absolute top-3 right-3 z-20 p-2 rounded-full backdrop-blur-md bg-black/60 hover:bg-black/80 transition-all text-gray-300 hover:text-white"
+                    title={isSaved ? 'Remove from Wishlist' : 'Save to Wishlist'}
                   >
-                    {quickAdded === p.id ? '✓ Added!' : p.type === 'digital' ? '💾 Buy & Download' : '+ Quick Add (Size M)'}
+                    <Heart size={14} fill={isSaved ? '#ef4444' : 'none'} className={isSaved ? 'text-red-500' : 'text-gray-400'} />
                   </button>
-                </div>
 
-
-                {/* Info */}
-                <div className="p-4">
-                  <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">{p.category}</span>
-                  <h3 className="text-sm font-bold text-white line-clamp-1 mt-0.5 mb-1 group-hover:text-[#00b341] transition-colors">
-                    {p.name}
-                  </h3>
-
-                  {/* Stars */}
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <StarRating rating={p.rating} />
-                    <span className="text-[10px] text-gray-500">({p.reviews})</span>
-                  </div>
-
-                  {/* Price */}
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-lg font-black text-[#00b341]" style={{ fontFamily: 'Big Shoulders Display' }}>
-                      {formatPrice(Number(p.price) || 0)}
-                    </span>
-                    {p.originalPrice != null && (
-                      <span className="text-xs text-gray-500 line-through">
-                        {formatPrice(Number(p.originalPrice) || 0)}
+                  {/* Image */}
+                  <div className="relative overflow-hidden flex items-center justify-center p-3" style={{ height: '240px', background: '#0b0b14' }}>
+                    <img
+                      src={p.images[0]}
+                      alt={p.name}
+                      className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
+                    />
+                    {/* Badge */}
+                    {p.badge && (
+                      <span
+                        className="absolute top-3 left-3 text-[9px] font-black px-2 py-0.5 rounded-full text-white"
+                        style={{ background: BADGE_COLORS[p.badge] || '#00b341' }}
+                      >
+                        {p.badge}
                       </span>
                     )}
+                    {/* Digital Product Badge */}
+                    {p.type === 'digital' && (
+                      <span className="absolute top-3 left-3 text-[9px] font-black px-2 py-0.5 rounded-full text-white flex items-center gap-1" style={{ background: '#6366f1', marginTop: p.badge ? '22px' : '0' }}>
+                        💾 DIGITAL
+                      </span>
+                    )}
+                    {/* Sale tag */}
+                    {p.originalPrice && (
+                      <span className="absolute top-10 right-3 text-[9px] font-black px-2 py-0.5 rounded-full text-white bg-red-500">
+                        SALE
+                      </span>
+                    )}
+
+                    {/* Quick Add / Quick Download overlay */}
+                    <button
+                      onClick={e => handleQuickAdd(e, p)}
+                      className="absolute bottom-0 left-0 right-0 py-2.5 text-xs font-black text-white opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-full group-hover:translate-y-0"
+                      style={{ background: quickAdded === p.id ? '#22c55e' : p.type === 'digital' ? '#6366f1' : '#00b341' }}
+                    >
+                      {quickAdded === p.id ? '✓ Added!' : p.type === 'digital' ? '💾 Buy & Download' : '+ Quick Add (Size M)'}
+                    </button>
                   </div>
-                </div>
-              </Link>
-            ))}
+
+                  {/* Info */}
+                  <div className="p-4">
+                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider">{p.category}</span>
+                    <h3 className="text-sm font-bold text-white line-clamp-1 mt-0.5 mb-1 group-hover:text-[#00b341] transition-colors">
+                      {p.name}
+                    </h3>
+
+                    {/* Stars */}
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <StarRating rating={p.rating} />
+                      <span className="text-[10px] text-gray-500">({p.reviews})</span>
+                    </div>
+
+                    {/* Price */}
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-lg font-black text-[#00b341]" style={{ fontFamily: 'Big Shoulders Display' }}>
+                        {formatPrice(Number(p.price) || 0)}
+                      </span>
+                      {p.originalPrice != null && (
+                        <span className="text-xs text-gray-500 line-through">
+                          {formatPrice(Number(p.originalPrice) || 0)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              )
+            })}
           </div>
         )}
 
