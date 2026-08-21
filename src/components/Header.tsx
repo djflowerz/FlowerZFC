@@ -35,28 +35,32 @@ import {
   Mail,
   HelpCircle,
   Sparkles,
+  Coins,
+  Check,
 } from 'lucide-react'
 
-const LANGS: { code: Lang; flag: string; label: string }[] = [
-  { code: 'en', flag: '🇬🇧', label: 'EN' },
-  { code: 'sw', flag: '🇰🇪', label: 'SW' },
-  { code: 'fr', flag: '🇫🇷', label: 'FR' },
-  { code: 'es', flag: '🇪🇸', label: 'ES' },
-  { code: 'pt', flag: '🇧🇷', label: 'PT' },
-  { code: 'ar', flag: '🇸🇦', label: 'AR' },
+const LANGS: { code: Lang; flag: string; label: string; name: string }[] = [
+  { code: 'en', flag: '🇬🇧', label: 'EN', name: 'English' },
+  { code: 'sw', flag: '🇰🇪', label: 'SW', name: 'Kiswahili' },
+  { code: 'fr', flag: '🇫🇷', label: 'FR', name: 'Français' },
+  { code: 'es', flag: '🇪🇸', label: 'ES', name: 'Español' },
+  { code: 'pt', flag: '🇧🇷', label: 'PT', name: 'Português' },
+  { code: 'ar', flag: '🇸🇦', label: 'AR', name: 'العربية' },
 ]
 
 const CURRENCIES = [
-  { code: 'KES', label: 'KES' },
-  { code: 'USD', label: 'USD $' },
-  { code: 'GBP', label: 'GBP £' },
-  { code: 'EUR', label: 'EUR €' },
+  { code: 'KES', label: 'KES', name: 'Kenyan Shilling', symbol: 'KSh' },
+  { code: 'USD', label: 'USD', name: 'US Dollar', symbol: '$' },
+  { code: 'GBP', label: 'GBP', name: 'British Pound', symbol: '£' },
+  { code: 'EUR', label: 'EUR', name: 'Euro', symbol: '€' },
 ]
 
 export default function Header() {
   const { t, lang, setLang, darkMode, toggleDark, cartCount, user, logout, currency, setCurrency } = useApp()
   const [langOpen, setLangOpen] = useState(false)
   const [currencyOpen, setCurrencyOpen] = useState(false)
+  const [prefModalOpen, setPrefModalOpen] = useState(false)
+  const [drawerPrefTab, setDrawerPrefTab] = useState<'currency' | 'language'>('currency')
   const [menuOpen, setMenuOpen] = useState(false)
   const [cartOpen, setCartOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -221,6 +225,20 @@ export default function Header() {
               aria-label="Toggle Theme"
             >
               {darkMode ? <Sun size={17} className="text-amber-400" /> : <Moon size={17} className="text-blue-300" />}
+            </button>
+
+            {/* Quick Currency & Language Pill (Mobile Header) */}
+            <button
+              onClick={() => {
+                setDrawerPrefTab('currency')
+                setPrefModalOpen(true)
+              }}
+              className="lg:hidden flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-bold text-gray-200 transition-colors"
+              title="Change Currency & Language"
+              aria-label="Change Currency and Language"
+            >
+              <span className="text-xs">{LANGS.find(l => l.code === lang)?.flag}</span>
+              <span className="text-[11px] font-mono text-[#00b341] font-black">{currency}</span>
             </button>
 
             {/* Cart Button */}
@@ -769,58 +787,105 @@ export default function Header() {
             </div>
 
             {/* 4. Language, Currency & Theme Controls Drawer Footer */}
-            <div className="mt-2 mx-3 p-3.5 rounded-2xl border border-white/5 bg-[#0e0e1a] space-y-3">
-              {/* Currency Selector */}
-              <div>
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                  <Sparkles size={11} className="text-[#00b341]" /> Currency
-                </div>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {CURRENCIES.map(c => (
-                    <button
-                      key={c.code}
-                      onClick={() => setCurrency(c.code)}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all ${
-                        currency === c.code
-                          ? 'bg-[#00b341] text-black shadow-sm'
-                          : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                      }`}
-                    >
-                      {c.code}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Language Selector */}
-              <div>
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                  <Globe size={11} className="text-blue-400" /> Language
-                </div>
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-                  {LANGS.map(l => (
-                    <button
-                      key={l.code}
-                      onClick={() => setLang(l.code)}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-all ${
-                        lang === l.code
-                          ? 'bg-[#00b341]/20 border border-[#00b341] text-[#00b341] font-bold'
-                          : 'bg-white/5 border border-transparent text-gray-400 hover:text-white hover:bg-white/10'
-                      }`}
-                    >
-                      <span>{l.flag}</span>
-                      <span>{l.label}</span>
-                    </button>
-                  ))}
+            <div className="mt-3 mx-3 p-4 rounded-2xl border border-white/10 bg-[#0e0e1a] shadow-xl space-y-3.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-gray-300 flex items-center gap-1.5" style={{ fontFamily: 'Big Shoulders Display', letterSpacing: '0.5px' }}>
+                  <Coins size={14} className="text-[#00b341]" /> Regional Preferences
+                </span>
+                {/* Segment Switcher */}
+                <div className="flex rounded-lg p-0.5 bg-black/40 border border-white/5 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setDrawerPrefTab('currency')}
+                    className={`px-2.5 py-1 rounded-md transition-all ${
+                      drawerPrefTab === 'currency'
+                        ? 'bg-[#00b341] text-black shadow-sm'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Currency ({currency})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDrawerPrefTab('language')}
+                    className={`px-2.5 py-1 rounded-md transition-all ${
+                      drawerPrefTab === 'language'
+                        ? 'bg-[#00b341] text-black shadow-sm'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Language ({lang.toUpperCase()})
+                  </button>
                 </div>
               </div>
 
-              {/* Theme Toggle Button */}
-              <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-                <span className="text-xs text-gray-400">Appearance Mode</span>
+              {/* Tab 1: Currency Cards */}
+              {drawerPrefTab === 'currency' ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {CURRENCIES.map(c => {
+                    const selected = currency === c.code
+                    return (
+                      <button
+                        key={c.code}
+                        type="button"
+                        onClick={() => setCurrency(c.code)}
+                        className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between ${
+                          selected
+                            ? 'bg-[#00b341]/15 border-[#00b341] text-white shadow-lg shadow-[#00b341]/10 ring-1 ring-[#00b341]'
+                            : 'bg-[#131322] border-[#1e1e32] text-gray-400 hover:text-white hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-black text-white font-mono">{c.code}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${selected ? 'bg-[#00b341] text-black' : 'bg-white/5 text-gray-400'}`}>
+                            {c.symbol}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-gray-400 truncate">{c.name}</span>
+                        {selected && (
+                          <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#00b341] animate-ping" />
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                /* Tab 2: Language Cards */
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {LANGS.map(l => {
+                    const selected = lang === l.code
+                    return (
+                      <button
+                        key={l.code}
+                        type="button"
+                        onClick={() => setLang(l.code)}
+                        className={`p-2.5 rounded-xl border text-left transition-all flex items-center justify-between ${
+                          selected
+                            ? 'bg-[#00b341]/15 border-[#00b341] text-white shadow-lg shadow-[#00b341]/10 ring-1 ring-[#00b341]'
+                            : 'bg-[#131322] border-[#1e1e32] text-gray-400 hover:text-white hover:border-gray-600'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-base">{l.flag}</span>
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-white truncate">{l.name}</div>
+                            <div className="text-[9px] text-gray-400 font-mono">{l.label}</div>
+                          </div>
+                        </div>
+                        {selected && <Check size={14} className="text-[#00b341] shrink-0" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Appearance Mode */}
+              <div className="pt-2.5 border-t border-white/5 flex items-center justify-between">
+                <span className="text-xs text-gray-400">Appearance Theme</span>
                 <button
+                  type="button"
                   onClick={toggleDark}
-                  className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-white flex items-center gap-2 transition-colors border border-white/10"
+                  className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-white flex items-center gap-2 transition-colors border border-white/10"
                 >
                   {darkMode ? (
                     <>
@@ -879,6 +944,115 @@ export default function Header() {
         </div>
       )}
 
+      {/* Dedicated Mobile Language & Currency Modal / Bottom Sheet */}
+      {prefModalOpen && (
+        <div
+          className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-md"
+          style={{ background: 'rgba(0,0,0,0.8)' }}
+          onClick={() => setPrefModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-t-3xl sm:rounded-3xl border border-white/10 p-5 shadow-2xl animate-slideUp sm:animate-scaleIn"
+            style={{ background: '#111122' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
+              <div className="flex items-center gap-2">
+                <Coins size={18} className="text-[#00b341]" />
+                <h3 className="text-base font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>
+                  Language &amp; Currency Settings
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPrefModalOpen(false)}
+                className="p-1 text-gray-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+              >
+                <CloseIcon size={18} />
+              </button>
+            </div>
+
+            {/* Currency Section */}
+            <div className="mb-5">
+              <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <span>Select Currency</span>
+                <span className="text-[#00b341] font-mono font-black">{currency} Active</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {CURRENCIES.map(c => {
+                  const selected = currency === c.code
+                  return (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => {
+                        setCurrency(c.code)
+                      }}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        selected
+                          ? 'bg-[#00b341]/20 border-[#00b341] text-white ring-1 ring-[#00b341]'
+                          : 'bg-[#18182c] border-[#222238] text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-xs font-black text-white font-mono">{c.code}</span>
+                        <span className="text-xs font-bold text-[#00b341]">{c.symbol}</span>
+                      </div>
+                      <div className="text-[10px] text-gray-400">{c.name}</div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Language Section */}
+            <div className="mb-4">
+              <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                <span>Select Language</span>
+                <span className="text-[#00b341] font-bold">{LANGS.find(l => l.code === lang)?.name}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {LANGS.map(l => {
+                  const selected = lang === l.code
+                  return (
+                    <button
+                      key={l.code}
+                      type="button"
+                      onClick={() => {
+                        setLang(l.code)
+                      }}
+                      className={`p-2.5 rounded-xl border text-left transition-all flex items-center justify-between ${
+                        selected
+                          ? 'bg-[#00b341]/20 border-[#00b341] text-white ring-1 ring-[#00b341]'
+                          : 'bg-[#18182c] border-[#222238] text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-lg">{l.flag}</span>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-white truncate">{l.name}</div>
+                          <div className="text-[9px] text-gray-400 uppercase">{l.label}</div>
+                        </div>
+                      </div>
+                      {selected && <Check size={14} className="text-[#00b341] shrink-0" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setPrefModalOpen(false)}
+              className="w-full py-3 rounded-xl text-xs font-black text-black transition-all hover:opacity-90 shadow-lg mt-2"
+              style={{ background: '#00b341' }}
+            >
+              Done / Save Preferences
+            </button>
+          </div>
+        </div>
+      )}
+
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} />
 
       {/* Backdrop for click-away */}
@@ -888,3 +1062,4 @@ export default function Header() {
     </>
   )
 }
+
