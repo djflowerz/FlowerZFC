@@ -848,39 +848,15 @@ export default function Admin() {
   const navRef = useRef<HTMLDivElement>(null)
   const payConfig = getPaymentConfig()
 
-  // Sync published articles to articleStore AND Supabase
-  useEffect(() => {
-    articles.forEach(a => {
-      if (a.status === 'Published' || a.status === 'Draft' || a.status === 'Scheduled') {
-        const stored: StoredArticle = {
-          id: a.id, title: a.title, category: a.category, body: a.body,
-          imageUrl: a.imageUrl, author: a.author, date: a.date,
-          status: a.status, tags: a.tags, metaDescription: a.metaDescription,
-          slug: a.slug, scheduled: a.scheduled, views: a.views, likes: a.likes,
-        }
-        saveArticle(stored)
-        // Also persist to Supabase (fire-and-forget)
-        saveArticleToDb({
-          id: a.id, title: a.title, slug: a.slug || a.id,
-          category: a.category, author: a.author || 'FlowerZFC Editorial',
-          body: a.body, image_url: a.imageUrl || '',
-          status: a.status.toLowerCase(), tags: a.tags || '',
-          views: Number(a.views) || 0, likes: a.likes || 0,
-          published_at: a.status === 'Published' ? new Date().toISOString() : undefined,
-        })
-      }
-    })
-  }, [articles])
-
-  // Derived — safely handle null / undefined collections
-  const pendingOrders   = (orders || []).filter(o => o?.status === 'Pending').length
-  const flaggedComments = (comments || []).filter(c => c?.status === 'Flagged' || c?.status === 'Spam').length
-  const totalRevenue    = (orders || []).filter(o => o?.status !== 'Refunded').reduce((s, o) => s + (o?.total || 0), 0)
-  const totalTips       = (TIPS_DATA || []).reduce((s, t) => s + (t?.amount || 0), 0)
-  const bookedAdRev     = (ads || []).filter(a => a?.status === 'Booked').reduce((s, a) => s + (a?.price || 0), 0)
+  // Derived metrics — memoized to eliminate lag during rendering and typing
+  const pendingOrders   = useMemo(() => (orders || []).filter(o => o?.status === 'Pending').length, [orders])
+  const flaggedComments = useMemo(() => (comments || []).filter(c => c?.status === 'Flagged' || c?.status === 'Spam').length, [comments])
+  const totalRevenue    = useMemo(() => (orders || []).filter(o => o?.status !== 'Refunded').reduce((s, o) => s + (o?.total || 0), 0), [orders])
+  const totalTips       = useMemo(() => (TIPS_DATA || []).reduce((s, t) => s + (t?.amount || 0), 0), [])
+  const bookedAdRev     = useMemo(() => (ads || []).filter(a => a?.status === 'Booked').reduce((s, a) => s + (a?.price || 0), 0), [ads])
 
   // Dynamic daily revenue breakdown computed from real orders and tickets
-  const dynamicRevDays = (() => {
+  const dynamicRevDays = useMemo(() => {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     const todayIndex = (new Date().getDay() + 6) % 7
     const counts = [0, 0, 0, 0, 0, 0, 0]
@@ -903,10 +879,10 @@ export default function Admin() {
       max: maxVal,
       total: counts.reduce((a, b) => a + b, 0)
     }
-  })()
+  }, [orders, tickets])
 
   // Real live platform activities compiled from live stores
-  const realActivities = (() => {
+  const realActivities = useMemo(() => {
     const list: { icon: string; type: string; text: string; time: string; c: string; action: () => void; ts: number }[] = []
     
     ;(orders || []).forEach(o => {
@@ -978,24 +954,24 @@ export default function Admin() {
     }
 
     return list.sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 8)
-  })()
+  }, [orders, comments, tickets, users, auditLogs, products.length, articles.length, formatPrice])
 
-  const filteredOrders = (orders || []).filter(o => {
+  const filteredOrders = useMemo(() => (orders || []).filter(o => {
     if (!o) return false
     const s = (orderSearch || '').toLowerCase()
     const ms = !s || [o.id || '', o.customer || '', o.email || ''].some(x => (x || '').toLowerCase().includes(s))
     return ms && (orderFilter === 'All' || o.status === orderFilter)
-  })
+  }), [orders, orderSearch, orderFilter])
 
-  const filteredUsers = (users || []).filter(u => {
+  const filteredUsers = useMemo(() => (users || []).filter(u => {
     if (!u) return false
     const s = (userSearch || '').toLowerCase()
     const ms = !s || (u.name || '').toLowerCase().includes(s) || (u.email || '').toLowerCase().includes(s)
     const mr = userRoleFilter === 'All' ? true : userRoleFilter === 'Banned' ? u.status === 'Banned' : u.role === userRoleFilter
     return ms && mr
-  })
+  }), [users, userSearch, userRoleFilter])
 
-  const filteredArticles = (articles || []).filter(a => {
+  const filteredArticles = useMemo(() => (articles || []).filter(a => {
     if (!a) return false
     const s = (articleSearch || '').toLowerCase()
     const title = a.title || ''
@@ -1005,17 +981,17 @@ export default function Admin() {
     const matchSearch = !s || title.toLowerCase().includes(s) || cat.toLowerCase().includes(s) || auth.toLowerCase().includes(s) || tags.toLowerCase().includes(s)
     const matchStatus = articleFilter === 'All' || a.status === articleFilter
     return matchSearch && matchStatus
-  })
+  }), [articles, articleSearch, articleFilter])
 
-  const filteredComments = (comments || []).filter(c => {
+  const filteredComments = useMemo(() => (comments || []).filter(c => {
     if (!c) return false
     const s = (commentSearch || '').toLowerCase()
     const matchFilter = commentFilter === 'All' || c.status === commentFilter
     const matchSearch = !s || (c.user || '').toLowerCase().includes(s) || (c.body || '').toLowerCase().includes(s) || (c.article || '').toLowerCase().includes(s)
     return matchFilter && matchSearch
-  })
+  }), [comments, commentSearch, commentFilter])
 
-  const filteredSubs = (subs || []).filter(s => (s?.email || '').toLowerCase().includes((subsSearch || '').toLowerCase()))
+  const filteredSubs = useMemo(() => (subs || []).filter(s => (s?.email || '').toLowerCase().includes((subsSearch || '').toLowerCase())), [subs, subsSearch])
 
   const slugify = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 
@@ -6505,9 +6481,36 @@ export default function Admin() {
 
           </div>
           <div className="flex gap-2 mt-3">
-            <button onClick={() => { setArticles(prev => prev.map(x => x.id === editArticle.id ? editArticle : x)); setEditArticle(null) }}
+            <button onClick={() => {
+              const updated = editArticle
+              saveArticle(updated as any)
+              saveArticleToDb({
+                id: updated.id, title: updated.title, slug: updated.slug || updated.id,
+                category: updated.category, author: updated.author || 'FlowerZFC Editorial',
+                body: updated.body, image_url: updated.imageUrl || '',
+                status: (updated.status || 'draft').toLowerCase(), tags: updated.tags || '',
+                views: Number(updated.views) || 0, likes: updated.likes || 0,
+              })
+              setArticles(prev => prev.map(x => x.id === editArticle.id ? updated : x))
+              setEditArticle(null)
+              toast('Draft saved!', 'success')
+            }}
               className="flex-1 py-3 text-sm font-black text-white rounded-xl hover:opacity-90" style={{ background: '#131320', border: '1px solid #1e1e32' }}>Save Draft</button>
-            <button onClick={() => { const updated = { ...editArticle, status: 'Published' }; setArticles(prev => prev.map(x => x.id === editArticle.id ? updated : x)); setEditArticle(null) }}
+            <button onClick={() => {
+              const updated: Article = { ...editArticle, status: 'Published' }
+              saveArticle(updated as any)
+              saveArticleToDb({
+                id: updated.id, title: updated.title, slug: updated.slug || updated.id,
+                category: updated.category, author: updated.author || 'FlowerZFC Editorial',
+                body: updated.body, image_url: updated.imageUrl || '',
+                status: 'published', tags: updated.tags || '',
+                views: Number(updated.views) || 0, likes: updated.likes || 0,
+                published_at: new Date().toISOString(),
+              })
+              setArticles(prev => prev.map(x => x.id === editArticle.id ? updated : x))
+              setEditArticle(null)
+              toast('Article published live!', 'success')
+            }}
               className="flex-1 py-3 text-sm font-black text-white rounded-xl hover:opacity-90" style={{ background: '#00b341' }}>Publish Changes →</button>
           </div>
         </Modal>
@@ -6546,9 +6549,19 @@ export default function Admin() {
               metaDescription: newArticle.metaDescription,
               focusKeywords: newArticle.focusKeywords,
             }
+            saveArticle(art as any)
+            saveArticleToDb({
+              id: art.id, title: art.title, slug: art.slug || art.id,
+              category: art.category, author: art.author || 'FlowerZFC Editorial',
+              body: art.body, image_url: art.imageUrl || '',
+              status: art.status.toLowerCase(), tags: art.tags || '',
+              views: 0, likes: 0,
+              published_at: art.status === 'Published' ? new Date().toISOString() : undefined,
+            })
             setArticles(p => [art, ...p])
             setShowAddArticle(false)
             setNewArticle(BLANK_ARTICLE)
+            toast('Article created successfully!', 'success')
           }} className="space-y-4 max-h-[80vh] overflow-y-auto pr-1">
 
             {/* ── SECTION: Essential Editorial Fields ── */}

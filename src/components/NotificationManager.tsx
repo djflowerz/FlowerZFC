@@ -25,6 +25,14 @@ function loadNotifications(): SiteNotification[] {
   return []
 }
 
+function getNotificationPermission(): boolean {
+  try {
+    return typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted'
+  } catch {
+    return false
+  }
+}
+
 export function sendGoalNotification(homeTeam: string, awayTeam: string, scorer: string, minute: number) {
   const title = `⚽ GOAL! ${homeTeam} vs ${awayTeam}`
   const body = `${scorer} scores — ${minute}'`
@@ -32,10 +40,12 @@ export function sendGoalNotification(homeTeam: string, awayTeam: string, scorer:
   // Play energetic goal sound if enabled
   playGoalSound()
 
-  // Browser Push Notification
-  if (Notification.permission === 'granted') {
-    new Notification(title, { body, icon: '/favicon.ico' })
-  }
+  // Browser Push Notification (safely guarded for mobile/iOS WebKit)
+  try {
+    if (typeof window !== 'undefined' && 'Notification' in window && window.Notification.permission === 'granted') {
+      new window.Notification(title, { body, icon: '/favicon.ico' })
+    }
+  } catch { /* ignore notification errors on restricted environments */ }
 
   // Add to in-app feed
   const n: SiteNotification = {
@@ -55,7 +65,7 @@ export function sendGoalNotification(homeTeam: string, awayTeam: string, scorer:
 export default function NotificationManager() {
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState<SiteNotification[]>(loadNotifications)
-  const [permGranted, setPermGranted] = useState(Notification.permission === 'granted')
+  const [permGranted, setPermGranted] = useState(getNotificationPermission)
   const [soundOn, setSoundOn] = useState(isSoundEnabled)
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -85,8 +95,14 @@ export default function NotificationManager() {
   }, [open])
 
   const requestPermission = async () => {
-    const result = await Notification.requestPermission()
-    setPermGranted(result === 'granted')
+    try {
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        const result = await window.Notification.requestPermission()
+        setPermGranted(result === 'granted')
+      }
+    } catch {
+      setPermGranted(false)
+    }
   }
 
   const markAllRead = () => {
