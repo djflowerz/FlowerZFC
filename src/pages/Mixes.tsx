@@ -96,18 +96,34 @@ export default function Mixes() {
     })
   }, [])
 
-  const [playCounts, setPlayCounts] = useState<Record<string, number>>({})
+  const [playCounts, setPlayCounts] = useState<Record<string, number>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('flowerzfc_mix_plays') || '{}')
+    } catch {
+      return {}
+    }
+  })
   const [posterLight, setPosterLight] = useState<string | null>(null)
   const [bookForm, setBookForm] = useState({ name: '', event: '', venue: '', message: '' })
   const [bookSent, setBookSent] = useState(false)
 
+  const formatPlays = (count: number) => {
+    if (!count || count <= 0) return '0 plays'
+    if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M plays`
+    if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K plays`
+    return `${count.toLocaleString()} plays`
+  }
+
   const handlePlayMix = (mix: MixItem) => {
     setSingleMixModal(mix)
     setActiveEmbedMix(mix.id)
-    setPlayCounts(prev => ({
-      ...prev,
-      [mix.id]: (prev[mix.id] || 0) + 1,
-    }))
+    setPlayCounts(prev => {
+      const next = { ...prev, [mix.id]: (prev[mix.id] || 0) + 1 }
+      try {
+        localStorage.setItem('flowerzfc_mix_plays', JSON.stringify(next))
+      } catch {}
+      return next
+    })
   }
 
   const [ticketVerifying, setTicketVerifying] = useState(false)
@@ -262,7 +278,7 @@ export default function Mixes() {
                       <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed mb-3">{mix.description}</p>
 
                       <div className="flex items-center justify-between text-xs text-gray-500 border-t border-[#1e1e32] pt-3">
-                        <span>▶ {(currentPlays / 1000).toFixed(1)}K plays</span>
+                        <span>▶ {formatPlays(currentPlays)}</span>
                         <div className="flex items-center gap-2">
                           {mix.downloadUrl && (
                             <a

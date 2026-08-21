@@ -252,6 +252,19 @@ const REV_DAYS: { day:string; val:number }[] = []
 const MAX_REV = 0
 const SENT_EMAILS_INIT: { id:string; subject:string; sentTo:number; date:string; opens:number }[] = []
 
+function AdminClock() {
+  const [time, setTime] = useState(() => new Date())
+  useEffect(() => {
+    const t = setInterval(() => setTime(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  return (
+    <span className="text-[10px] text-gray-600 font-mono hidden sm:block">
+      {time.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+    </span>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function Admin() {
   const { user, logout, formatPrice } = useApp()
@@ -811,8 +824,6 @@ export default function Admin() {
   const [catalogStats, setCatalogStats] = useState<LiveCatalogStats | null>(null)
   const tzInfo = getUserTimezoneInfo()
   const [showIngestNotification, setShowIngestNotification] = useState(false)
-  const [clock, setClock] = useState(new Date())
-  useEffect(() => { const t = setInterval(() => setClock(new Date()), 1000); return () => clearInterval(t) }, [])
 
   // Automatically fetch live articles from LiveScore Contentful API on mount or when ingestDate changes
   useEffect(() => {
@@ -867,6 +878,107 @@ export default function Admin() {
   const totalRevenue    = (orders || []).filter(o => o?.status !== 'Refunded').reduce((s, o) => s + (o?.total || 0), 0)
   const totalTips       = (TIPS_DATA || []).reduce((s, t) => s + (t?.amount || 0), 0)
   const bookedAdRev     = (ads || []).filter(a => a?.status === 'Booked').reduce((s, a) => s + (a?.price || 0), 0)
+
+  // Dynamic daily revenue breakdown computed from real orders and tickets
+  const dynamicRevDays = (() => {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    const todayIndex = (new Date().getDay() + 6) % 7
+    const counts = [0, 0, 0, 0, 0, 0, 0]
+    
+    ;(orders || []).forEach(o => {
+      if (o?.status !== 'Refunded') {
+        const d = o?.date ? new Date(o.date) : new Date()
+        const dayIdx = isNaN(d.getTime()) ? todayIndex : (d.getDay() + 6) % 7
+        counts[dayIdx] += Number(o?.total) || 0
+      }
+    })
+    
+    ;(tickets || []).forEach(t => {
+      counts[todayIndex] += (Number(t?.revenue) || 0)
+    })
+
+    const maxVal = Math.max(...counts, 1)
+    return {
+      data: days.map((day, idx) => ({ day, val: counts[idx], isToday: idx === todayIndex })),
+      max: maxVal,
+      total: counts.reduce((a, b) => a + b, 0)
+    }
+  })()
+
+  // Real live platform activities compiled from live stores
+  const realActivities = (() => {
+    const list: { icon: string; type: string; text: string; time: string; c: string; action: () => void; ts: number }[] = []
+    
+    ;(orders || []).forEach(o => {
+      list.push({
+        icon: '🛒',
+        type: 'Orders',
+        text: `Order #${o.id}: ${o.customer || 'Customer'} purchased ${o.items || 'merchandise'} (${formatPrice(o.total)})`,
+        time: o.date || 'Recent',
+        c: '#00b341',
+        action: () => setTab('orders'),
+        ts: Date.parse(o.date) || 0,
+      })
+    })
+
+    ;(comments || []).forEach(c => {
+      list.push({
+        icon: '💬',
+        type: 'Comments',
+        text: `${c.user}: "${c.body.slice(0, 60)}${c.body.length > 60 ? '...' : ''}"`,
+        time: c.date || 'Recent',
+        c: c.status === 'Flagged' || c.status === 'Spam' ? '#ef4444' : '#3b82f6',
+        action: () => setTab('comments'),
+        ts: Date.parse(c.date) || 0,
+      })
+    })
+
+    ;(tickets || []).forEach(t => {
+      list.push({
+        icon: '🎟️',
+        type: 'Tickets',
+        text: `Event: ${t.event} (${t.regularSold + t.vipSold}/${t.capacity} tickets sold)`,
+        time: t.date || 'Active',
+        c: '#f59e0b',
+        action: () => setTab('tickets'),
+        ts: Date.parse(t.date) || 0,
+      })
+    })
+
+    ;(users || []).forEach(u => {
+      list.push({
+        icon: '👤',
+        type: 'Users',
+        text: `User registered: ${u.name || u.email} (${u.role})`,
+        time: u.joined || 'Recent',
+        c: '#8b5cf6',
+        action: () => setTab('users'),
+        ts: Date.parse(u.joined) || 0,
+      })
+    })
+
+    ;(auditLogs || []).forEach(l => {
+      list.push({
+        icon: '📜',
+        type: 'System',
+        text: `Admin [${l.action}]: ${l.details}`,
+        time: new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        c: '#10b981',
+        action: () => setTab('system'),
+        ts: l.timestamp || 0,
+      })
+    })
+
+    if (list.length === 0) {
+      return [
+        { icon: '⚡', type: 'System', text: 'FlowerZFC platform active & monitoring live traffic', time: 'Active', c: '#00b341', action: () => setTab('system'), ts: Date.now() },
+        { icon: '🛍️', type: 'Products', text: `${(products || []).length} items available in merchandise store`, time: 'Ready', c: '#3b82f6', action: () => setTab('products'), ts: Date.now() },
+        { icon: '📰', type: 'Articles', text: `${(articles || []).length} stories active in news database`, time: 'Published', c: '#f59e0b', action: () => setTab('articles'), ts: Date.now() },
+      ]
+    }
+
+    return list.sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 8)
+  })()
 
   const filteredOrders = (orders || []).filter(o => {
     if (!o) return false
@@ -1207,9 +1319,7 @@ export default function Admin() {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" style={{ animation: 'ping 1.5s infinite' }} />
                   {payConfig.provider} · {payConfig.isLive ? 'Live Mode ✓' : 'Test Mode'}
                 </span>
-                <span className="text-[10px] text-gray-600 font-mono hidden sm:block">
-                  {clock.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                </span>
+                <AdminClock />
               </div>
               <h1 className="text-3xl font-black text-white" style={{ fontFamily: 'Big Shoulders Display' }}>
                 FlowerZFC Control Center <span className="text-xs text-gray-500 font-normal">({user?.email})</span>
@@ -1288,18 +1398,17 @@ export default function Admin() {
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h3 className="text-lg font-black text-white uppercase" style={{ fontFamily: 'Big Shoulders Display' }}>Paystack Verified Revenue Flow</h3>
-                    <p className="text-xs text-gray-400">Daily confirmed sales and ticket purchases</p>
+                    <p className="text-xs text-gray-400">Weekly confirmed sales, shop orders and ticket purchases</p>
                   </div>
-                  <span className="text-2xl font-black text-[#00b341]" style={{ fontFamily: 'Big Shoulders Display' }}>${REV_DAYS.reduce((s, d) => s + d.val, 0).toLocaleString()}</span>
+                  <span className="text-2xl font-black text-[#00b341]" style={{ fontFamily: 'Big Shoulders Display' }}>{formatPrice(dynamicRevDays.total)}</span>
                 </div>
                 <div className="flex items-end gap-3 h-36">
-                  {REV_DAYS.map(d => {
-                    const pct = (d.val / MAX_REV) * 100
-                    const today = d.day === 'Fri'
+                  {dynamicRevDays.data.map(d => {
+                    const pct = Math.min(100, Math.max(8, (d.val / dynamicRevDays.max) * 100))
                     return (
                       <div key={d.day} className="flex-1 flex flex-col items-center gap-2">
-                        <span className="text-[9px] font-bold text-gray-500">${(d.val / 1000).toFixed(1)}k</span>
-                        <div className="w-full rounded-t-lg transition-all" style={{ height: `${pct}%`, background: today ? 'linear-gradient(180deg,#00d94f,#00b341)' : 'linear-gradient(180deg,#1e3a2e,#131a18)', border: `1px solid ${today ? '#00b341' : '#1e1e32'}`, minHeight: '4px' }} />
+                        <span className="text-[9px] font-bold text-gray-500">{formatPrice(d.val)}</span>
+                        <div className="w-full rounded-t-lg transition-all" style={{ height: `${pct}%`, background: d.isToday ? 'linear-gradient(180deg,#00d94f,#00b341)' : 'linear-gradient(180deg,#1e3a2e,#131a18)', border: `1px solid ${d.isToday ? '#00b341' : '#1e1e32'}`, minHeight: '6px' }} />
                         <span className="text-[9px] font-black uppercase text-gray-500">{d.day}</span>
                       </div>
                     )
@@ -1425,18 +1534,13 @@ export default function Admin() {
                 </div>
               </div>
               <div className="space-y-2">
-                {[
-                  { icon:'🛒', type:'Orders', text:'No new orders', time:'', c:'#00b341', action: () => setTab('orders') },
-                  { icon:'💬', type:'Comments', text:'No flagged comments', time:'', c:'#ef4444', action: () => setTab('comments') },
-                  { icon:'☕', type:'Tips', text:'No recent tips', time:'', c:'#8b5cf6', action: () => setTab('financials') },
-                  { icon:'👤', type:'Users', text:'No new registrations', time:'', c:'#3b82f6', action: () => setTab('users') },
-                  { icon:'🎟️', type:'Orders', text:'No ticket sales', time:'', c:'#00b341', action: () => setTab('tickets') },
-                  { icon:'📢', type:'Ads', text:'No ad booking requests', time:'', c:'#f59e0b', action: () => setTab('ads') },
-                ].map((item, i) => (
+                {realActivities
+                  .filter(item => !orderSearch || item.type.toLowerCase().includes(orderSearch.toLowerCase()) || item.text.toLowerCase().includes(orderSearch.toLowerCase()))
+                  .map((item, i) => (
                   <div key={i} onClick={item.action} className="flex items-center gap-3 p-3 rounded-xl border border-[#1e1e32] hover:border-[#00b341]/50 transition-all cursor-pointer group" style={{ background: '#0d0d1e' }}>
                     <span className="text-base shrink-0 group-hover:scale-110 transition-transform">{item.icon}</span>
                     <p className="text-xs text-gray-300 flex-1 group-hover:text-white transition-colors">{item.text}</p>
-                    <span className="text-[10px] text-gray-500 font-bold shrink-0">{item.time} ago</span>
+                    <span className="text-[10px] text-gray-500 font-bold shrink-0">{item.time}</span>
                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: item.c }} />
                   </div>
                 ))}
@@ -2448,13 +2552,14 @@ export default function Admin() {
             {/* Revenue Revenue Streams Summary */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {(() => {
-                const ticketRev = tickets.reduce((s, t) => s + (t.regularSold * t.regularPrice + t.vipSold * t.vipPrice), 0)
-                const grossTotal = totalRevenue + ticketRev + totalTips + 1200 // + 1200 ad revenue
+                const ticketRev = tickets.reduce((s, t) => s + ((t.regularSold || 0) * (t.regularPrice || 0) + (t.vipSold || 0) * (t.vipPrice || 0)), 0)
+                const adRev = bookedAdRev || 0
+                const grossTotal = Math.max(1, totalRevenue + ticketRev + totalTips + adRev)
                 return [
-                  { label: 'Gross Volume', total: `$${grossTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, pct: 100, emoji: '🌐', color: '#00b341' },
-                  { label: 'Merch Shop Sales', total: `$${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, pct: Math.round((totalRevenue / grossTotal) * 100), emoji: '🛒', color: '#3b82f6' },
-                  { label: 'Ticket Passes', total: `$${ticketRev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, pct: Math.round((ticketRev / grossTotal) * 100), emoji: '🎟️', color: '#f59e0b' },
-                  { label: 'Writer Tips', total: `$${totalTips.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, pct: Math.round((totalTips / grossTotal) * 100), emoji: '☕', color: '#8b5cf6' },
+                  { label: 'Gross Volume', total: formatPrice(grossTotal), pct: 100, emoji: '🌐', color: '#00b341' },
+                  { label: 'Merch Shop Sales', total: formatPrice(totalRevenue), pct: Math.round((totalRevenue / grossTotal) * 100), emoji: '🛒', color: '#3b82f6' },
+                  { label: 'Ticket Passes', total: formatPrice(ticketRev), pct: Math.round((ticketRev / grossTotal) * 100), emoji: '🎟️', color: '#f59e0b' },
+                  { label: 'Ad & Writer Tips', total: formatPrice(totalTips + adRev), pct: Math.round(((totalTips + adRev) / grossTotal) * 100), emoji: '☕', color: '#8b5cf6' },
                 ].map(f => (
                   <Card key={f.label} className="p-5">
                     <span className="text-2xl mb-2 block">{f.emoji}</span>
@@ -3266,10 +3371,10 @@ export default function Admin() {
             {/* Platform KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { label:'Prediction Entries', value:'2,841', sub:'this week', icon:'🎯', color:'#8b5cf6' },
-                { label:'Fantasy Managers', value:'1,240', sub:'+48 this week', icon:'🏆', color:'#f59e0b' },
-                { label:'Quiz Completions', value:'9,112', sub:'all time', icon:'🧠', color:'#3b82f6' },
-                { label:'Active Discount Codes', value:'4', sub:'across shop', icon:'🏷️', color:'#00b341' },
+                { label:'Live Blogs Active', value: liveBlogs.filter(b => b.status === 'Live').length.toString(), sub:`${liveBlogs.length} total live match blogs`, icon:'📡', color:'#ef4444' },
+                { label:'Platform Users', value: users.length.toLocaleString(), sub:`${users.filter(u => u.status === 'Active').length} active verified members`, icon:'👥', color:'#3b82f6' },
+                { label:'Quiz Modules', value: quizzes.length.toString(), sub:`${quizzes.reduce((s, q) => s + (q.plays || 0), 0)} fan completions`, icon:'🧠', color:'#8b5cf6' },
+                { label:'Active Discounts', value: discounts.filter(d => d.status === 'Active').length.toString(), sub:`${discounts.length} coupons configured`, icon:'🏷️', color:'#00b341' },
               ].map(k => (
                 <div key={k.label} className="rounded-2xl p-5" style={{ background: '#131320', border: '1px solid #1e1e32' }}>
                   <div className="flex items-center justify-between mb-2">

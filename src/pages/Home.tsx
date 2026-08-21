@@ -9,6 +9,7 @@ import {
 import { fetchLiveMatches, LiveMatch, fetchLiveStandings, LiveStanding } from '../services/liveScoreApi'
 import { fetchLiveIngestedPosts, IngestedPost } from '../services/contentIngestion'
 import { fetchAllArticles, fetchAllComments, fetchAllMixes, fetchAllProducts } from '../services/supabaseClient'
+import { getAllArticles } from '../services/articleStore'
 import { subscribeEmail } from '../services/newsletterService'
 
 // ─── Default Fallback Data ───────────────────────────────────────────────────
@@ -205,14 +206,29 @@ function LiveTicker() {
 
 function formatRelativeTime(dateInput?: string | number): string {
   if (!dateInput) return 'Just now'
-  let d: Date = typeof dateInput === 'number' ? new Date(dateInput) : new Date(dateInput)
+  let d: Date
+  if (typeof dateInput === 'number') {
+    d = new Date(dateInput)
+  } else {
+    // If it is an ISO or date string
+    const parsed = Date.parse(dateInput)
+    if (!isNaN(parsed)) {
+      d = new Date(parsed)
+    } else {
+      // If dateInput is like "Today", "2h ago", return as is
+      return String(dateInput)
+    }
+  }
   if (isNaN(d.getTime())) return String(dateInput)
-  const diffSec = Math.floor((Date.now() - d.getTime()) / 1000)
+  const diffSec = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000))
   if (diffSec < 60) return 'Just now'
   const diffMin = Math.floor(diffSec / 60)
   if (diffMin < 60) return `${diffMin}m ago`
   const diffHour = Math.floor(diffMin / 60)
   if (diffHour < 24) return `${diffHour}h ago`
+  const diffDays = Math.floor(diffHour / 24)
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return `${diffDays}d ago`
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
@@ -240,9 +256,37 @@ export default function Home() {
       if (prods && prods.length > 0) setShowcaseProducts(prods.slice(0, 4))
     }).catch(() => {})
 
+    // Load from Supabase + localStorage
     fetchAllArticles().then(({ articles: arts }) => {
-      if (arts && arts.length > 0) setDbArticles(arts)
-    }).catch(() => {})
+      const localArts = getAllArticles().map(a => ({
+        id: a.id,
+        title: a.title,
+        category: a.category || 'NEWS',
+        body: a.body || a.excerpt || '',
+        image_url: a.imageUrl || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
+        likes: Number(a.likes) || 0,
+        published_at: a.date,
+        views: Number(a.views) || 0,
+      }))
+      const combined = [...(arts || [])]
+      const existingIds = new Set(combined.map(a => String(a.id)))
+      localArts.forEach(la => {
+        if (!existingIds.has(String(la.id))) combined.push(la)
+      })
+      if (combined.length > 0) setDbArticles(combined)
+    }).catch(() => {
+      const localArts = getAllArticles().map(a => ({
+        id: a.id,
+        title: a.title,
+        category: a.category || 'NEWS',
+        body: a.body || a.excerpt || '',
+        image_url: a.imageUrl,
+        likes: Number(a.likes) || 0,
+        published_at: a.date,
+        views: Number(a.views) || 0,
+      }))
+      if (localArts.length > 0) setDbArticles(localArts)
+    })
 
     fetchLiveStandings('Premier League').then(standings => {
       if (standings && standings.length > 0) setHomeStandings(standings.slice(0, 6))
@@ -266,16 +310,20 @@ export default function Home() {
   const allFeedItems = dbArticles.length > 0
     ? dbArticles.map(a => {
         const rawDate = a.published_at || a.date
-        const ts = rawDate ? new Date(rawDate).getTime() : 0
+        let ts = 0
+        if (rawDate) {
+          const parsed = Date.parse(rawDate)
+          if (!isNaN(parsed)) ts = parsed
+        }
         return {
-          id: a.id,
+          id: String(a.id),
           tag: (a.category || 'NEWS').toUpperCase(),
           title: a.title,
           excerpt: a.body ? a.body.slice(0, 140) + '...' : '',
           image: a.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
-          likes: a.likes || 12,
+          likes: typeof a.likes === 'number' ? a.likes : (parseInt(a.likes, 10) || 0),
           comments: commentCounts[a.id] || 0,
-          date: formatRelativeTime(rawDate),
+          date: formatRelativeTime(rawDate || ts),
           timestamp: ts || Date.now(),
         }
       }).sort((a, b) => b.timestamp - a.timestamp)
@@ -286,7 +334,7 @@ export default function Home() {
           title: p.transformedTitle || p.sourceTitle,
           excerpt: p.transformedBody ? p.transformedBody.slice(0, 140) + '...' : '',
           image: p.sourceImage || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&h=700&fit=crop&auto=format',
-          likes: 8,
+          likes: 0,
           comments: commentCounts[p.id] || 0,
           date: formatRelativeTime(p.timestampMs),
           timestamp: p.timestampMs,

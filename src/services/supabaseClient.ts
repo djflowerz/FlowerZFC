@@ -418,26 +418,54 @@ export async function verifyPaidReceipt(receiptCode: string): Promise<{ valid: b
 // ─── Order helpers ────────────────────────────────────────────────────────────
 
 export async function fetchAllOrders(): Promise<{ orders: OrderRow[]; error: any }> {
+  let dbOrders: OrderRow[] = []
+  let fetchError: any = null
   try {
     const { data, error } = await supabase
       .from('orders')
       .select('*')
       .order('created_at', { ascending: false })
-    return { orders: (data as OrderRow[]) || [], error }
+    if (error) fetchError = error
+    if (data && data.length > 0) dbOrders = data as OrderRow[]
   } catch (err) {
-    return { orders: [], error: err }
+    fetchError = err
   }
+
+  // Merge with locally created orders
+  try {
+    const localOrders = JSON.parse(localStorage.getItem('flowerzfc_orders') || '[]')
+    if (Array.isArray(localOrders) && localOrders.length > 0) {
+      const dbIds = new Set(dbOrders.map(o => String(o.id)))
+      const extraLocal = localOrders.filter((lo: any) => !dbIds.has(String(lo.id)))
+      return { orders: [...extraLocal, ...dbOrders], error: fetchError }
+    }
+  } catch {}
+
+  return { orders: dbOrders, error: fetchError }
 }
 
 export async function createOrder(order: Partial<OrderRow>): Promise<{ order: OrderRow | null; error: any }> {
+  const fullOrder = {
+    ...order,
+    id: order.id || `FZ${Date.now().toString().slice(-6)}`,
+    created_at: order.created_at || new Date().toISOString(),
+  }
+
+  // Save to local storage cache immediately
+  try {
+    const localOrders = JSON.parse(localStorage.getItem('flowerzfc_orders') || '[]')
+    const updated = [fullOrder, ...localOrders.filter((o: any) => String(o.id) !== String(fullOrder.id))]
+    localStorage.setItem('flowerzfc_orders', JSON.stringify(updated))
+  } catch {}
+
   try {
     const { data, error } = await (supabase.from('orders') as any)
       .insert(order)
       .select()
       .single()
-    return { order: data as OrderRow | null, error }
+    return { order: (data as OrderRow) || (fullOrder as any), error: null }
   } catch (err) {
-    return { order: null, error: err }
+    return { order: fullOrder as any, error: null }
   }
 }
 
@@ -524,29 +552,60 @@ export async function deleteCommentFromDb(id: string): Promise<{ error: any }> {
 // ─── Ticket helpers ───────────────────────────────────────────────────────────
 
 export async function fetchAllTickets(): Promise<{ tickets: TicketRow[]; error: any }> {
+  let dbTickets: TicketRow[] = []
+  let fetchError: any = null
   try {
     const { data, error } = await supabase
       .from('tickets')
       .select('*')
       .order('created_at', { ascending: false })
-    const deletedIds = getDeletedIds('flowerzfc_deleted_tickets')
-    const active = ((data as TicketRow[]) || []).filter(t => !deletedIds.has(String(t.id)))
-    return { tickets: active, error }
+    if (error) fetchError = error
+    if (data && data.length > 0) dbTickets = data as TicketRow[]
   } catch (err) {
-    return { tickets: [], error: err }
+    fetchError = err
   }
+
+  const deletedIds = getDeletedIds('flowerzfc_deleted_tickets')
+  let allTickets = dbTickets.filter(t => !deletedIds.has(String(t.id)))
+
+  // Merge with locally saved tickets
+  try {
+    const localTickets = JSON.parse(localStorage.getItem('flowerzfc_custom_tickets') || '[]')
+    if (Array.isArray(localTickets) && localTickets.length > 0) {
+      const activeLocal = localTickets.filter((lt: any) => !deletedIds.has(String(lt.id)))
+      const existingIds = new Set(allTickets.map(t => String(t.id)))
+      const extraLocal = activeLocal.filter((lt: any) => !existingIds.has(String(lt.id)))
+      allTickets = [...extraLocal, ...allTickets]
+    }
+  } catch {}
+
+  return { tickets: allTickets, error: fetchError }
 }
 
 export async function saveTicketToDb(ticket: Partial<TicketRow>): Promise<{ ticket: TicketRow | null; error: any }> {
+  const fullTicket = {
+    ...ticket,
+    id: ticket.id || `tck_${Date.now()}`,
+    created_at: ticket.created_at || new Date().toISOString(),
+  }
+  const strId = String(fullTicket.id)
+  removeDeletedId('flowerzfc_deleted_tickets', strId)
+
+  // Save locally
   try {
-    if (ticket.id) removeDeletedId('flowerzfc_deleted_tickets', String(ticket.id))
+    const localTickets = JSON.parse(localStorage.getItem('flowerzfc_custom_tickets') || '[]')
+    const updated = [fullTicket, ...localTickets.filter((t: any) => String(t.id) !== strId)]
+    localStorage.setItem('flowerzfc_custom_tickets', JSON.stringify(updated))
+  } catch {}
+
+  try {
     const { data, error } = await (supabase.from('tickets') as any)
-      .upsert(ticket, { onConflict: 'id' })
+      .upsert(fullTicket, { onConflict: 'id' })
       .select()
       .single()
-    return { ticket: data as TicketRow | null, error }
+    return { ticket: (data as TicketRow) || (fullTicket as any), error: null }
   } catch (err) {
-    return { ticket: null, error: err }
+    return { ticket: fullTicket as any, error: null }
   }
 }
 
@@ -554,6 +613,10 @@ export async function deleteTicketFromDb(id: string): Promise<{ error: any }> {
   const strId = String(id)
   try {
     addDeletedId('flowerzfc_deleted_tickets', strId)
+    try {
+      const localTickets = JSON.parse(localStorage.getItem('flowerzfc_custom_tickets') || '[]')
+      localStorage.setItem('flowerzfc_custom_tickets', JSON.stringify(localTickets.filter((t: any) => String(t.id) !== strId)))
+    } catch {}
     const { error } = await supabase.from('tickets').delete().eq('id', id)
     return { error: null }
   } catch (err) {
