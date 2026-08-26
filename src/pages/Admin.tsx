@@ -889,6 +889,10 @@ export default function Admin() {
   // Content Ingestion & Context Transformer state
   const [ingestedPosts, setIngestedPosts] = useState<IngestedPost[]>(getIngestedPosts())
   const [scannerFilter, setScannerFilter] = useState<'all' | 'unposted' | 'published'>('all')
+  const [isScanningFeed, setIsScanningFeed] = useState(false)
+  const [ingestSearchQuery, setIngestSearchQuery] = useState('')
+  const [ingestPage, setIngestPage] = useState(1)
+  const [ingestPageSize, setIngestPageSize] = useState<number | 'all'>(25)
   const [ingestDate, setIngestDate] = useState(() => {
     const d = new Date()
     const yyyy = d.getFullYear()
@@ -948,12 +952,16 @@ export default function Admin() {
 
   // Automatically fetch live articles from LiveScore Contentful API on mount or when ingestDate changes
   useEffect(() => {
-    fetchLiveIngestedPosts(ingestDate).then(posts => {
-      if (posts && posts.length > 0) {
-        setIngestedPosts(posts)
-        setShowIngestNotification(true)
-      }
-    })
+    setIsScanningFeed(true)
+    setIngestPage(1)
+    fetchLiveIngestedPosts(ingestDate, 1000)
+      .then(posts => {
+        if (posts && posts.length > 0) {
+          setIngestedPosts(posts)
+          setShowIngestNotification(true)
+        }
+      })
+      .finally(() => setIsScanningFeed(false))
   }, [ingestDate])
 
   // Toast notification system — powered by react-toastify
@@ -2024,118 +2032,209 @@ export default function Admin() {
                     </div>
                   )}
 
-                  <button onClick={() => {
-                    toast(`📡 Querying LiveScore Contentful API for ${ingestDate === 'all' ? 'latest articles' : ingestDate}...`, 'info')
-                    fetchLiveIngestedPosts(ingestDate).then(posts => {
-                      setIngestedPosts(posts)
-                      const visible = filterPostsByDate(posts, ingestDate)
-                      setShowIngestNotification(true)
-                      const unposted = visible.filter(p => !isPostAlreadyOnSite(p)).length
-                      toast(`✅ LiveScore feed refreshed! ${visible.length} article(s) found for ${ingestDate === 'all' ? 'all dates' : ingestDate} (${unposted} unposted).`, 'success')
-                    })
-                  }} className="px-4 py-2 text-xs font-black text-white rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-all flex items-center gap-1.5" style={{ background: '#0d0d1e' }}>
-                    <span>🔄</span> Scan Feed Now
-                  </button>
-                </div>
-              </div>
-
-              {/* Ingestion Filter Pills (All / Unposted / Already Published) */}
-              <div className="flex items-center gap-2 border-b border-[#1e1e32] pb-3 flex-wrap">
-                <span className="text-[11px] font-bold text-gray-400">Filter Scanned Posts:</span>
-                {[
-                  { id: 'all', label: `All Scanned (${filterPostsByDate(ingestedPosts, ingestDate).length})` },
-                  { id: 'unposted', label: `✨ New / Unposted (${filterPostsByDate(ingestedPosts, ingestDate).filter(p => !isPostAlreadyOnSite(p)).length})` },
-                  { id: 'published', label: `✓ Already on Site (${filterPostsByDate(ingestedPosts, ingestDate).filter(p => isPostAlreadyOnSite(p)).length})` },
-                ].map(f => (
                   <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => setScannerFilter(f.id as any)}
-                    className={`px-3 py-1 text-xs rounded-lg font-bold transition-all border ${
-                      scannerFilter === f.id
-                        ? 'bg-[#00b341] text-black border-[#00b341] font-black'
-                        : 'bg-[#0d0d1e] text-gray-400 border-[#1e1e32] hover:text-white'
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
+                    disabled={isScanningFeed}
+                    onClick={() => {
+                    toast(`📡 Scanning all articles for ${ingestDate === 'all' ? 'latest feed' : `${ingestDate} (00:00–23:59)`}…`, 'info')
+                    setIsScanningFeed(true)
+                    setIngestPage(1)
+                    fetchLiveIngestedPosts(ingestDate, 1000)
+                      .then(posts => {
+                        setIngestedPosts(posts)
+                        setShowIngestNotification(true)
+                        const visible = filterPostsByDate(posts, ingestDate)
+                        const unposted = visible.filter(p => !isPostAlreadyOnSite(p)).length
+                        toast(`✅ ${visible.length} article(s) scanned for ${ingestDate === 'all' ? 'all dates' : ingestDate} · ${unposted} unposted.`, 'success')
+                      })
+                      .finally(() => setIsScanningFeed(false))
+                  }}
+                  className="px-4 py-2 text-xs font-black text-white rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ background: '#0d0d1e' }}
+                >
+                  {isScanningFeed
+                    ? <><span className="w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin inline-block" /> Scanning…</>
+                    : <><span>🔄</span> Scan Feed Now</>
+                  }
+                </button>
               </div>
+            </div>
 
-              {/* Bulk Actions Controls */}
-              <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-[#0d0d1e] border border-[#1e1e32] flex-wrap">
-                <label className="flex items-center gap-2.5 text-xs font-bold text-gray-300 cursor-pointer">
-                  <input type="checkbox"
-                    checked={selectedIngestIds.size > 0 && selectedIngestIds.size === filterPostsByDate(ingestedPosts, ingestDate).filter(p => scannerFilter === 'unposted' ? !isPostAlreadyOnSite(p) : scannerFilter === 'published' ? isPostAlreadyOnSite(p) : true).length}
-                    onChange={e => {
-                      const visible = filterPostsByDate(ingestedPosts, ingestDate).filter(p => scannerFilter === 'unposted' ? !isPostAlreadyOnSite(p) : scannerFilter === 'published' ? isPostAlreadyOnSite(p) : true)
-                      if (e.target.checked) setSelectedIngestIds(new Set(visible.map(p => p.id)))
-                      else setSelectedIngestIds(new Set())
-                    }}
-                    className="w-4 h-4 accent-[#00b341]" />
-                  <span>Select All ({filterPostsByDate(ingestedPosts, ingestDate).filter(p => scannerFilter === 'unposted' ? !isPostAlreadyOnSite(p) : scannerFilter === 'published' ? isPostAlreadyOnSite(p) : true).length} posts)</span>
-                </label>
+              {/* ── Loading skeleton while scanning ── */}
+              {isScanningFeed && (
+                <div className="space-y-3 py-2">
+                  {[1,2,3].map(i => (
+                    <div key={i} className="p-4 rounded-xl border border-[#1e1e32] bg-[#0d0d1e] space-y-2 animate-pulse">
+                      <div className="flex items-center gap-3">
+                        <div className="w-16 h-12 rounded-lg bg-white/5" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-3 w-24 rounded bg-white/5" />
+                          <div className="h-4 w-3/4 rounded bg-white/5" />
+                          <div className="h-3 w-1/2 rounded bg-white/5" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <p className="text-center text-xs text-emerald-400 font-bold pt-2 animate-pulse">
+                    ⏳ Fetching all articles for {ingestDate === 'all' ? 'latest feed' : `${ingestDate} 00:00 → 23:59`}…
+                  </p>
+                </div>
+              )}
 
-                {selectedIngestIds.size > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-emerald-400">{selectedIngestIds.size} selected</span>
-                    <button onClick={() => {
-                      const selectedPosts = ingestedPosts.filter(p => selectedIngestIds.has(p.id) && !isPostAlreadyOnSite(p))
-                      if (selectedPosts.length === 0) {
-                        toast('All selected posts are already published or none selected.', 'info')
-                        return
-                      }
-                      const newArticles = selectedPosts.map((post) => ({
-                        id: `art-ing-${post.id}`,
-                        title: post.transformedTitle,
-                        category: post.category,
-                        body: post.transformedBody,
-                        imageUrl: post.sourceImage,
-                        imageAlt: post.transformedTitle,
-                        imageCaption: post.transformedTitle,
-                        author: post.author || 'Admin',
-                        date: new Date().toISOString(),
-                        status: 'Published',
-                        tags: `${post.category}, Ingested, News`,
-                        metaDescription: post.transformedBody.slice(0, 150),
-                        // Encode Contentful ID into slug for reliable deduplication
-                        slug: `ing-${post.id}`,
-                        scheduled: '',
-                        views: '0',
-                        likes: 0,
-                        excerpt: post.transformedBody.slice(0, 140) + '...',
-                        matchId: '',
-                        teamTags: '',
-                        playerTags: '',
-                        mediaEmbeds: '',
-                        isLiveBlog: false,
-                        metaTitle: post.transformedTitle,
-                        focusKeywords: post.category,
-                      }))
+              {!isScanningFeed && (() => {
+                // Build the full filtered+searched list
+                const byDate = filterPostsByDate(ingestedPosts, ingestDate)
+                const byStatus = byDate.filter(post => {
+                  if (scannerFilter === 'unposted') return !isPostAlreadyOnSite(post)
+                  if (scannerFilter === 'published') return isPostAlreadyOnSite(post)
+                  return true
+                })
+                const query = ingestSearchQuery.trim().toLowerCase()
+                const bySearch = query
+                  ? byStatus.filter(p =>
+                      (p.transformedTitle || p.sourceTitle || '').toLowerCase().includes(query) ||
+                      (p.category || '').toLowerCase().includes(query) ||
+                      (p.sourceDate || '').includes(query)
+                    )
+                  : byStatus
 
-                      saveArticles(newArticles as any)
-                      setArticles(prev => [...newArticles, ...prev])
-                      setIngestedPosts(prev => prev.map(p => selectedIngestIds.has(p.id) ? { ...p, status: 'Approved' } : p))
-                      setSelectedIngestIds(new Set())
-                      toast(`✅ Bulk Approved & Published ${selectedPosts.length} posts live to News!`, 'success')
-                    }} className="px-4 py-2 text-xs font-black text-black rounded-xl hover:opacity-90 transition-all" style={{ background: '#00b341' }}>
-                      ✅ Bulk Approve Selected ({selectedIngestIds.size}) →
-                    </button>
-                  </div>
-                )}
-              </div>
+                const totalFiltered = bySearch.length
+                const totalPages = ingestPageSize === 'all' ? 1 : Math.ceil(totalFiltered / (ingestPageSize as number)) || 1
+                const safePage = Math.min(ingestPage, totalPages)
+                const pageSlice = ingestPageSize === 'all'
+                  ? bySearch
+                  : bySearch.slice((safePage - 1) * (ingestPageSize as number), safePage * (ingestPageSize as number))
 
-              {/* Ingested Post Cards */}
-              <div className="space-y-4">
-                {filterPostsByDate(ingestedPosts, ingestDate)
-                  .filter(post => {
-                    if (scannerFilter === 'unposted') return !isPostAlreadyOnSite(post)
-                    if (scannerFilter === 'published') return isPostAlreadyOnSite(post)
-                    return true
-                  })
-                  .map(post => {
-                    const alreadyOnSite = isPostAlreadyOnSite(post)
-                    return (
+                return (
+                  <>
+                    {/* Ingestion Filter Pills + Search Row */}
+                    <div className="space-y-3 border-b border-[#1e1e32] pb-4">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[11px] font-bold text-gray-400">Filter:</span>
+                        {[
+                          { id: 'all', label: `All Scanned (${byDate.length})` },
+                          { id: 'unposted', label: `✨ New / Unposted (${byDate.filter(p => !isPostAlreadyOnSite(p)).length})` },
+                          { id: 'published', label: `✓ Already on Site (${byDate.filter(p => isPostAlreadyOnSite(p)).length})` },
+                        ].map(f => (
+                          <button
+                            key={f.id}
+                            type="button"
+                            onClick={() => { setScannerFilter(f.id as any); setIngestPage(1) }}
+                            className={`px-3 py-1 text-xs rounded-lg font-bold transition-all border ${
+                              scannerFilter === f.id
+                                ? 'bg-[#00b341] text-black border-[#00b341] font-black'
+                                : 'bg-[#0d0d1e] text-gray-400 border-[#1e1e32] hover:text-white'
+                            }`}
+                          >
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Search + Page-size */}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-2 flex-1 min-w-[180px] bg-[#0d0d1e] border border-[#1e1e32] px-3 py-1.5 rounded-xl">
+                          <span className="text-gray-500 text-xs">🔍</span>
+                          <input
+                            type="text"
+                            placeholder="Search title, category, date…"
+                            value={ingestSearchQuery}
+                            onChange={e => { setIngestSearchQuery(e.target.value); setIngestPage(1) }}
+                            className="bg-transparent text-xs text-white outline-none flex-1 placeholder-gray-600"
+                          />
+                          {ingestSearchQuery && (
+                            <button onClick={() => { setIngestSearchQuery(''); setIngestPage(1) }} className="text-gray-500 hover:text-white text-xs">✕</button>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 bg-[#0d0d1e] border border-[#1e1e32] px-3 py-1.5 rounded-xl">
+                          <span className="text-[10px] text-gray-500 font-bold uppercase">Per page:</span>
+                          {([25, 50, 100, 'all'] as (number | 'all')[]).map(n => (
+                            <button
+                              key={String(n)}
+                              onClick={() => { setIngestPageSize(n); setIngestPage(1) }}
+                              className={`text-[10px] font-black px-2 py-0.5 rounded transition-all ${ingestPageSize === n ? 'bg-[#00b341] text-black' : 'text-gray-400 hover:text-white'}`}
+                            >
+                              {n === 'all' ? 'All' : n}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="text-[11px] text-gray-400 font-mono ml-auto">
+                          {totalFiltered === 0
+                            ? 'No articles'
+                            : ingestPageSize === 'all'
+                              ? `Showing all ${totalFiltered} article(s)`
+                              : `Showing ${Math.min((safePage - 1) * (ingestPageSize as number) + 1, totalFiltered)}–${Math.min(safePage * (ingestPageSize as number), totalFiltered)} of ${totalFiltered} article(s) · Page ${safePage}/${totalPages}`
+                          }
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bulk Actions Controls */}
+                    <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-[#0d0d1e] border border-[#1e1e32] flex-wrap">
+                      <label className="flex items-center gap-2.5 text-xs font-bold text-gray-300 cursor-pointer">
+                        <input type="checkbox"
+                          checked={pageSlice.length > 0 && pageSlice.every(p => selectedIngestIds.has(p.id))}
+                          onChange={e => {
+                            const next = new Set(selectedIngestIds)
+                            pageSlice.forEach(p => e.target.checked ? next.add(p.id) : next.delete(p.id))
+                            setSelectedIngestIds(next)
+                          }}
+                          className="w-4 h-4 accent-[#00b341]" />
+                        <span>Select Page ({pageSlice.length} posts)</span>
+                      </label>
+
+                      {selectedIngestIds.size > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-emerald-400">{selectedIngestIds.size} selected</span>
+                          <button onClick={() => {
+                            const selectedPosts = ingestedPosts.filter(p => selectedIngestIds.has(p.id) && !isPostAlreadyOnSite(p))
+                            if (selectedPosts.length === 0) {
+                              toast('All selected posts are already published or none selected.', 'info')
+                              return
+                            }
+                            const newArticles = selectedPosts.map((post) => ({
+                              id: `art-ing-${post.id}`,
+                              title: post.transformedTitle,
+                              category: post.category,
+                              body: post.transformedBody,
+                              imageUrl: post.sourceImage,
+                              imageAlt: post.transformedTitle,
+                              imageCaption: post.transformedTitle,
+                              author: post.author || 'Admin',
+                              date: new Date().toISOString(),
+                              status: 'Published',
+                              tags: `${post.category}, Ingested, News`,
+                              metaDescription: post.transformedBody.slice(0, 150),
+                              slug: `ing-${post.id}`,
+                              scheduled: '',
+                              views: '0',
+                              likes: 0,
+                              excerpt: post.transformedBody.slice(0, 140) + '...',
+                              matchId: '',
+                              teamTags: '',
+                              playerTags: '',
+                              mediaEmbeds: '',
+                              isLiveBlog: false,
+                              metaTitle: post.transformedTitle,
+                              focusKeywords: post.category,
+                            }))
+                            saveArticles(newArticles as any)
+                            setArticles(prev => [...newArticles, ...prev])
+                            setIngestedPosts(prev => prev.map(p => selectedIngestIds.has(p.id) ? { ...p, status: 'Approved' } : p))
+                            setSelectedIngestIds(new Set())
+                            toast(`✅ Bulk Approved & Published ${selectedPosts.length} posts live to News!`, 'success')
+                          }} className="px-4 py-2 text-xs font-black text-black rounded-xl hover:opacity-90 transition-all" style={{ background: '#00b341' }}>
+                            ✅ Bulk Approve Selected ({selectedIngestIds.size}) →
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Ingested Post Cards — paginated */}
+                    <div className="space-y-4">
+                      {pageSlice.map(post => {
+                        const alreadyOnSite = isPostAlreadyOnSite(post)
+                        return (
                   <div key={post.id} className="p-5 rounded-xl border space-y-4" style={{ background: '#0d0d1e', borderColor: selectedIngestIds.has(post.id) ? '#00b341' : alreadyOnSite ? 'rgba(0,179,65,.35)' : 'rgba(245,158,11,.4)' }}>
                     <div className="flex items-start justify-between gap-4 flex-wrap">
                       <div className="flex items-center gap-3">
@@ -2284,32 +2383,87 @@ export default function Admin() {
                     )
                   })}
 
-                {filterPostsByDate(ingestedPosts, ingestDate).filter(p => scannerFilter === 'unposted' ? !isPostAlreadyOnSite(p) : scannerFilter === 'published' ? isPostAlreadyOnSite(p) : true).length === 0 && (
-                  <div className="p-8 text-center text-gray-500 text-xs border border-dashed border-[#1e1e32] rounded-xl space-y-3">
-                    <p className="text-2xl">📅</p>
-                    {ingestedPosts.length === 0 ? (
-                      <>
-                        <p className="text-white font-bold">No articles loaded yet.</p>
-                        <p>Click <span className="text-[#00b341] font-black">🔄 Scan Feed Now</span> to fetch the latest articles from LiveScore.</p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-white font-bold">No articles match filter <span className="font-mono text-[#00b341]">{scannerFilter}</span> for date <span className="font-mono text-[#00b341]">{ingestDate}</span></p>
-                        <p className="text-gray-400">Try switching filter to "All Scanned" or picking an available date:</p>
-                        <div className="flex flex-wrap justify-center gap-2 mt-2">
-                          {[...new Set(ingestedPosts.map(p => p.sourceDate))].sort().reverse().slice(0, 10).map(d => (
-                            <button key={d} onClick={() => setIngestDate(d)}
-                              className="px-3 py-1 text-[10px] font-black rounded-lg border border-[#00b341]/40 text-[#00b341] hover:bg-[#00b341]/10 transition-all font-mono">
-                              {d} ({ingestedPosts.filter(p => p.sourceDate === d).length} articles)
-                            </button>
-                          ))}
+                      {pageSlice.length === 0 && (
+                        <div className="p-8 text-center text-gray-500 text-xs border border-dashed border-[#1e1e32] rounded-xl space-y-3">
+                          <p className="text-2xl">📅</p>
+                          {ingestedPosts.length === 0 ? (
+                            <>
+                              <p className="text-white font-bold">No articles loaded yet.</p>
+                              <p>Click <span className="text-[#00b341] font-black">🔄 Scan Feed Now</span> to fetch all articles for the selected date.</p>
+                            </>
+                          ) : ingestSearchQuery ? (
+                            <>
+                              <p className="text-white font-bold">No articles match "<span className="text-[#00b341]">{ingestSearchQuery}</span>"</p>
+                              <button onClick={() => setIngestSearchQuery('')} className="text-xs text-[#00b341] hover:underline">Clear Search</button>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-white font-bold">No articles match filter <span className="font-mono text-[#00b341]">{scannerFilter}</span> for <span className="font-mono text-[#00b341]">{ingestDate === 'all' ? 'all dates' : ingestDate}</span></p>
+                              <p className="text-gray-400">Try switching to "All Scanned" or picking an available date:</p>
+                              <div className="flex flex-wrap justify-center gap-2 mt-2">
+                                {[...new Set(ingestedPosts.map(p => p.sourceDate))].sort().reverse().slice(0, 10).map(d => (
+                                  <button key={d} onClick={() => setIngestDate(d)}
+                                    className="px-3 py-1 text-[10px] font-black rounded-lg border border-[#00b341]/40 text-[#00b341] hover:bg-[#00b341]/10 transition-all font-mono">
+                                    {d} ({ingestedPosts.filter(p => p.sourceDate === d).length} articles)
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          )}
                         </div>
-                      </>
+                      )}
+                    </div>
+
+                    {/* ── Pagination Navigation ── */}
+                    {ingestPageSize !== 'all' && totalPages > 1 && (
+                      <div className="flex items-center justify-center gap-2 pt-2 flex-wrap">
+                        <button
+                          onClick={() => setIngestPage(1)}
+                          disabled={safePage === 1}
+                          className="px-3 py-1.5 text-xs font-bold rounded-xl border border-[#1e1e32] text-gray-400 hover:text-white hover:border-[#00b341] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >« First</button>
+                        <button
+                          onClick={() => setIngestPage(p => Math.max(1, p - 1))}
+                          disabled={safePage === 1}
+                          className="px-3 py-1.5 text-xs font-bold rounded-xl border border-[#1e1e32] text-gray-400 hover:text-white hover:border-[#00b341] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >‹ Prev</button>
+
+                        {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+                          let page: number
+                          if (totalPages <= 7) page = i + 1
+                          else if (safePage <= 4) page = i + 1
+                          else if (safePage >= totalPages - 3) page = totalPages - 6 + i
+                          else page = safePage - 3 + i
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setIngestPage(page)}
+                              className={`w-8 h-8 text-xs font-black rounded-xl border transition-all ${
+                                safePage === page
+                                  ? 'bg-[#00b341] text-black border-[#00b341]'
+                                  : 'border-[#1e1e32] text-gray-400 hover:text-white hover:border-[#00b341]'
+                              }`}
+                            >{page}</button>
+                          )
+                        })}
+
+                        <button
+                          onClick={() => setIngestPage(p => Math.min(totalPages, p + 1))}
+                          disabled={safePage === totalPages}
+                          className="px-3 py-1.5 text-xs font-bold rounded-xl border border-[#1e1e32] text-gray-400 hover:text-white hover:border-[#00b341] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >Next ›</button>
+                        <button
+                          onClick={() => setIngestPage(totalPages)}
+                          disabled={safePage === totalPages}
+                          className="px-3 py-1.5 text-xs font-bold rounded-xl border border-[#1e1e32] text-gray-400 hover:text-white hover:border-[#00b341] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        >Last »</button>
+                      </div>
                     )}
-                  </div>
-                )}
-              </div>
+                  </>
+                )
+              })()}
             </div>
+
 
             {/* Article KPI Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

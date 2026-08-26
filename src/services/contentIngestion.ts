@@ -197,98 +197,159 @@ function extractContentfulRichText(node: any): string {
 }
 
 // ─── Main Fetcher ─────────────────────────────────────────────────────────────
-// Fetches articles directly from LiveScore's Contentful API backend.
-// Supports querying by specific date or all latest.
-export async function fetchLiveIngestedPosts(dateStr?: string): Promise<IngestedPost[]> {
+// Fetches articles directly from LiveScore's Contentful API backend with multi-page pagination.
+// Supports querying all articles for a specific date (00:00 to 23:59) or all latest.
+export async function fetchLiveIngestedPosts(
+  dateStr?: string,
+  maxArticles = 1000
+): Promise<IngestedPost[]> {
   try {
-    let url = CONTENTFUL_URL
+    let baseUrl = CONTENTFUL_URL
+    let startOfDayLocal = 0
+    let endOfDayLocal = 0
+
     if (dateStr && dateStr !== 'all') {
-      const gte = encodeURIComponent(`${dateStr}T00:00:00.000Z`)
-      const lte = encodeURIComponent(`${dateStr}T23:59:59.999Z`)
-      url = `https://cdn.contentful.com/spaces/u47hn5mzoiuo/environments/master/entries?access_token=BajQyLYH7tgna4_YpZXm_9TEpTTy7E7GJbm8w5JeWhM&content_type=article&sys.createdAt%5Bgte%5D=${gte}&sys.createdAt%5Blte%5D=${lte}&limit=100&order=-sys.createdAt`
+      startOfDayLocal = new Date(`${dateStr}T00:00:00`).getTime()
+      endOfDayLocal = new Date(`${dateStr}T23:59:59.999`).getTime()
+
+      // Expand query range with 14-hour UTC buffer to cover every global timezone for that day
+      const queryGte = new Date(Math.min(startOfDayLocal, new Date(`${dateStr}T00:00:00.000Z`).getTime()) - 14 * 3600 * 1000).toISOString()
+      const queryLte = new Date(Math.max(endOfDayLocal, new Date(`${dateStr}T23:59:59.999Z`).getTime()) + 14 * 3600 * 1000).toISOString()
+
+      baseUrl = `https://cdn.contentful.com/spaces/u47hn5mzoiuo/environments/master/entries?access_token=BajQyLYH7tgna4_YpZXm_9TEpTTy7E7GJbm8w5JeWhM&content_type=article&sys.createdAt%5Bgte%5D=${encodeURIComponent(queryGte)}&sys.createdAt%5Blte%5D=${encodeURIComponent(queryLte)}&limit=100&order=-sys.createdAt`
+    } else {
+      baseUrl = `https://cdn.contentful.com/spaces/u47hn5mzoiuo/environments/master/entries?access_token=BajQyLYH7tgna4_YpZXm_9TEpTTy7E7GJbm8w5JeWhM&content_type=article&limit=100&order=-sys.createdAt`
     }
-    const res = await fetch(url)
-    if (res.ok) {
-      const data = await res.json()
-      const entries: any[] = data.items || []
-      const assets = new Map<string, string>()
 
-      // Build asset map for image resolution
-      if (data.includes?.Asset) {
-        for (const asset of data.includes.Asset) {
-          if (asset.sys?.id && asset.fields?.file?.url) {
-            const u: string = asset.fields.file.url
-            assets.set(asset.sys.id, u.startsWith('http') ? u : `https:${u}`)
-          }
+    // 1. Fetch Page 0 to discover total available entries
+    const initialRes = await fetch(`${baseUrl}&skip=0`)
+    if (!initialRes.ok) return cachedIngestedPosts
+
+    const initialData = await initialRes.json()
+    const totalEntries: number = initialData.total || (initialData.items || []).length
+    const entries: any[] = [...(initialData.items || [])]
+    const assets = new Map<string, string>()
+
+    const registerAssets = (assetList?: any[]) => {
+      if (!Array.isArray(assetList)) return
+      for (const asset of assetList) {
+        if (asset.sys?.id && asset.fields?.file?.url) {
+          const u: string = asset.fields.file.url
+          assets.set(asset.sys.id, u.startsWith('http') ? u : `https:${u}`)
         }
       }
+    }
 
-      const parsed: IngestedPost[] = []
+    registerAssets(initialData.includes?.Asset)
 
-      for (let idx = 0; idx < entries.length; idx++) {
-        const item = entries[idx]
-        const f = item.fields || {}
-        const title: string = f.title || f.headline || f.name || ''
-        const slug: string  = f.slug  || title.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    // 2. Fetch subsequent pages up to maxArticles (chunked in batches of 3 for speed and reliability)
+    const targetCount = Math.min(totalEntries, maxArticles)
+    const skips: number[] = []
+    for (let s = 100; s < targetCount; s += 100) {
+      skips.push(s)
+    }
 
-        if (!title || isPromotionalPost(title, slug)) continue
+    // Process in batches of 3 concurrent requests
+    const BATCH_SIZE = 3
+    for (let i = 0; i < skips.length; i += BATCH_SIZE) {
+      const batch = skips.slice(i, i + BATCH_SIZE)
+      const results = await Promise.all(
+        batch.map(skip =>
+          fetch(`${baseUrl}&skip=${skip}`)
+            .then(r => (r.ok ? r.json() : null))
+            .catch(() => null)
+        )
+      )
 
-        // Extract full article body from Contentful rich text or string
-        let rawBody = ''
-        if (f.content) {
-          rawBody = extractContentfulRichText(f.content)
+      for (const pageData of results) {
+        if (pageData && Array.isArray(pageData.items)) {
+          entries.push(...pageData.items)
+          registerAssets(pageData.includes?.Asset)
         }
-        if (!rawBody) {
-          rawBody = f.body || f.summary || f.teaser || title
-        }
+      }
+    }
 
-        // Image Resolution: Check metaData.imageUrl first (used in 95% of LiveScore articles), then Asset map, then fallback
-        const meta = f.metaData || {}
-        const metaImage = typeof meta === 'object' && meta ? meta.imageUrl : null
-        const imgId = f.mainImage?.sys?.id || f.image?.sys?.id || f.heroImage?.sys?.id
-                    || f.thumbnail?.sys?.id || f.photo?.sys?.id  || f.media?.sys?.id
-        const assetImage = imgId ? assets.get(imgId) : null
-        const fallbackImg = FOOTBALL_IMAGES[idx % FOOTBALL_IMAGES.length]
-        const imageUrl = metaImage || assetImage || fallbackImg
+    // 3. Deduplicate raw entries by sys.id
+    const seenIds = new Set<string>()
+    const uniqueEntries = entries.filter(item => {
+      const itemId = item.sys?.id
+      if (!itemId || seenIds.has(itemId)) return false
+      seenIds.add(itemId)
+      return true
+    })
 
-        // Date from Contentful sys.createdAt / sys.updatedAt
-        const rawDate: string  = item.sys?.createdAt || item.sys?.updatedAt || new Date().toISOString()
-        const d = new Date(rawDate)
-        const yyyy = d.getFullYear()
-        const mm = String(d.getMonth() + 1).padStart(2, '0')
-        const dd = String(d.getDate()).padStart(2, '0')
-        const sourceDate = `${yyyy}-${mm}-${dd}` // Local YYYY-MM-DD
-        const utcDate = rawDate.slice(0, 10)      // UTC YYYY-MM-DD
-        const timestampMs: number = d.getTime()
+    const parsed: IngestedPost[] = []
 
-        const { category, section } = resolveCategoryFromSlug(slug)
-        const transformed = transformContentContext(title, rawBody)
+    for (let idx = 0; idx < uniqueEntries.length; idx++) {
+      const item = uniqueEntries[idx]
+      const f = item.fields || {}
+      const title: string = f.title || f.headline || f.name || ''
+      const slug: string  = f.slug  || title.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
-        parsed.push({
-          id: item.sys?.id || `ls_${timestampMs}_${idx}`,
-          sourceUrl: `https://www.livescore.com/en/news${slug.startsWith('/') ? slug : `/${slug}`}`,
-          sourceTitle: title,
-          sourceBody:  rawBody,
-          sourceImage: imageUrl,
-          sourceDate,
-          sourceSection: section,
-          timestampMs,
-          transformedTitle: transformed.title,
-          transformedBody:  transformed.body,
-          category,
-          author: 'Admin',    // always Admin
-          status: 'Pending',
-          detectedAt: new Date(timestampMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        })
+      if (!title || isPromotionalPost(title, slug)) continue
+
+      // Extract full article body
+      let rawBody = ''
+      if (f.content) {
+        rawBody = extractContentfulRichText(f.content)
+      }
+      if (!rawBody) {
+        rawBody = f.body || f.summary || f.teaser || title
       }
 
-      // Sort strictly from latest timestamp to oldest
-      parsed.sort((a, b) => b.timestampMs - a.timestampMs)
+      // Image Resolution
+      const meta = f.metaData || {}
+      const metaImage = typeof meta === 'object' && meta ? meta.imageUrl : null
+      const imgId = f.mainImage?.sys?.id || f.image?.sys?.id || f.heroImage?.sys?.id
+                  || f.thumbnail?.sys?.id || f.photo?.sys?.id  || f.media?.sys?.id
+      const assetImage = imgId ? assets.get(imgId) : null
+      const fallbackImg = FOOTBALL_IMAGES[idx % FOOTBALL_IMAGES.length]
+      const imageUrl = metaImage || assetImage || fallbackImg
 
-      if (parsed.length > 0) {
-        cachedIngestedPosts = parsed
-        return parsed
+      // Date parsing
+      const rawDate: string  = item.sys?.createdAt || item.sys?.updatedAt || new Date().toISOString()
+      const d = new Date(rawDate)
+      const yyyy = d.getFullYear()
+      const mm = String(d.getMonth() + 1).padStart(2, '0')
+      const dd = String(d.getDate()).padStart(2, '0')
+      const sourceDate = `${yyyy}-${mm}-${dd}` // Local YYYY-MM-DD
+      const utcDate = d.toISOString().slice(0, 10) // UTC YYYY-MM-DD
+      const timestampMs: number = d.getTime()
+
+      // If a specific date was requested, ensure article strictly belongs to that 00:00:00 to 23:59:59 day
+      if (dateStr && dateStr !== 'all') {
+        const inLocalRange = startOfDayLocal && endOfDayLocal ? (timestampMs >= startOfDayLocal && timestampMs <= endOfDayLocal) : false
+        const isSameDate = sourceDate === dateStr || utcDate === dateStr
+        if (!inLocalRange && !isSameDate) continue
       }
+
+      const { category, section } = resolveCategoryFromSlug(slug)
+      const transformed = transformContentContext(title, rawBody)
+
+      parsed.push({
+        id: item.sys?.id || `ls_${timestampMs}_${idx}`,
+        sourceUrl: `https://www.livescore.com/en/news${slug.startsWith('/') ? slug : `/${slug}`}`,
+        sourceTitle: title,
+        sourceBody:  rawBody,
+        sourceImage: imageUrl,
+        sourceDate,
+        sourceSection: section,
+        timestampMs,
+        transformedTitle: transformed.title,
+        transformedBody:  transformed.body,
+        category,
+        author: 'Admin',
+        status: 'Pending',
+        detectedAt: new Date(timestampMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      })
+    }
+
+    // Sort chronologically from newest (e.g. 23:59) to oldest (e.g. 00:01)
+    parsed.sort((a, b) => b.timestampMs - a.timestampMs)
+
+    if (parsed.length > 0) {
+      cachedIngestedPosts = parsed
+      return parsed
     }
   } catch (err) {
     console.error('[FlowerZFC] Contentful fetch error:', err)
@@ -302,17 +363,26 @@ export function getIngestedPosts(): IngestedPost[] {
 }
 
 // ─── Date Filter ──────────────────────────────────────────────────────────────
-// If dateStr === 'all' -> returns all posts sorted latest first.
-// Otherwise matches either local date string or UTC date, strictly for that day.
+// Strictly matches all articles from 00:00 to 23:59 of the given date string (YYYY-MM-DD).
 export function filterPostsByDate(posts: IngestedPost[], dateStr: string): IngestedPost[] {
   if (!dateStr || dateStr === 'all') {
     return [...posts].sort((a, b) => b.timestampMs - a.timestampMs)
   }
+
+  const startOfDayLocal = new Date(`${dateStr}T00:00:00`).getTime()
+  const endOfDayLocal = new Date(`${dateStr}T23:59:59.999`).getTime()
+
   const filtered = posts.filter(p => {
     if (p.sourceDate === dateStr) return true
-    const postUtcDate = new Date(p.timestampMs).toISOString().slice(0, 10)
-    return postUtcDate === dateStr
+    const postDate = new Date(p.timestampMs)
+    const postLocalDate = `${postDate.getFullYear()}-${String(postDate.getMonth() + 1).padStart(2, '0')}-${String(postDate.getDate()).padStart(2, '0')}`
+    if (postLocalDate === dateStr) return true
+    const postUtcDate = postDate.toISOString().slice(0, 10)
+    if (postUtcDate === dateStr) return true
+    if (p.timestampMs >= startOfDayLocal && p.timestampMs <= endOfDayLocal) return true
+    return false
   })
+
   return filtered.sort((a, b) => b.timestampMs - a.timestampMs)
 }
 
