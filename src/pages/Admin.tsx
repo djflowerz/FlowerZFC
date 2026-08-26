@@ -386,11 +386,13 @@ export default function Admin() {
   const [loginErr, setLoginErr]     = useState('')
   const [loggingIn, setLoggingIn]   = useState(false)
   const { login: appLogin } = useApp()
-  const userEmail = (user?.email || '').trim().toLowerCase()
+  const cachedAuth = getAuthUser()
+  const effectiveUser = user || cachedAuth
+  const userEmail = (effectiveUser?.email || '').trim().toLowerCase()
   const isSuperAdminEmail = userEmail === SUPER_ADMIN_EMAIL.toLowerCase() || userEmail === 'ianmuriithiflowerz@gmail.com'
-  const isSuperAdminRole = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'editor'
-  const isAuthed = Boolean(user && (isSuperAdminEmail || isSuperAdminRole))
-  const userRole: UserRole = (user?.role || 'super_admin') as UserRole
+  const isSuperAdminRole = effectiveUser?.role === 'super_admin' || effectiveUser?.role === 'admin' || effectiveUser?.role === 'editor'
+  const isAuthed = Boolean(effectiveUser && (isSuperAdminEmail || isSuperAdminRole))
+  const userRole: UserRole = (effectiveUser?.role || 'super_admin') as UserRole
 
   // Data
   const [orders,    setOrders]    = useState(INIT_ORDERS)
