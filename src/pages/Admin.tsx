@@ -4950,7 +4950,8 @@ export default function Admin() {
                 <div className="lg:col-span-7 space-y-4">
                   {(() => {
                     const selectedArticle = articles.find(a => a.id === redditSelectedArticleId) || articles[0]
-                    const currentUrl = selectedArticle ? `https://djflowerz.co.ke/news/${selectedArticle.slug || selectedArticle.id}` : 'https://djflowerz.co.ke'
+                    const imgParam = selectedArticle?.imageUrl ? `?img=${encodeURIComponent(selectedArticle.imageUrl)}` : ''
+                    const currentUrl = selectedArticle ? `https://djflowerz.co.ke/news/${selectedArticle.slug || selectedArticle.id}${imgParam}` : 'https://djflowerz.co.ke'
                     const finalTitle = redditCustomTitle || selectedArticle?.title || 'FlowerZFC Football News'
 
                     return (

@@ -6,18 +6,18 @@ interface Env {
 const DEFAULT_SUPABASE_URL = "https://ogdxnqzhqvvhrrvrqoup.supabase.co"
 const DEFAULT_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9nZHhucXpocXZ2aHJydnJxb3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzMzM0MjEsImV4cCI6MjA4NTkwOTQyMX0.pFxUc7Dv5o63_5dFQpakGZFeaBVDqywsJ7RNXDMAl6c"
 
-function escapeHtml(str: string): string {
+function cleanText(str: string): string {
   return (str || '')
-    .replace(/&/g, '&amp;')
+    .replace(/<[^>]*>/g, '')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, params, env, next } = context
   const id = params.id as string
+  const reqUrl = new URL(request.url)
 
   // Fetch the base SPA HTML response
   const response = await next()
@@ -36,6 +36,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
   let article: any = null
 
+  // 1. Try querying Supabase
   try {
     const encodedId = encodeURIComponent(id)
     const apiRes = await fetch(
@@ -59,16 +60,35 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     console.error('Error fetching article for OpenGraph:', err)
   }
 
-  const title = article?.title ? `${article.title} — FlowerzFC` : 'FlowerzFC Football News'
-  const rawDescription = article?.summary || article?.body || 'Read the full story, match reactions, and live coverage on FlowerzFC.'
-  const description = rawDescription.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().slice(0, 200)
-  const image = article?.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1200&h=630&fit=crop&auto=format'
+  // 2. Fallbacks from query params if article is newly ingested / not yet in DB
+  const queryTitle = reqUrl.searchParams.get('title')
+  const queryImg = reqUrl.searchParams.get('img')
+
+  const titleRaw = article?.title || queryTitle || 'FlowerZFC Football News'
+  const title = `${cleanText(titleRaw)} — FlowerZFC`
+
+  const descRaw = article?.summary || article?.body || 'Read the full story, match reactions, player updates, and live coverage on FlowerZFC.'
+  const description = cleanText(descRaw).slice(0, 200)
+
+  // Valid image with HTTPS
+  let image = article?.image_url || queryImg || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1200&h=630&fit=crop&auto=format'
+  if (image.startsWith('//')) {
+    image = 'https:' + image
+  }
+
   const canonicalUrl = `https://djflowerz.co.ke/news/${article?.slug || id}`
 
+  // Clean, single-source Open Graph & Twitter Card tags
   const rewriter = new HTMLRewriter()
     .on('title', {
       element(element) {
         element.setInnerContent(title)
+      },
+    })
+    // Remove any conflicting or duplicate OG / Twitter tags from base template
+    .on('meta[property^="og:"], meta[name^="twitter:"], meta[name="description"], link[rel="canonical"]', {
+      element(element) {
+        element.remove()
       },
     })
     .on('head', {
@@ -76,17 +96,20 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         element.append(
           `
     <link rel="canonical" href="${canonicalUrl}" />
+    <meta name="description" content="${description}" />
     <meta property="og:site_name" content="FlowerzFC" />
     <meta property="og:type" content="article" />
-    <meta property="og:title" content="${escapeHtml(title)}" />
-    <meta property="og:description" content="${escapeHtml(description)}" />
-    <meta property="og:image" content="${escapeHtml(image)}" />
+    <meta property="og:title" content="${cleanText(titleRaw)}" />
+    <meta property="og:description" content="${description}" />
+    <meta property="og:image" content="${image}" />
+    <meta property="og:image:secure_url" content="${image}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta property="og:url" content="${canonicalUrl}" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${escapeHtml(title)}" />
-    <meta name="twitter:description" content="${escapeHtml(description)}" />
-    <meta name="twitter:image" content="${escapeHtml(image)}" />
-    <meta name="description" content="${escapeHtml(description)}" />
+    <meta name="twitter:title" content="${cleanText(titleRaw)}" />
+    <meta name="twitter:description" content="${description}" />
+    <meta name="twitter:image" content="${image}" />
 `,
           { html: true }
         )
