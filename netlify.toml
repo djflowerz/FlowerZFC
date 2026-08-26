@@ -13,6 +13,16 @@
   status = 200
 
 [[redirects]]
+  from = "/rss.xml"
+  to = "/.netlify/functions/rss"
+  status = 200
+
+[[redirects]]
+  from = "/feed.xml"
+  to = "/.netlify/functions/rss"
+  status = 200
+
+[[redirects]]
   from = "/api/ls-cdn/*"
   to = "https://lsm-static-prod.livescore.com/:splat"
   status = 200

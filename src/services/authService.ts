@@ -145,7 +145,7 @@ export async function loginWithEmail(email: string, pass: string): Promise<{ suc
 export function hasTabAccessRole(role: UserRole, tabId: string): boolean {
   if (role === "super_admin") return true;
   if (role === "editor") {
-    return ["overview", "articles", "comments", "analytics", "mixes", "scores"].includes(tabId);
+    return ["overview", "articles", "comments", "analytics", "mixes", "scores", "reddit"].includes(tabId);
   }
   if (role === "support") {
     return ["overview", "orders", "users", "tickets", "products", "ads"].includes(tabId);

@@ -71,3 +71,26 @@ DROP POLICY IF EXISTS "Anyone insert orders" ON public.orders;
 CREATE POLICY "Anyone insert orders" ON public.orders FOR INSERT WITH CHECK (true);
 DROP POLICY IF EXISTS "Admin manage orders" ON public.orders;
 CREATE POLICY "Admin manage orders" ON public.orders FOR ALL USING (true);
+
+-- 5. Create reddit_posts table (tracks all Reddit shares to prevent duplicate posts)
+CREATE TABLE IF NOT EXISTS public.reddit_posts (
+  id TEXT PRIMARY KEY,
+  article_id TEXT NOT NULL,
+  article_title TEXT NOT NULL,
+  article_url TEXT NOT NULL,
+  subreddit TEXT NOT NULL,
+  custom_title TEXT,
+  flair TEXT,
+  status TEXT DEFAULT 'posted',
+  reddit_permalink TEXT,
+  error_message TEXT,
+  schedule_at TIMESTAMPTZ,
+  posted_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(article_id, subreddit)
+);
+
+ALTER TABLE public.reddit_posts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admin full access on reddit_posts" ON public.reddit_posts;
+CREATE POLICY "Admin full access on reddit_posts" ON public.reddit_posts FOR ALL USING (true);
+

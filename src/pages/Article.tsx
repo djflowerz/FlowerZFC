@@ -439,6 +439,15 @@ export default function Article() {
                 >
                   𝕏 Post
                 </a>
+                <a
+                  href={`https://www.reddit.com/submit?url=${encodeURIComponent(window.location.href)}&title=${encodeURIComponent(article.title)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-2.5 py-1.5 rounded bg-[#131320] border border-[#1e1e32] text-[#ff4500] hover:text-orange-400 transition-colors text-xs font-bold"
+                  title="Share to Reddit"
+                >
+                  🟠 Reddit
+                </a>
                 <button
                   onClick={handleShare}
                   className="px-3 py-1.5 rounded bg-[#131320] border border-[#1e1e32] text-xs font-bold text-gray-300 hover:text-white transition-colors"

@@ -9,7 +9,13 @@ import { getAuthUser, loginWithEmail, hasTabAccessRole, setAuthSession, SUPER_AD
 import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, updateProduct, createProduct, uploadProductImage, compressImageToDataUrl, fetchAllAdSlots, saveAdSlotToDb, deleteAdSlotFromDb, uploadAdCreative, updateUserRoleAndStatus, uploadMixCover, type ArticleRow, type CommentRow, type TicketRow, type MixRow, type AdSlotRow } from '../services/supabaseClient'
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
-import { LayoutDashboard, Package, ShoppingBag, Newspaper, Headphones, Ticket, Users, Wallet, BarChart3, MessageSquare, Megaphone, Mail, Settings2, Server, Settings as SettingsIcon, Satellite } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingBag, Newspaper, Headphones, Ticket, Users, Wallet, BarChart3, MessageSquare, Megaphone, Mail, Settings2, Server, Settings as SettingsIcon, Satellite, ExternalLink, Share2, Rss, Zap, CheckCircle, Clock, XCircle, AlertTriangle, Copy, Plus, Trash2, RefreshCw } from 'lucide-react'
+import {
+  FOOTBALL_SUBREDDITS, getRedditPosts, createRedditPost, updateRedditPost,
+  deleteRedditPost, openRedditPost, getAutoRules, saveAutoRules, getJoinedSubreddits,
+  markSubredditJoined, buildRedditSubmitUrl, buildIFTTTInstructions, SITE_RSS_URL,
+  type RedditPost, type RedditAutoRule
+} from '../services/redditService'
 import {
   saveArticle, saveArticles, getAllArticles, deleteArticle as storeDeleteArticle, deleteArticles as storeDeleteArticles, clearArticleStore,
   type StoredArticle
@@ -26,7 +32,7 @@ import { getAdPackages, saveAdPackages, type AdPackage } from '../services/adPac
 type AdminTab =
   | 'overview' | 'orders' | 'products' | 'articles' | 'tickets'
   | 'users' | 'financials' | 'analytics' | 'comments' | 'ads'
-  | 'comms' | 'platform' | 'system' | 'settings' | 'scores' | 'mixes'
+  | 'comms' | 'platform' | 'system' | 'settings' | 'scores' | 'mixes' | 'reddit'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const SC: Record<string, { bg: string; text: string }> = {
@@ -950,6 +956,24 @@ export default function Admin() {
   const tzInfo = getUserTimezoneInfo()
   const [showIngestNotification, setShowIngestNotification] = useState(false)
 
+  // Reddit Marketing & Auto-Posting State
+  const [redditPosts, setRedditPosts] = useState<RedditPost[]>([])
+  const [redditSelectedArticleId, setRedditSelectedArticleId] = useState<string>('')
+  const [redditCustomTitle, setRedditCustomTitle] = useState<string>('')
+  const [redditSubreddit, setRedditSubreddit] = useState<string>('soccer')
+  const [redditScheduleDate, setRedditScheduleDate] = useState<string>('')
+  const [redditAutoRules, setRedditAutoRules] = useState<RedditAutoRule[]>(() => getAutoRules())
+  const [redditArticleSearch, setRedditArticleSearch] = useState<string>('')
+  const [redditCategoryFilter, setRedditCategoryFilter] = useState<string>('All')
+  const [joinedSubs, setJoinedSubs] = useState<string[]>(() => getJoinedSubreddits())
+  const [redditActiveSubTab, setRedditActiveSubTab] = useState<'compose' | 'subreddits' | 'queue' | 'rules' | 'rss'>('compose')
+
+  useEffect(() => {
+    getRedditPosts().then(posts => {
+      if (posts && posts.length > 0) setRedditPosts(posts)
+    }).catch(() => {})
+  }, [])
+
   // Automatically fetch live articles from LiveScore Contentful API on mount or when ingestDate changes
   useEffect(() => {
     setIsScanningFeed(true)
@@ -1416,7 +1440,8 @@ export default function Admin() {
     { id:'platform',   icon:Settings2,       label:'Platform'                         },
     { id:'system',     icon:Server,          label:'System'                          },
     { id:'settings',   icon:SettingsIcon,    label:'Settings'                         },
-    { id:'scores',     icon:Satellite,       label:'Scores Data'                       },
+    { id:'scores',     icon:Satellite,       label:'Scores Data'                      },
+    { id:'reddit',     icon:Share2,          label:'🟠 Reddit'                        },
   ]
 
   const TABS = ALL_TABS.filter(t => hasTabAccessRole(userRole, t.id))
@@ -4655,6 +4680,638 @@ export default function Admin() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+        {/* 🟠 REDDIT AUTO-POSTING & TRAFFIC GENERATOR TAB                      */}
+        {/* ═══════════════════════════════════════════════════════════════════ */}
+        {tab === 'reddit' && (
+          <div className="space-y-6">
+            {/* Header banner */}
+            <div className="rounded-2xl p-6 border space-y-4" style={{ background: '#131320', borderColor: '#1e1e32' }}>
+              <div className="flex items-center justify-between gap-4 flex-wrap border-b border-[#1e1e32] pb-4">
+                <div>
+                  <h2 className="text-xl font-black text-white uppercase flex items-center gap-2" style={{ fontFamily: 'Big Shoulders Display' }}>
+                    <span className="text-[#ff4500]">🟠</span> Reddit Direct Poster & Community Traffic Hub
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Drive massive organic traffic by directly publishing FlowerZFC articles to major football subreddits, managing community auto-joins, and tracking shares.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <a
+                    href="https://www.reddit.com/r/soccer"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3.5 py-2 text-xs font-bold rounded-xl border border-[#ff4500]/40 text-[#ff4500] hover:bg-[#ff4500]/10 flex items-center gap-1.5 transition-all"
+                  >
+                    <span>⚽ Open r/soccer</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(SITE_RSS_URL)
+                      toast(`📋 RSS Feed URL copied: ${SITE_RSS_URL}`, 'success')
+                    }}
+                    className="px-3.5 py-2 text-xs font-black rounded-xl bg-[#00b341] text-black hover:bg-[#00b341]/90 flex items-center gap-1.5 transition-all"
+                  >
+                    <Rss className="w-3.5 h-3.5" />
+                    <span>Copy Live RSS Feed</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Stats KPIs */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3.5 rounded-xl bg-[#0d0d1e] border border-[#1e1e32]">
+                  <p className="text-[10px] uppercase font-bold text-gray-500">Tracked Posts</p>
+                  <p className="text-2xl font-black text-white font-mono mt-0.5">{redditPosts.length}</p>
+                </div>
+                <div className="p-3.5 rounded-xl bg-[#0d0d1e] border border-[#1e1e32]">
+                  <p className="text-[10px] uppercase font-bold text-gray-500">Joined Communities</p>
+                  <p className="text-2xl font-black text-[#ff4500] font-mono mt-0.5">{joinedSubs.length} / {FOOTBALL_SUBREDDITS.length}</p>
+                </div>
+                <div className="p-3.5 rounded-xl bg-[#0d0d1e] border border-[#1e1e32]">
+                  <p className="text-[10px] uppercase font-bold text-gray-500">Active Auto-Rules</p>
+                  <p className="text-2xl font-black text-emerald-400 font-mono mt-0.5">{redditAutoRules.filter(r => r.enabled).length}</p>
+                </div>
+                <div className="p-3.5 rounded-xl bg-[#0d0d1e] border border-[#1e1e32]">
+                  <p className="text-[10px] uppercase font-bold text-gray-500">Auto-Post Engine</p>
+                  <p className="text-xs font-black text-white mt-1.5 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    Direct Deep-Link (No API Key Required)
+                  </p>
+                </div>
+              </div>
+
+              {/* Sub-tabs pills */}
+              <div className="flex items-center gap-2 border-t border-[#1e1e32] pt-4 flex-wrap">
+                {[
+                  { id: 'compose', label: '✍️ Compose & Post Articles' },
+                  { id: 'subreddits', label: `🏟️ Football Subreddits (${FOOTBALL_SUBREDDITS.length})` },
+                  { id: 'queue', label: `📋 Post Tracker & History (${redditPosts.length})` },
+                  { id: 'rules', label: `⚡ Auto-Rules Engine (${redditAutoRules.length})` },
+                  { id: 'rss', label: '📡 100% Background Automation (RSS)' },
+                ].map(st => (
+                  <button
+                    key={st.id}
+                    onClick={() => setRedditActiveSubTab(st.id as any)}
+                    className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all border ${
+                      redditActiveSubTab === st.id
+                        ? 'bg-[#ff4500] text-white border-[#ff4500] font-black shadow-lg shadow-orange-500/20'
+                        : 'bg-[#0d0d1e] text-gray-400 border-[#1e1e32] hover:text-white hover:border-gray-600'
+                    }`}
+                  >
+                    {st.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── SUB-TAB 1: COMPOSE & POST ────────────────────────────────────── */}
+            {redditActiveSubTab === 'compose' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left: Article Selector */}
+                <div className="lg:col-span-5 space-y-4">
+                  <div className="rounded-2xl p-5 border bg-[#131320] border-[#1e1e32] space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-xs font-black uppercase text-white tracking-wider flex items-center gap-2">
+                        <span>📰</span> Select Article to Post
+                      </h3>
+                      <span className="text-[10px] text-gray-500">{articles.length} available</span>
+                    </div>
+
+                    {/* Search & Category Filter */}
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        placeholder="Search articles by title or author…"
+                        value={redditArticleSearch}
+                        onChange={e => setRedditArticleSearch(e.target.value)}
+                        className="w-full bg-[#0d0d1e] border border-[#1e1e32] px-3 py-2 rounded-xl text-xs text-white placeholder-gray-600 outline-none focus:border-[#00b341]"
+                      />
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                        {['All', 'Premier League', 'Champions League', 'La Liga', 'Serie A', 'Transfers', 'News'].map(cat => (
+                          <button
+                            key={cat}
+                            onClick={() => setRedditCategoryFilter(cat)}
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-lg whitespace-nowrap transition-all ${
+                              redditCategoryFilter === cat
+                                ? 'bg-[#00b341] text-black'
+                                : 'bg-[#0d0d1e] text-gray-400 hover:text-white'
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Articles List */}
+                    <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                      {articles
+                        .filter(a => {
+                          const matchesCat = redditCategoryFilter === 'All' || (a.category || '').toLowerCase().includes(redditCategoryFilter.toLowerCase())
+                          const query = redditArticleSearch.toLowerCase()
+                          const matchesQuery = !query || (a.title || '').toLowerCase().includes(query) || (a.author || '').toLowerCase().includes(query)
+                          return matchesCat && matchesQuery
+                        })
+                        .slice(0, 30)
+                        .map(art => {
+                          const isSelected = redditSelectedArticleId === art.id
+                          return (
+                            <div
+                              key={art.id}
+                              onClick={() => {
+                                setRedditSelectedArticleId(art.id)
+                                setRedditCustomTitle(art.title)
+                                // Auto-suggest subreddit based on category
+                                const cat = (art.category || '').toLowerCase()
+                                if (cat.includes('premier')) setRedditSubreddit('PremierLeague')
+                                else if (cat.includes('champions')) setRedditSubreddit('championsleague')
+                                else if (cat.includes('la liga')) setRedditSubreddit('LaLiga')
+                                else if (cat.includes('serie')) setRedditSubreddit('seriea')
+                                else if (cat.includes('bundesliga')) setRedditSubreddit('Bundesliga')
+                                else setRedditSubreddit('soccer')
+                              }}
+                              className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'bg-orange-500/10 border-[#ff4500]'
+                                  : 'bg-[#0d0d1e] border-[#1e1e32] hover:border-gray-600'
+                              }`}
+                            >
+                              <div className="flex items-start gap-2.5">
+                                {art.imageUrl ? (
+                                  <img src={art.imageUrl} alt="" className="w-12 h-12 object-cover rounded-lg shrink-0 border border-white/5" />
+                                ) : (
+                                  <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center shrink-0 text-base">⚽</div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 mb-0.5">
+                                    <span className="text-[9px] font-black uppercase text-emerald-400">{art.category}</span>
+                                    <span className="text-[9px] text-gray-500">· {art.date || 'Recent'}</span>
+                                  </div>
+                                  <p className="text-xs font-bold text-white line-clamp-2 leading-tight">{art.title}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Compose & Publish Panel */}
+                <div className="lg:col-span-7 space-y-4">
+                  {(() => {
+                    const selectedArticle = articles.find(a => a.id === redditSelectedArticleId) || articles[0]
+                    const currentUrl = selectedArticle ? `https://djflowerz.co.ke/#/news/${selectedArticle.slug || selectedArticle.id}` : 'https://djflowerz.co.ke'
+                    const finalTitle = redditCustomTitle || selectedArticle?.title || 'FlowerZFC Football News'
+
+                    return (
+                      <div className="rounded-2xl p-5 border bg-[#131320] border-[#1e1e32] space-y-4">
+                        <div className="flex items-center justify-between border-b border-[#1e1e32] pb-3">
+                          <h3 className="text-xs font-black uppercase text-white tracking-wider flex items-center gap-2">
+                            <span>🚀</span> Direct Reddit Post Composer
+                          </h3>
+                          <span className="text-[10px] font-bold text-[#ff4500] bg-orange-500/10 px-2 py-0.5 rounded-lg">
+                            Ready to Post
+                          </span>
+                        </div>
+
+                        {/* Subreddit Picker */}
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-gray-400">Target Subreddit</label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {FOOTBALL_SUBREDDITS.slice(0, 9).map(sub => (
+                              <button
+                                key={sub.name}
+                                type="button"
+                                onClick={() => setRedditSubreddit(sub.name)}
+                                className={`p-2 rounded-xl text-left border transition-all ${
+                                  redditSubreddit === sub.name
+                                    ? 'bg-[#ff4500] text-white border-[#ff4500] font-black'
+                                    : 'bg-[#0d0d1e] text-gray-300 border-[#1e1e32] hover:border-gray-600'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between text-xs">
+                                  <span>{sub.flag} {sub.display}</span>
+                                  <span className="text-[9px] opacity-70 font-mono">{sub.subscribers}</span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Title override */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-gray-400">Post Title (Editable)</label>
+                            <span className="text-[10px] text-gray-500 font-mono">{finalTitle.length} chars</span>
+                          </div>
+                          <textarea
+                            rows={2}
+                            value={redditCustomTitle}
+                            onChange={e => setRedditCustomTitle(e.target.value)}
+                            placeholder="Enter catchy headline for Reddit…"
+                            className="w-full bg-[#0d0d1e] border border-[#1e1e32] p-3 rounded-xl text-xs text-white outline-none focus:border-[#ff4500]"
+                          />
+                        </div>
+
+                        {/* Target Link Preview */}
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-gray-400">Article Destination URL</label>
+                          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#0d0d1e] border border-[#1e1e32]">
+                            <span className="text-xs text-emerald-400 font-mono flex-1 truncate">{currentUrl}</span>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(currentUrl)
+                                toast('📋 Article URL copied!', 'info')
+                              }}
+                              className="text-[10px] font-bold text-gray-400 hover:text-white px-2 py-1 rounded bg-white/5"
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Live Reddit Preview Box */}
+                        <div className="p-4 rounded-xl border border-orange-500/20 bg-[#0d0d1e] space-y-2">
+                          <p className="text-[10px] font-black uppercase text-[#ff4500] tracking-wider flex items-center gap-1">
+                            <span>👀</span> Preview on r/{redditSubreddit}
+                          </p>
+                          <p className="text-sm font-bold text-white">{finalTitle}</p>
+                          <p className="text-[11px] text-gray-500 font-mono">Submitted by u/Admin · link: {currentUrl.slice(0, 45)}…</p>
+                        </div>
+
+                        {/* Post Action Buttons */}
+                        <div className="flex items-center gap-3 pt-2 flex-wrap">
+                          <button
+                            onClick={async () => {
+                              if (!selectedArticle) {
+                                toast('Please select an article first', 'warning')
+                                return
+                              }
+                              const { submitUrl, record } = await openRedditPost({
+                                articleId: selectedArticle.id,
+                                articleTitle: selectedArticle.title,
+                                articleUrl: currentUrl,
+                                subreddit: redditSubreddit,
+                                customTitle: redditCustomTitle || selectedArticle.title,
+                              })
+                              if (record) {
+                                setRedditPosts(prev => [record, ...prev])
+                              }
+                              toast(`🚀 Opened Reddit submission page for r/${redditSubreddit}!`, 'success')
+                            }}
+                            className="flex-1 py-3 px-5 text-xs font-black text-white rounded-xl bg-[#ff4500] hover:bg-orange-600 shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                          >
+                            <span>🚀</span>
+                            <span>Direct Post to r/{redditSubreddit} Now →</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              const shareUrl = buildRedditSubmitUrl({
+                                subreddit: redditSubreddit,
+                                articleUrl: currentUrl,
+                                title: finalTitle,
+                              })
+                              navigator.clipboard.writeText(shareUrl)
+                              toast('📋 Reddit Direct Submit Link copied!', 'info')
+                            }}
+                            className="px-4 py-3 text-xs font-bold text-gray-300 rounded-xl bg-[#0d0d1e] border border-[#1e1e32] hover:border-gray-500 flex items-center gap-1.5 transition-all"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy Submit Link</span>
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* ── SUB-TAB 2: FOOTBALL SUBREDDITS DIRECTORY ─────────────────────── */}
+            {redditActiveSubTab === 'subreddits' && (
+              <div className="rounded-2xl p-5 border bg-[#131320] border-[#1e1e32] space-y-4">
+                <div className="flex items-center justify-between border-b border-[#1e1e32] pb-3">
+                  <div>
+                    <h3 className="text-sm font-black uppercase text-white tracking-wider flex items-center gap-2">
+                      <span>🏟️</span> Major Football Subreddits Directory & Auto-Join
+                    </h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Click any community to join or post directly to thousands of active football fans.</p>
+                  </div>
+                  <span className="text-xs font-mono text-[#00b341]">{FOOTBALL_SUBREDDITS.length} Curated Communities</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {FOOTBALL_SUBREDDITS.map(sub => {
+                    const isJoined = joinedSubs.includes(sub.name)
+                    return (
+                      <div key={sub.name} className="p-4 rounded-xl border bg-[#0d0d1e] border-[#1e1e32] space-y-3 flex flex-col justify-between hover:border-orange-500/40 transition-all">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-black text-white flex items-center gap-1.5">
+                              <span>{sub.flag}</span> {sub.display}
+                            </span>
+                            <span className="text-[10px] font-mono font-bold text-gray-400 bg-white/5 px-2 py-0.5 rounded">
+                              {sub.subscribers}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-400">{sub.description}</p>
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {sub.tags.map(t => (
+                              <span key={t} className="text-[9px] font-semibold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                                #{t}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                          <a
+                            href={`https://www.reddit.com/r/${sub.name}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => {
+                              markSubredditJoined(sub.name)
+                              setJoinedSubs(getJoinedSubreddits())
+                            }}
+                            className="flex-1 py-1.5 text-center text-xs font-black rounded-lg bg-[#ff4500] text-white hover:bg-orange-600 transition-all flex items-center justify-center gap-1"
+                          >
+                            <span>Join / Visit</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                          <button
+                            onClick={() => {
+                              setRedditSubreddit(sub.name)
+                              setRedditActiveSubTab('compose')
+                              toast(`Selected ${sub.display} for compose!`, 'info')
+                            }}
+                            className="px-3 py-1.5 text-xs font-bold text-gray-300 rounded-lg bg-white/5 hover:bg-white/10 transition-all"
+                          >
+                            Post Here
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── SUB-TAB 3: POST TRACKER & QUEUE ─────────────────────────────── */}
+            {redditActiveSubTab === 'queue' && (
+              <div className="rounded-2xl p-5 border bg-[#131320] border-[#1e1e32] space-y-4">
+                <div className="flex items-center justify-between border-b border-[#1e1e32] pb-3">
+                  <h3 className="text-sm font-black uppercase text-white tracking-wider flex items-center gap-2">
+                    <span>📋</span> Reddit Publication History & Queue
+                  </h3>
+                  <button
+                    onClick={async () => {
+                      const list = await getRedditPosts()
+                      setRedditPosts(list)
+                      toast('Refreshed Reddit posts history!', 'info')
+                    }}
+                    className="text-xs text-gray-400 hover:text-white flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-3 h-3" /> Refresh
+                  </button>
+                </div>
+
+                {redditPosts.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500 space-y-2">
+                    <p className="text-3xl">🟠</p>
+                    <p className="text-white font-bold text-sm">No Reddit shares recorded yet.</p>
+                    <p className="text-xs text-gray-400">Posts triggered from the Compose tab will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="text-[10px] uppercase font-black text-gray-500 border-b border-[#1e1e32]">
+                        <tr>
+                          <th className="py-2.5 px-3">Article</th>
+                          <th className="py-2.5 px-3">Subreddit</th>
+                          <th className="py-2.5 px-3">Status</th>
+                          <th className="py-2.5 px-3">Timestamp</th>
+                          <th className="py-2.5 px-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 text-gray-300">
+                        {redditPosts.map(p => (
+                          <tr key={p.id} className="hover:bg-white/5">
+                            <td className="py-3 px-3 font-semibold text-white max-w-xs truncate">
+                              {p.custom_title || p.article_title}
+                            </td>
+                            <td className="py-3 px-3 font-mono text-[#ff4500] font-bold">
+                              r/{p.subreddit}
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className="px-2 py-0.5 text-[9px] font-black uppercase rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                {p.status}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-gray-500 font-mono text-[10px]">
+                              {p.created_at ? new Date(p.created_at).toLocaleString() : 'Just now'}
+                            </td>
+                            <td className="py-3 px-3 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <a
+                                  href={p.article_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-gray-400 hover:text-white text-xs"
+                                >
+                                  View
+                                </a>
+                                <button
+                                  onClick={async () => {
+                                    await deleteRedditPost(p.id)
+                                    setRedditPosts(prev => prev.filter(item => item.id !== p.id))
+                                    toast('Removed post record', 'info')
+                                  }}
+                                  className="text-red-400 hover:text-red-300 text-xs"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── SUB-TAB 4: AUTO-RULES ENGINE ────────────────────────────────── */}
+            {redditActiveSubTab === 'rules' && (
+              <div className="rounded-2xl p-5 border bg-[#131320] border-[#1e1e32] space-y-4">
+                <div className="flex items-center justify-between border-b border-[#1e1e32] pb-3">
+                  <div>
+                    <h3 className="text-sm font-black uppercase text-white tracking-wider flex items-center gap-2">
+                      <span>⚡</span> Category to Subreddit Automation Rules
+                    </h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Automatically suggest target subreddits and custom titles based on football article category.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const newRule: RedditAutoRule = {
+                        id: `rule_${Date.now()}`,
+                        articleTagPattern: 'Premier League',
+                        subreddit: 'PremierLeague',
+                        titleTemplate: '📰 {title} | FlowerZFC',
+                        enabled: true,
+                      }
+                      const updated = [...redditAutoRules, newRule]
+                      setRedditAutoRules(updated)
+                      saveAutoRules(updated)
+                      toast('Added new auto-rule!', 'success')
+                    }}
+                    className="px-3 py-1.5 text-xs font-black rounded-lg bg-[#00b341] text-black hover:bg-emerald-400 flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add New Rule</span>
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {redditAutoRules.map(rule => (
+                    <div key={rule.id} className="p-4 rounded-xl border bg-[#0d0d1e] border-[#1e1e32] grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                      <div className="sm:col-span-3">
+                        <label className="text-[9px] uppercase font-bold text-gray-500 block mb-1">If Category Contains</label>
+                        <input
+                          type="text"
+                          value={rule.articleTagPattern}
+                          onChange={e => {
+                            const updated = redditAutoRules.map(r => r.id === rule.id ? { ...r, articleTagPattern: e.target.value } : r)
+                            setRedditAutoRules(updated)
+                            saveAutoRules(updated)
+                          }}
+                          className="w-full bg-[#131320] border border-[#1e1e32] px-2.5 py-1.5 rounded-lg text-xs text-white outline-none"
+                        />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <label className="text-[9px] uppercase font-bold text-gray-500 block mb-1">Target Subreddit</label>
+                        <select
+                          value={rule.subreddit}
+                          onChange={e => {
+                            const updated = redditAutoRules.map(r => r.id === rule.id ? { ...r, subreddit: e.target.value } : r)
+                            setRedditAutoRules(updated)
+                            saveAutoRules(updated)
+                          }}
+                          className="w-full bg-[#131320] border border-[#1e1e32] px-2.5 py-1.5 rounded-lg text-xs text-white outline-none"
+                        >
+                          {FOOTBALL_SUBREDDITS.map(sub => (
+                            <option key={sub.name} value={sub.name}>{sub.display}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="sm:col-span-4">
+                        <label className="text-[9px] uppercase font-bold text-gray-500 block mb-1">Headline Template</label>
+                        <input
+                          type="text"
+                          value={rule.titleTemplate}
+                          onChange={e => {
+                            const updated = redditAutoRules.map(r => r.id === rule.id ? { ...r, titleTemplate: e.target.value } : r)
+                            setRedditAutoRules(updated)
+                            saveAutoRules(updated)
+                          }}
+                          className="w-full bg-[#131320] border border-[#1e1e32] px-2.5 py-1.5 rounded-lg text-xs text-white outline-none"
+                        />
+                      </div>
+                      <div className="sm:col-span-2 flex items-center justify-end gap-2 pt-3 sm:pt-0">
+                        <button
+                          onClick={() => {
+                            const updated = redditAutoRules.map(r => r.id === rule.id ? { ...r, enabled: !r.enabled } : r)
+                            setRedditAutoRules(updated)
+                            saveAutoRules(updated)
+                          }}
+                          className={`px-2.5 py-1 rounded text-[10px] font-black uppercase ${
+                            rule.enabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-gray-700 text-gray-400'
+                          }`}
+                        >
+                          {rule.enabled ? 'Active' : 'Paused'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            const updated = redditAutoRules.filter(r => r.id !== rule.id)
+                            setRedditAutoRules(updated)
+                            saveAutoRules(updated)
+                            toast('Deleted rule', 'info')
+                          }}
+                          className="text-red-400 hover:text-red-300 p-1"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── SUB-TAB 5: 100% BACKGROUND AUTOMATION (RSS) ──────────────────── */}
+            {redditActiveSubTab === 'rss' && (
+              <div className="rounded-2xl p-6 border bg-[#131320] border-[#1e1e32] space-y-5">
+                <div className="border-b border-[#1e1e32] pb-4">
+                  <h3 className="text-sm font-black uppercase text-white tracking-wider flex items-center gap-2">
+                    <span>📡</span> 100% Automated Background Posting to Reddit (No Code / No API Key)
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Connect FlowerZFC's live RSS feed to IFTTT or Zapier to post every new published article directly to Reddit in the background.
+                  </p>
+                </div>
+
+                {/* RSS Feed Card */}
+                <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase text-emerald-400 flex items-center gap-1.5">
+                      <Rss className="w-4 h-4" /> Your Live RSS Feed URL
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">Active 24/7</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#0d0d1e] border border-emerald-500/20">
+                    <span className="text-xs font-mono text-white flex-1 select-all">{SITE_RSS_URL}</span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(SITE_RSS_URL)
+                        toast('📋 RSS Feed URL copied to clipboard!', 'success')
+                      }}
+                      className="px-3 py-1 bg-emerald-500 text-black text-xs font-black rounded hover:bg-emerald-400 transition-colors"
+                    >
+                      Copy Feed URL
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3-Step Setup Guide */}
+                <div className="space-y-3">
+                  <p className="text-xs font-black uppercase text-white tracking-wider">⚡ 3-Minute Free Setup with IFTTT:</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="p-4 rounded-xl bg-[#0d0d1e] border border-[#1e1e32] space-y-2">
+                      <span className="w-6 h-6 rounded-full bg-[#00b341] text-black font-black text-xs flex items-center justify-center">1</span>
+                      <p className="text-xs font-bold text-white">Create Applet</p>
+                      <p className="text-[11px] text-gray-400">Go to <a href="https://ifttt.com" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">ifttt.com</a>, click <strong>Create</strong> → <strong>If This</strong> → Choose <strong>RSS Feed</strong>.</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-[#0d0d1e] border border-[#1e1e32] space-y-2">
+                      <span className="w-6 h-6 rounded-full bg-[#00b341] text-black font-black text-xs flex items-center justify-center">2</span>
+                      <p className="text-xs font-bold text-white">Paste Feed URL</p>
+                      <p className="text-[11px] text-gray-400">Select <em>"New feed item"</em> and paste <code className="text-emerald-400 text-[10px] font-mono">https://djflowerz.co.ke/rss.xml</code>.</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-[#0d0d1e] border border-[#1e1e32] space-y-2">
+                      <span className="w-6 h-6 rounded-full bg-[#00b341] text-black font-black text-xs flex items-center justify-center">3</span>
+                      <p className="text-xs font-bold text-white">Target Subreddit</p>
+                      <p className="text-[11px] text-gray-400">Click <strong>Then That</strong> → Choose <strong>Reddit</strong> → <em>"Submit a link"</em> → Enter Subreddit <strong>soccer</strong>.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
