@@ -9,7 +9,7 @@ import { getAuthUser, loginWithEmail, hasTabAccessRole, setAuthSession, SUPER_AD
 import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, updateProduct, createProduct, uploadProductImage, compressImageToDataUrl, fetchAllAdSlots, saveAdSlotToDb, deleteAdSlotFromDb, uploadAdCreative, updateUserRoleAndStatus, uploadMixCover, type ArticleRow, type CommentRow, type TicketRow, type MixRow, type AdSlotRow } from '../services/supabaseClient'
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
-import { LayoutDashboard, Package, ShoppingBag, Newspaper, Headphones, Ticket, Users, Wallet, BarChart3, MessageSquare, Megaphone, Mail, Settings2, Server, Settings as SettingsIcon, Satellite, ExternalLink, Share2, Rss, Zap, CheckCircle, Clock, XCircle, AlertTriangle, Copy, Plus, Trash2, RefreshCw } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingBag, Newspaper, Headphones, Ticket, Users, Wallet, BarChart3, MessageSquare, Megaphone, Mail, Settings2, Server, Settings as SettingsIcon, Satellite, ExternalLink, Share2, Rss, Zap, CheckCircle, Clock, XCircle, AlertTriangle, Copy, Plus, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   FOOTBALL_SUBREDDITS, getRedditPosts, createRedditPost, updateRedditPost,
   deleteRedditPost, openRedditPost, getAutoRules, saveAutoRules, getJoinedSubreddits,
@@ -1001,6 +1001,16 @@ export default function Admin() {
   const navRef = useRef<HTMLDivElement>(null)
   const payConfig = getPaymentConfig()
 
+  // Auto-scroll active tab into center view whenever tab changes
+  useEffect(() => {
+    if (navRef.current) {
+      const activeBtn = navRef.current.querySelector(`[data-tab-id="${tab}"]`) as HTMLElement
+      if (activeBtn) {
+        activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+      }
+    }
+  }, [tab])
+
   // Derived metrics — memoized to eliminate lag during rendering and typing
   const pendingOrders   = useMemo(() => (orders || []).filter(o => o?.status === 'Pending').length, [orders])
   const flaggedComments = useMemo(() => (comments || []).filter(c => c?.status === 'Flagged' || c?.status === 'Spam').length, [comments])
@@ -1475,18 +1485,79 @@ export default function Admin() {
             </div>
           </div>
 
-          {/* Scrollable tab nav */}
-          <div ref={navRef} className="flex gap-1.5 overflow-x-auto mt-5 pb-1" style={{ scrollbarWidth: 'none' }}>
-            {TABS.map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-[11px] font-bold rounded-xl whitespace-nowrap transition-all shrink-0"
-                style={{ background: tab === t.id ? '#00b341' : '#131320', color: tab === t.id ? '#fff' : '#6b7280', border: `1px solid ${tab === t.id ? '#00b341' : '#1e1e32'}` }}>
-                <t.icon size={15} strokeWidth={2.25} /> {t.label}
-                {!!t.badge && t.badge > 0 && (
-                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: tab === t.id ? 'rgba(0,0,0,.25)' : '#ef4444', color: '#fff' }}>{t.badge}</span>
-                )}
-              </button>
-            ))}
+          {/* Scrollable & Sliding Tab Navigation with Arrow Controls & Quick Dropdown */}
+          <div className="relative mt-5 flex items-center gap-2">
+            {/* Left slide arrow */}
+            <button
+              type="button"
+              onClick={() => navRef.current?.scrollBy({ left: -260, behavior: 'smooth' })}
+              className="hidden sm:flex shrink-0 w-8 h-8 rounded-xl bg-[#131320] hover:bg-[#00b341] text-gray-300 hover:text-black border border-[#1e1e32] hover:border-[#00b341] items-center justify-center transition-all shadow-md cursor-pointer"
+              title="Scroll tabs left"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            {/* Scrollable tab nav bar with mouse wheel support */}
+            <div
+              ref={navRef}
+              onWheel={e => {
+                if (navRef.current && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                  navRef.current.scrollLeft += e.deltaY
+                }
+              }}
+              className="flex-1 flex gap-1.5 overflow-x-auto pb-1 scroll-smooth"
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#2a2a40 transparent',
+                WebkitOverflowScrolling: 'touch',
+              }}
+            >
+              {TABS.map(t => (
+                <button
+                  key={t.id}
+                  data-tab-id={t.id}
+                  onClick={() => setTab(t.id)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 text-[11px] font-bold rounded-xl whitespace-nowrap transition-all shrink-0 cursor-pointer select-none"
+                  style={{
+                    background: tab === t.id ? '#00b341' : '#131320',
+                    color: tab === t.id ? '#fff' : '#9ca3af',
+                    border: `1px solid ${tab === t.id ? '#00b341' : '#1e1e32'}`,
+                    boxShadow: tab === t.id ? '0 4px 12px rgba(0,179,65,0.25)' : 'none',
+                  }}
+                >
+                  <t.icon size={15} strokeWidth={2.25} /> {t.label}
+                  {!!t.badge && t.badge > 0 && (
+                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: tab === t.id ? 'rgba(0,0,0,.25)' : '#ef4444', color: '#fff' }}>{t.badge}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Right slide arrow */}
+            <button
+              type="button"
+              onClick={() => navRef.current?.scrollBy({ left: 260, behavior: 'smooth' })}
+              className="hidden sm:flex shrink-0 w-8 h-8 rounded-xl bg-[#131320] hover:bg-[#00b341] text-gray-300 hover:text-black border border-[#1e1e32] hover:border-[#00b341] items-center justify-center transition-all shadow-md cursor-pointer"
+              title="Scroll tabs right"
+            >
+              <ChevronRight size={16} />
+            </button>
+
+            {/* Mobile/Desktop Quick Jump Dropdown */}
+            <div className="shrink-0">
+              <select
+                value={tab}
+                onChange={e => setTab(e.target.value as AdminTab)}
+                className="bg-[#131320] border border-[#1e1e32] text-[11px] font-bold text-gray-300 rounded-xl px-2.5 py-2 outline-none focus:border-[#00b341] cursor-pointer hover:border-gray-600"
+                title="Jump directly to any admin tab"
+              >
+                {TABS.map(t => (
+                  <option key={t.id} value={t.id}>
+                    {t.label} {t.badge ? `(${t.badge})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>
