@@ -70,11 +70,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   const descRaw = article?.summary || article?.body || 'Read the full story, match reactions, player updates, and live coverage on FlowerZFC.'
   const description = cleanText(descRaw).slice(0, 200)
 
-  // Valid image with HTTPS
-  let image = article?.image_url || queryImg || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1200&h=630&fit=crop&auto=format'
-  if (image.startsWith('//')) {
-    image = 'https:' + image
+  // Valid image with HTTPS & proxy for external hosts without CORS
+  let rawImage = article?.image_url || queryImg || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1200&h=630&fit=crop&auto=format'
+  if (rawImage.startsWith('//')) {
+    rawImage = 'https:' + rawImage
   }
+
+  const image = rawImage.includes('livescore.com')
+    ? `https://djflowerz.co.ke/api/img-proxy?url=${encodeURIComponent(rawImage)}`
+    : rawImage
 
   const canonicalUrl = `https://djflowerz.co.ke/news/${article?.slug || id}`
 

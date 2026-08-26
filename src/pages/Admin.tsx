@@ -13,7 +13,7 @@ import { LayoutDashboard, Package, ShoppingBag, Newspaper, Headphones, Ticket, U
 import {
   FOOTBALL_SUBREDDITS, getRedditPosts, createRedditPost, updateRedditPost,
   deleteRedditPost, openRedditPost, getAutoRules, saveAutoRules, getJoinedSubreddits,
-  markSubredditJoined, buildRedditSubmitUrl, buildIFTTTInstructions, SITE_RSS_URL,
+  markSubredditJoined, buildRedditSubmitUrl, generateRedditCatchyBody, buildIFTTTInstructions, SITE_RSS_URL,
   type RedditPost, type RedditAutoRule
 } from '../services/redditService'
 import {
@@ -962,6 +962,8 @@ export default function Admin() {
   const [redditPosts, setRedditPosts] = useState<RedditPost[]>([])
   const [redditSelectedArticleId, setRedditSelectedArticleId] = useState<string>('')
   const [redditCustomTitle, setRedditCustomTitle] = useState<string>('')
+  const [redditCustomBody, setRedditCustomBody] = useState<string>('')
+  const [redditBodyPreset, setRedditBodyPreset] = useState<'debate' | 'breaking' | 'tldr' | 'quote'>('debate')
   const [redditSubreddit, setRedditSubreddit] = useState<string>('soccer')
   const [redditScheduleDate, setRedditScheduleDate] = useState<string>('')
   const [redditAutoRules, setRedditAutoRules] = useState<RedditAutoRule[]>(() => getAutoRules())
@@ -4912,12 +4914,24 @@ export default function Admin() {
                                 setRedditCustomTitle(art.title)
                                 // Auto-suggest subreddit based on category
                                 const cat = (art.category || '').toLowerCase()
-                                if (cat.includes('premier')) setRedditSubreddit('PremierLeague')
-                                else if (cat.includes('champions')) setRedditSubreddit('championsleague')
-                                else if (cat.includes('la liga')) setRedditSubreddit('LaLiga')
-                                else if (cat.includes('serie')) setRedditSubreddit('seriea')
-                                else if (cat.includes('bundesliga')) setRedditSubreddit('Bundesliga')
-                                else setRedditSubreddit('soccer')
+                                let targetSub = 'soccer'
+                                if (cat.includes('premier')) targetSub = 'PremierLeague'
+                                else if (cat.includes('champions')) targetSub = 'championsleague'
+                                else if (cat.includes('la liga')) targetSub = 'LaLiga'
+                                else if (cat.includes('serie')) targetSub = 'seriea'
+                                else if (cat.includes('bundesliga')) targetSub = 'Bundesliga'
+                                setRedditSubreddit(targetSub)
+
+                                const imgParam = art.imageUrl ? `?img=${encodeURIComponent(art.imageUrl)}` : ''
+                                const destUrl = `https://djflowerz.co.ke/news/${art.slug || art.id}${imgParam}`
+                                const body = generateRedditCatchyBody({
+                                  title: art.title,
+                                  category: art.category,
+                                  summary: art.summary || (art as any).body || '',
+                                  articleUrl: destUrl,
+                                  preset: redditBodyPreset,
+                                })
+                                setRedditCustomBody(body)
                               }}
                               className={`p-3 rounded-xl border cursor-pointer transition-all ${
                                 isSelected
@@ -4953,6 +4967,14 @@ export default function Admin() {
                     const imgParam = selectedArticle?.imageUrl ? `?img=${encodeURIComponent(selectedArticle.imageUrl)}` : ''
                     const currentUrl = selectedArticle ? `https://djflowerz.co.ke/news/${selectedArticle.slug || selectedArticle.id}${imgParam}` : 'https://djflowerz.co.ke'
                     const finalTitle = redditCustomTitle || selectedArticle?.title || 'FlowerZFC Football News'
+                    const defaultBody = selectedArticle ? generateRedditCatchyBody({
+                      title: finalTitle,
+                      category: selectedArticle.category,
+                      summary: selectedArticle.summary || (selectedArticle as any).body || '',
+                      articleUrl: currentUrl,
+                      preset: redditBodyPreset,
+                    }) : ''
+                    const finalBody = redditCustomBody || defaultBody
 
                     return (
                       <div className="rounded-2xl p-5 border bg-[#131320] border-[#1e1e32] space-y-4">
@@ -4992,7 +5014,7 @@ export default function Admin() {
                         {/* Title override */}
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-black uppercase tracking-wider text-gray-400">Post Title (Editable)</label>
+                            <label className="text-[10px] font-black uppercase tracking-wider text-gray-400">Post Title (Headline)</label>
                             <span className="text-[10px] text-gray-500 font-mono">{finalTitle.length} chars</span>
                           </div>
                           <textarea
@@ -5001,6 +5023,53 @@ export default function Admin() {
                             onChange={e => setRedditCustomTitle(e.target.value)}
                             placeholder="Enter catchy headline for Reddit…"
                             className="w-full bg-[#0d0d1e] border border-[#1e1e32] p-3 rounded-xl text-xs text-white outline-none focus:border-[#ff4500]"
+                          />
+                        </div>
+
+                        {/* Catchy Body Text & Presets */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                              <span>💬</span> Catchy Body Text (Pre-filled Markdown)
+                            </label>
+                            <div className="flex items-center gap-1">
+                              {(['debate', 'tldr', 'breaking', 'quote'] as const).map(preset => (
+                                <button
+                                  key={preset}
+                                  type="button"
+                                  onClick={() => {
+                                    setRedditBodyPreset(preset)
+                                    if (selectedArticle) {
+                                      const newBody = generateRedditCatchyBody({
+                                        title: finalTitle,
+                                        category: selectedArticle.category,
+                                        summary: selectedArticle.summary || (selectedArticle as any).body || '',
+                                        articleUrl: currentUrl,
+                                        preset,
+                                      })
+                                      setRedditCustomBody(newBody)
+                                    }
+                                  }}
+                                  className={`px-2 py-0.5 text-[9px] font-bold rounded-lg uppercase tracking-wider border transition-all ${
+                                    redditBodyPreset === preset
+                                      ? 'bg-[#ff4500] text-white border-[#ff4500]'
+                                      : 'bg-white/5 text-gray-400 border-white/10 hover:text-white'
+                                  }`}
+                                >
+                                  {preset === 'debate' && '🔥 Debate'}
+                                  {preset === 'tldr' && '⚡ TL;DR'}
+                                  {preset === 'breaking' && '🚨 Breaking'}
+                                  {preset === 'quote' && '🗣️ Quote'}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <textarea
+                            rows={5}
+                            value={redditCustomBody || defaultBody}
+                            onChange={e => setRedditCustomBody(e.target.value)}
+                            placeholder="Add engaging summary, quotes, and debate questions to attract viewers..."
+                            className="w-full bg-[#0d0d1e] border border-[#1e1e32] p-3 rounded-xl text-xs text-white font-mono leading-relaxed outline-none focus:border-[#ff4500]"
                           />
                         </div>
 
@@ -5022,12 +5091,23 @@ export default function Admin() {
                         </div>
 
                         {/* Live Reddit Preview Box */}
-                        <div className="p-4 rounded-xl border border-orange-500/20 bg-[#0d0d1e] space-y-2">
+                        <div className="p-4 rounded-xl border border-orange-500/20 bg-[#0d0d1e] space-y-2.5">
                           <p className="text-[10px] font-black uppercase text-[#ff4500] tracking-wider flex items-center gap-1">
                             <span>👀</span> Preview on r/{redditSubreddit}
                           </p>
                           <p className="text-sm font-bold text-white">{finalTitle}</p>
-                          <p className="text-[11px] text-gray-500 font-mono">Submitted by u/Admin · link: {currentUrl.slice(0, 45)}…</p>
+                          {selectedArticle?.imageUrl && (
+                            <div className="h-32 w-full rounded-lg overflow-hidden border border-white/5 relative bg-black/40">
+                              <img src={selectedArticle.imageUrl} alt="" className="w-full h-full object-cover" />
+                              <span className="absolute bottom-2 left-2 bg-black/80 px-2 py-0.5 rounded text-[9px] text-emerald-400 font-mono">
+                                🖼️ Link Card Image Attached
+                              </span>
+                            </div>
+                          )}
+                          <div className="text-[11px] text-gray-300 font-mono bg-black/30 p-2.5 rounded-lg border border-white/5 whitespace-pre-wrap line-clamp-4">
+                            {finalBody}
+                          </div>
+                          <p className="text-[10px] text-gray-500 font-mono">Submitted by u/Admin · destination: {currentUrl.slice(0, 45)}…</p>
                         </div>
 
                         {/* Post Action Buttons */}
@@ -5043,7 +5123,8 @@ export default function Admin() {
                                 articleTitle: selectedArticle.title,
                                 articleUrl: currentUrl,
                                 subreddit: redditSubreddit,
-                                customTitle: redditCustomTitle || selectedArticle.title,
+                                customTitle: finalTitle,
+                                bodyText: finalBody,
                               })
                               if (record) {
                                 setRedditPosts(prev => [record, ...prev])
@@ -5062,6 +5143,7 @@ export default function Admin() {
                                 subreddit: redditSubreddit,
                                 articleUrl: currentUrl,
                                 title: finalTitle,
+                                bodyText: finalBody,
                               })
                               navigator.clipboard.writeText(shareUrl)
                               toast('📋 Reddit Direct Submit Link copied!', 'info')

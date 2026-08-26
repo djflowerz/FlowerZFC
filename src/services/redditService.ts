@@ -92,12 +92,84 @@ export function markSubredditJoined(name: string): void {
 }
 
 // ─── Deep-link builder ───────────────────────────────────────────────────────
+// ─── Catchy Reddit Body Text Generator ────────────────────────────────────────
+// Generates viral, discussion-focused Markdown tailored for Reddit's format:
+export function generateRedditCatchyBody(opts: {
+  title: string
+  category?: string
+  summary?: string
+  articleUrl: string
+  preset?: 'debate' | 'breaking' | 'tldr' | 'quote'
+}): string {
+  const { title, category = 'Football', summary = '', articleUrl, preset = 'debate' } = opts
+  const cleanSummary = summary.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
+  const excerpt = cleanSummary.length > 20 ? cleanSummary : `${title}. Key developments and managerial reactions following the match.`
+
+  if (preset === 'breaking') {
+    return [
+      `🚨 **BREAKING NEWS | ${category.toUpperCase()}**`,
+      '',
+      `📌 **Key Details:**`,
+      `• ${excerpt.slice(0, 160)}...`,
+      `• Reactions and official statements are pouring in across the football world.`,
+      '',
+      `💬 **What are your immediate thoughts on this development?**`,
+      '',
+      `🔗 [Read the full report & live updates on FlowerZFC](${articleUrl})`,
+    ].join('\n')
+  }
+
+  if (preset === 'quote') {
+    return [
+      `🗣️ **Managerial & Player Reaction | ${category}**`,
+      '',
+      `> "${title}"`,
+      '',
+      `📌 **Context:**`,
+      `${excerpt.slice(0, 200)}...`,
+      '',
+      `🤔 **Did the referee get this decision right, or was the criticism justified?**`,
+      '',
+      `🔗 [Full Match Reaction & Analysis on FlowerZFC](${articleUrl})`,
+    ].join('\n')
+  }
+
+  if (preset === 'tldr') {
+    return [
+      `⚡ **TL;DR Summary:**`,
+      `• **Story:** ${title}`,
+      `• **Highlights:** ${excerpt.slice(0, 180)}...`,
+      `• **Impact:** Major implications for the squad and upcoming fixtures.`,
+      '',
+      `💭 **Drop your thoughts below — fair call or harsh decision?**`,
+      '',
+      `🔗 [Read full match story on FlowerZFC](${articleUrl})`,
+    ].join('\n')
+  }
+
+  // Default 'debate' (Highest engagement / comments starter)
+  return [
+    `🔥 **Story Breakdown & Discussion | ${category}**`,
+    '',
+    `📌 **Summary:** ${excerpt.slice(0, 220)}...`,
+    '',
+    `❓ **Debate Points for Discussion:**`,
+    `1. Do you agree with the manager's reaction here?`,
+    `2. How will this impact the remainder of the campaign?`,
+    `3. What would you have done differently in this situation?`,
+    '',
+    `🔗 [Read full report, tactical breakdown & quotes on FlowerZFC](${articleUrl})`,
+  ].join('\n')
+}
+
+// ─── Deep-link builder ───────────────────────────────────────────────────────
 // Opens Reddit's native submit page — NO API REQUIRED.
-// Reddit pre-fills the URL and title from the query string.
+// Reddit pre-fills the URL, title, and body text from the query string.
 export function buildRedditSubmitUrl(opts: {
   subreddit: string
   articleUrl: string
   title: string
+  bodyText?: string
   type?: 'link' | 'text'
 }): string {
   // Always sanitize URL to remove client-side hash fragments (which break Reddit scraper)
@@ -112,6 +184,9 @@ export function buildRedditSubmitUrl(opts: {
     title: opts.title,
     type: opts.type || 'link',
   })
+  if (opts.bodyText && opts.bodyText.trim()) {
+    params.set('text', opts.bodyText.trim())
+  }
   return `${base}?${params.toString()}`
 }
 
@@ -151,14 +226,14 @@ export async function deleteRedditPost(id: string): Promise<void> {
 
 // ─── Open-and-track helper ────────────────────────────────────────────────────
 // Opens the Reddit submit deep-link in a new tab and creates a "pending"
-// tracking record in Supabase. The admin must mark it "posted" manually
-// (or we detect via Reddit's URL in the new tab — handled in UI).
+// tracking record in Supabase.
 export async function openRedditPost(opts: {
   articleId: string
   articleTitle: string
   articleUrl: string
   subreddit: string
   customTitle?: string
+  bodyText?: string
   flair?: string
   scheduleAt?: string
 }): Promise<{ submitUrl: string; record: RedditPost | null }> {
@@ -167,6 +242,7 @@ export async function openRedditPost(opts: {
     subreddit: opts.subreddit,
     articleUrl: opts.articleUrl,
     title,
+    bodyText: opts.bodyText,
   })
 
   const record = await createRedditPost({
