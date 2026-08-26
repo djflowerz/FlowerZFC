@@ -1485,78 +1485,86 @@ export default function Admin() {
             </div>
           </div>
 
-          {/* Scrollable & Sliding Tab Navigation with Arrow Controls & Quick Dropdown */}
-          <div className="relative mt-5 flex items-center gap-2">
-            {/* Left slide arrow */}
-            <button
-              type="button"
-              onClick={() => navRef.current?.scrollBy({ left: -260, behavior: 'smooth' })}
-              className="hidden sm:flex shrink-0 w-8 h-8 rounded-xl bg-[#131320] hover:bg-[#00b341] text-gray-300 hover:text-black border border-[#1e1e32] hover:border-[#00b341] items-center justify-center transition-all shadow-md cursor-pointer"
-              title="Scroll tabs left"
-            >
-              <ChevronLeft size={16} />
-            </button>
-
-            {/* Scrollable tab nav bar with mouse wheel support */}
-            <div
-              ref={navRef}
-              onWheel={e => {
-                if (navRef.current && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-                  navRef.current.scrollLeft += e.deltaY
-                }
-              }}
-              className="flex-1 flex gap-1.5 overflow-x-auto pb-1 scroll-smooth"
-              style={{
-                scrollbarWidth: 'thin',
-                scrollbarColor: '#2a2a40 transparent',
-                WebkitOverflowScrolling: 'touch',
-              }}
-            >
-              {TABS.map(t => (
-                <button
-                  key={t.id}
-                  data-tab-id={t.id}
-                  onClick={() => setTab(t.id)}
-                  className="flex items-center gap-1.5 px-3.5 py-2 text-[11px] font-bold rounded-xl whitespace-nowrap transition-all shrink-0 cursor-pointer select-none"
-                  style={{
-                    background: tab === t.id ? '#00b341' : '#131320',
-                    color: tab === t.id ? '#fff' : '#9ca3af',
-                    border: `1px solid ${tab === t.id ? '#00b341' : '#1e1e32'}`,
-                    boxShadow: tab === t.id ? '0 4px 12px rgba(0,179,65,0.25)' : 'none',
-                  }}
+          {/* ── Fully Accessible & Wrapped Admin Navigation Grid ─────────────────── */}
+          <div className="mt-5 pt-3 border-t border-[#1e1e32]/60 space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                <span>🎛️</span> Admin Modules ({TABS.length} total)
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-gray-500 font-bold uppercase">Quick Switch:</span>
+                <select
+                  value={tab}
+                  onChange={e => setTab(e.target.value as AdminTab)}
+                  className="bg-[#131320] border border-[#1e1e32] text-xs font-bold text-white rounded-xl px-3 py-1.5 outline-none focus:border-[#00b341] cursor-pointer"
                 >
-                  <t.icon size={15} strokeWidth={2.25} /> {t.label}
-                  {!!t.badge && t.badge > 0 && (
-                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ background: tab === t.id ? 'rgba(0,0,0,.25)' : '#ef4444', color: '#fff' }}>{t.badge}</span>
-                  )}
-                </button>
-              ))}
+                  {TABS.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.label} {t.badge ? `(${t.badge})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* Right slide arrow */}
-            <button
-              type="button"
-              onClick={() => navRef.current?.scrollBy({ left: 260, behavior: 'smooth' })}
-              className="hidden sm:flex shrink-0 w-8 h-8 rounded-xl bg-[#131320] hover:bg-[#00b341] text-gray-300 hover:text-black border border-[#1e1e32] hover:border-[#00b341] items-center justify-center transition-all shadow-md cursor-pointer"
-              title="Scroll tabs right"
-            >
-              <ChevronRight size={16} />
-            </button>
+            {/* All 17 Tabs cleanly wrapped — 100% visible on all devices */}
+            <div className="flex flex-wrap gap-2">
+              {TABS.map(t => {
+                const isActive = tab === t.id
+                const isReddit = t.id === 'reddit'
+                const isScores = t.id === 'scores'
 
-            {/* Mobile/Desktop Quick Jump Dropdown */}
-            <div className="shrink-0">
-              <select
-                value={tab}
-                onChange={e => setTab(e.target.value as AdminTab)}
-                className="bg-[#131320] border border-[#1e1e32] text-[11px] font-bold text-gray-300 rounded-xl px-2.5 py-2 outline-none focus:border-[#00b341] cursor-pointer hover:border-gray-600"
-                title="Jump directly to any admin tab"
-              >
-                {TABS.map(t => (
-                  <option key={t.id} value={t.id}>
-                    {t.label} {t.badge ? `(${t.badge})` : ''}
-                  </option>
-                ))}
-              </select>
+                let bgStyle = isActive ? '#00b341' : '#131320'
+                let borderStyle = isActive ? '#00b341' : '#1e1e32'
+                let textColor = isActive ? '#fff' : '#9ca3af'
+
+                if (isReddit && !isActive) {
+                  bgStyle = 'rgba(255,69,0,0.08)'
+                  borderStyle = 'rgba(255,69,0,0.35)'
+                  textColor = '#ff6b35'
+                } else if (isReddit && isActive) {
+                  bgStyle = '#ff4500'
+                  borderStyle = '#ff4500'
+                  textColor = '#fff'
+                }
+
+                if (isScores && !isActive) {
+                  borderStyle = 'rgba(0,179,65,0.3)'
+                }
+
+                return (
+                  <button
+                    key={t.id}
+                    data-tab-id={t.id}
+                    onClick={() => setTab(t.id)}
+                    className="flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer select-none hover:scale-[1.02] active:scale-95"
+                    style={{
+                      background: bgStyle,
+                      color: textColor,
+                      border: `1px solid ${borderStyle}`,
+                      boxShadow: isActive
+                        ? isReddit
+                          ? '0 4px 14px rgba(255,69,0,0.3)'
+                          : '0 4px 14px rgba(0,179,65,0.3)'
+                        : 'none',
+                    }}
+                  >
+                    <t.icon size={15} strokeWidth={2.25} />
+                    <span>{t.label}</span>
+                    {!!t.badge && t.badge > 0 && (
+                      <span
+                        className="text-[9px] font-black px-1.5 py-0.5 rounded-full"
+                        style={{
+                          background: isActive ? 'rgba(0,0,0,.3)' : '#ef4444',
+                          color: '#fff',
+                        }}
+                      >
+                        {t.badge}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
         </div>
