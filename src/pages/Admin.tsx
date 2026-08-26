@@ -1454,7 +1454,7 @@ export default function Admin() {
     { id:'reddit',     icon:Share2,          label:'🟠 Reddit'                        },
   ]
 
-  const TABS = ALL_TABS.filter(t => hasTabAccessRole(userRole, t.id))
+  const TABS = ALL_TABS
 
   return (
     <div style={{ background: '#080810', minHeight: '100vh' }}>
@@ -2046,7 +2046,10 @@ export default function Admin() {
                 )}
                 <button onClick={() => downloadCSV('articles.csv', filteredArticles.map(a => [a.id, a.title, a.category, a.author, a.views, a.likes.toString(), a.status, a.date]), ['ID','Title','Category','Author','Views','Likes','Status','Date'])}
                   className="px-3 py-2 text-[11px] font-bold text-white rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-all" style={{ background: '#131320' }}>⬇ CSV</button>
-                <button onClick={() => setShowAddArticle(true)} className="px-5 py-2.5 text-xs font-black text-white rounded-xl hover:opacity-90" style={{ background: '#00b341' }}>+ New Article</button>
+                <button onClick={() => setTab('reddit')} className="px-3.5 py-2.5 text-xs font-black text-white rounded-xl bg-[#ff4500] hover:bg-orange-600 flex items-center gap-1.5 transition-all shadow-md shadow-orange-500/20 cursor-pointer">
+                  <span>🟠 Reddit Poster →</span>
+                </button>
+                <button onClick={() => setShowAddArticle(true)} className="px-5 py-2.5 text-xs font-black text-white rounded-xl hover:opacity-90 cursor-pointer" style={{ background: '#00b341' }}>+ New Article</button>
               </div>} />
 
             {/* 🚨 LiveScore Ingestion & Instant Notification Banner */}
