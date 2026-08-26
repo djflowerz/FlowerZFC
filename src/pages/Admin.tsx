@@ -4861,11 +4861,12 @@ export default function Admin() {
                 {/* Left: Article Selector */}
                 <div className="lg:col-span-5 space-y-4">
                   <div className="rounded-2xl p-5 border bg-[#131320] border-[#1e1e32] space-y-3">
+                    {/* Article Selector header */}
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="text-xs font-black uppercase text-white tracking-wider flex items-center gap-2">
                         <span>📰</span> Select Article to Post
                       </h3>
-                      <span className="text-[10px] text-gray-500">{articles.length} available</span>
+                      <span className="text-[10px] text-gray-500">{articles.length + ingestedPosts.length} available</span>
                     </div>
 
                     {/* Search & Category Filter */}
@@ -4894,79 +4895,102 @@ export default function Admin() {
                       </div>
                     </div>
 
-                    {/* Articles List */}
+                    {/* Articles List — merges saved articles with live ingested posts */}
                     <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-                      {articles
-                        .filter(a => {
-                          const matchesCat = redditCategoryFilter === 'All' || (a.category || '').toLowerCase().includes(redditCategoryFilter.toLowerCase())
-                          const query = redditArticleSearch.toLowerCase()
-                          const matchesQuery = !query || (a.title || '').toLowerCase().includes(query) || (a.author || '').toLowerCase().includes(query)
-                          return matchesCat && matchesQuery
-                        })
-                        .slice(0, 30)
-                        .map(art => {
-                          const isSelected = redditSelectedArticleId === art.id
-                          return (
-                            <div
-                              key={art.id}
-                              onClick={() => {
-                                setRedditSelectedArticleId(art.id)
-                                setRedditCustomTitle(art.title)
-                                // Auto-suggest subreddit based on category
-                                const cat = (art.category || '').toLowerCase()
-                                let targetSub = 'soccer'
-                                if (cat.includes('premier')) targetSub = 'PremierLeague'
-                                else if (cat.includes('champions')) targetSub = 'championsleague'
-                                else if (cat.includes('la liga')) targetSub = 'LaLiga'
-                                else if (cat.includes('serie')) targetSub = 'seriea'
-                                else if (cat.includes('bundesliga')) targetSub = 'Bundesliga'
-                                setRedditSubreddit(targetSub)
+                      {(() => {
+                        // Convert ingestedPosts to a compatible shape
+                        const ingestedAsArticles = ingestedPosts
+                          .filter(p => p.status !== 'Rejected')
+                          .map(p => ({
+                            id: `ing-${p.id}`,
+                            title: p.transformedTitle || p.sourceTitle,
+                            slug: `ing-${p.id}`,
+                            category: p.category,
+                            author: p.author || 'FlowerZFC',
+                            imageUrl: p.sourceImage || '',
+                            summary: p.transformedBody || p.sourceBody || '',
+                            body: p.transformedBody || p.sourceBody || '',
+                            date: p.detectedAt || p.sourceDate || 'Today',
+                          }))
 
-                                const destUrl = `https://djflowerz.co.ke/news/${art.slug || art.id}`
-                                const body = generateRedditCatchyBody({
-                                  title: art.title,
-                                  category: art.category,
-                                  summary: art.summary || (art as any).body || '',
-                                  articleUrl: destUrl,
-                                  preset: redditBodyPreset,
-                                })
-                                setRedditCustomBody(body)
+                        // Deduplicate: skip ingestedPosts already saved as articles
+                        const articleIds = new Set(articles.map(a => a.id))
+                        const uniqueIngested = ingestedAsArticles.filter(ia => !articleIds.has(ia.id))
 
-                                // Ensure article is saved into Supabase DB so Cloudflare Edge Functions find image & metadata immediately
-                                saveArticleToDb({
-                                  id: art.id,
-                                  title: art.title,
-                                  category: art.category || 'Football',
-                                  body: (art as any).body || art.summary || '',
-                                  image_url: art.imageUrl || '',
-                                  published_at: (art as any).date || new Date().toISOString(),
-                                  author: art.author || 'Admin',
-                                  slug: art.slug || art.id,
-                                }).catch(() => {})
-                              }}
-                              className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                                isSelected
-                                  ? 'bg-orange-500/10 border-[#ff4500]'
-                                  : 'bg-[#0d0d1e] border-[#1e1e32] hover:border-gray-600'
-                              }`}
-                            >
-                              <div className="flex items-start gap-2.5">
-                                {art.imageUrl ? (
-                                  <img src={art.imageUrl} alt="" className="w-12 h-12 object-cover rounded-lg shrink-0 border border-white/5" />
-                                ) : (
-                                  <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center shrink-0 text-base">⚽</div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-1.5 mb-0.5">
-                                    <span className="text-[9px] font-black uppercase text-emerald-400">{art.category}</span>
-                                    <span className="text-[9px] text-gray-500">· {art.date || 'Recent'}</span>
+                        // Merge: ingested (newest) first, then saved articles
+                        const merged = [...uniqueIngested, ...articles]
+
+                        return merged
+                          .filter(a => {
+                            const matchesCat = redditCategoryFilter === 'All' || (a.category || '').toLowerCase().includes(redditCategoryFilter.toLowerCase())
+                            const query = redditArticleSearch.toLowerCase()
+                            const matchesQuery = !query || (a.title || '').toLowerCase().includes(query) || (a.author || '').toLowerCase().includes(query)
+                            return matchesCat && matchesQuery
+                          })
+                          .slice(0, 50)
+                          .map(art => {
+                            const isSelected = redditSelectedArticleId === art.id
+                            return (
+                              <div
+                                key={art.id}
+                                onClick={() => {
+                                  setRedditSelectedArticleId(art.id)
+                                  setRedditCustomTitle(art.title)
+                                  const cat = (art.category || '').toLowerCase()
+                                  let targetSub = 'soccer'
+                                  if (cat.includes('premier')) targetSub = 'PremierLeague'
+                                  else if (cat.includes('champions')) targetSub = 'championsleague'
+                                  else if (cat.includes('la liga')) targetSub = 'LaLiga'
+                                  else if (cat.includes('serie')) targetSub = 'seriea'
+                                  else if (cat.includes('bundesliga')) targetSub = 'Bundesliga'
+                                  setRedditSubreddit(targetSub)
+
+                                  const destUrl = `https://djflowerz.co.ke/news/${art.slug || art.id}`
+                                  const body = generateRedditCatchyBody({
+                                    title: art.title,
+                                    category: art.category,
+                                    summary: (art as any).summary || (art as any).body || '',
+                                    articleUrl: destUrl,
+                                    preset: redditBodyPreset,
+                                  })
+                                  setRedditCustomBody(body)
+
+                                  // Sync to Supabase so Edge Function can find image
+                                  saveArticleToDb({
+                                    id: art.id,
+                                    title: art.title,
+                                    category: art.category || 'Football',
+                                    body: (art as any).body || (art as any).summary || '',
+                                    image_url: art.imageUrl || '',
+                                    published_at: new Date().toISOString(),
+                                    author: art.author || 'Admin',
+                                    slug: art.slug || art.id,
+                                  }).catch(() => {})
+                                }}
+                                className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                                  isSelected
+                                    ? 'bg-orange-500/10 border-[#ff4500]'
+                                    : 'bg-[#0d0d1e] border-[#1e1e32] hover:border-gray-600'
+                                }`}
+                              >
+                                <div className="flex items-start gap-2.5">
+                                  {art.imageUrl ? (
+                                    <img src={art.imageUrl} alt="" className="w-12 h-12 object-cover rounded-lg shrink-0 border border-white/5" />
+                                  ) : (
+                                    <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center shrink-0 text-base">⚽</div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                      <span className="text-[9px] font-black uppercase text-emerald-400">{art.category}</span>
+                                      <span className="text-[9px] text-gray-500">· {art.date || 'Recent'}</span>
+                                    </div>
+                                    <p className="text-xs font-bold text-white line-clamp-2 leading-tight">{art.title}</p>
                                   </div>
-                                  <p className="text-xs font-bold text-white line-clamp-2 leading-tight">{art.title}</p>
                                 </div>
                               </div>
-                            </div>
-                          )
-                        })}
+                            )
+                          })
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -4974,13 +4998,25 @@ export default function Admin() {
                 {/* Right: Compose & Publish Panel */}
                 <div className="lg:col-span-7 space-y-4">
                   {(() => {
-                    const selectedArticle = articles.find(a => a.id === redditSelectedArticleId) || articles[0]
+                    const savedArticle = articles.find(a => a.id === redditSelectedArticleId)
+                    const ingestedMatch = !savedArticle ? ingestedPosts.find(p => `ing-${p.id}` === redditSelectedArticleId) : null
+                    const selectedArticle = savedArticle || (ingestedMatch ? {
+                      id: `ing-${ingestedMatch.id}`,
+                      title: ingestedMatch.transformedTitle || ingestedMatch.sourceTitle,
+                      slug: `ing-${ingestedMatch.id}`,
+                      category: ingestedMatch.category,
+                      author: ingestedMatch.author,
+                      imageUrl: ingestedMatch.sourceImage || '',
+                      summary: ingestedMatch.transformedBody || ingestedMatch.sourceBody || '',
+                      body: ingestedMatch.transformedBody || ingestedMatch.sourceBody || '',
+                      date: ingestedMatch.detectedAt || ingestedMatch.sourceDate || 'Today',
+                    } : null) || articles[0]
                     const currentUrl = selectedArticle ? `https://djflowerz.co.ke/news/${selectedArticle.slug || selectedArticle.id}` : 'https://djflowerz.co.ke'
                     const finalTitle = redditCustomTitle || selectedArticle?.title || 'FlowerZFC Football News'
                     const defaultBody = selectedArticle ? generateRedditCatchyBody({
                       title: finalTitle,
                       category: selectedArticle.category,
-                      summary: selectedArticle.summary || (selectedArticle as any).body || '',
+                      summary: (selectedArticle as any).summary || (selectedArticle as any).body || '',
                       articleUrl: currentUrl,
                       preset: redditBodyPreset,
                     }) : ''
