@@ -5,6 +5,8 @@ import { Truck, RotateCcw, Lock, Globe, Heart } from 'lucide-react'
 import AdBanner from '../components/AdBanner'
 import { fetchAllProducts } from '../services/supabaseClient'
 import { getProductPath } from '../services/productUtils'
+import { CANONICAL_PRODUCTS } from '../services/productCatalog'
+import { ProductGridSkeleton, Tooltip } from '../components/SkeletonLoader'
 
 export interface ProductType {
   id: string
@@ -125,8 +127,19 @@ export default function Shop() {
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [search, setSearch] = useState('')
   const [quickAdded, setQuickAdded] = useState<string | null>(null)
-  const [productList, setProductList] = useState<ProductType[]>([])
-  const [loading, setLoading] = useState(true)
+  const [productList, setProductList] = useState<ProductType[]>(() => {
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        const cached = sessionStorage.getItem('flowerzfc_products_cache')
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed
+        }
+      }
+    } catch {}
+    return CANONICAL_PRODUCTS
+  })
+  const [loading, setLoading] = useState(false)
   const [wishlist, setWishlist] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem('flowerzfc_wishlist') || '[]')
@@ -214,12 +227,10 @@ export default function Shop() {
 
         setProductList(formatted)
       } else if (error) {
-        setProductList(DEFAULT_SHOP_PRODUCTS)
-      } else {
-        setProductList([])
+        setProductList(CANONICAL_PRODUCTS)
       }
     }).catch(() => {
-      setProductList(DEFAULT_SHOP_PRODUCTS)
+      setProductList(CANONICAL_PRODUCTS)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -397,15 +408,19 @@ export default function Shop() {
                   className="group block rounded-2xl overflow-hidden transition-all duration-300 hover:border-[#00b341] hover:-translate-y-1 hover:shadow-2xl relative"
                   style={{ background: '#131320', border: '1px solid #1e1e32' }}
                 >
-                  {/* Heart / Wishlist button */}
-                  <button
-                    type="button"
-                    onClick={e => toggleWishlistCard(e, p)}
-                    className="absolute top-3 right-3 z-20 p-2 rounded-full backdrop-blur-md bg-black/60 hover:bg-black/80 transition-all text-gray-300 hover:text-white"
-                    title={isSaved ? 'Remove from Wishlist' : 'Save to Wishlist'}
-                  >
-                    <Heart size={14} fill={isSaved ? '#ef4444' : 'none'} className={isSaved ? 'text-red-500' : 'text-gray-400'} />
-                  </button>
+                  {/* Heart / Wishlist button with Tooltip */}
+                  <div className="absolute top-3 right-3 z-20">
+                    <Tooltip text={isSaved ? 'In Wishlist' : 'Add to Wishlist'} position="left">
+                      <button
+                        type="button"
+                        onClick={e => toggleWishlistCard(e, p)}
+                        className="p-2 rounded-full backdrop-blur-md bg-black/60 hover:bg-black/80 transition-all text-gray-300 hover:text-white"
+                        aria-label={isSaved ? 'Remove from Wishlist' : 'Save to Wishlist'}
+                      >
+                        <Heart size={14} fill={isSaved ? '#ef4444' : 'none'} className={isSaved ? 'text-red-500 scale-110' : 'text-gray-400'} />
+                      </button>
+                    </Tooltip>
+                  </div>
 
                   {/* Image */}
                   <div className="relative overflow-hidden flex items-center justify-center p-3" style={{ height: '240px', background: '#0b0b14' }}>

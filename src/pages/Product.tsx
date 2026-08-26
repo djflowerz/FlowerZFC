@@ -7,6 +7,8 @@ import { getSiteSettings } from '../services/siteSettings'
 import { matchProduct, getProductPath, getProductSlug } from '../services/productUtils'
 import { Share2, Copy, Check, Heart, MessageCircle } from 'lucide-react'
 import type { ProductType } from './Shop'
+import { CANONICAL_PRODUCTS } from '../services/productCatalog'
+import { Tooltip, SkeletonBox } from '../components/SkeletonLoader'
 
 function StarRating({ rating, reviews }: { rating: number; reviews: number }) {
   return (
@@ -44,9 +46,23 @@ export default function Product() {
   const { t, addToCart, formatPrice, user } = useApp()
   const navigate = useNavigate()
 
-  const [product, setProduct] = useState<ProductType | null>(null)
-  const [allProducts, setAllProducts] = useState<ProductType[]>([])
-  const [loading, setLoading] = useState(true)
+  const [allProducts, setAllProducts] = useState<ProductType[]>(() => {
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        const stored = sessionStorage.getItem('flowerzfc_products_cache')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed
+        }
+      }
+    } catch {}
+    return CANONICAL_PRODUCTS
+  })
+
+  const [product, setProduct] = useState<ProductType | null>(() => {
+    return matchProduct(CANONICAL_PRODUCTS, id) || null
+  })
+  const [loading, setLoading] = useState(false)
 
   const [activeImage, setActiveImage] = useState(0)
   const [size, setSize] = useState('M')

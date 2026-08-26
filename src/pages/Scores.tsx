@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
 import { fetchLiveMatches, LiveMatch, getClubLogo, getInitialsAvatarUrl } from '../services/liveScoreApi'
+import { SkeletonBox } from '../components/SkeletonLoader'
 
 const DAYS = ['Yesterday', 'Today', 'Tomorrow']
 
@@ -408,10 +409,32 @@ export default function Scores() {
       )}
 
       {/* Main Content Loading / Empty States */}
-      {loading ? (
-        <div className="py-20 text-center text-gray-400 flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-xs font-bold font-mono tracking-wider text-emerald-400">Loading Live Scores & Results...</span>
+      {loading && matches.length === 0 ? (
+        <div className="space-y-4">
+          {[1, 2, 3, 4].map(idx => (
+            <div key={idx} className="bg-[#131320] border border-white/5 rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <SkeletonBox className="w-28 h-4 rounded" />
+                <SkeletonBox className="w-16 h-4 rounded" />
+              </div>
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <SkeletonBox className="w-5 h-5 rounded-full" />
+                    <SkeletonBox className="w-32 h-4 rounded" />
+                  </div>
+                  <SkeletonBox className="w-8 h-4 rounded" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <SkeletonBox className="w-5 h-5 rounded-full" />
+                    <SkeletonBox className="w-28 h-4 rounded" />
+                  </div>
+                  <SkeletonBox className="w-8 h-4 rounded" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : liveMatches.length === 0 && finishedMatches.length === 0 ? (
         <div className="p-12 text-center bg-[#131320] border border-dashed border-white/10 rounded-2xl space-y-3">

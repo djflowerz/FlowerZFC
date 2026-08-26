@@ -310,9 +310,27 @@ export function removeDeletedId(key: string, id: string) {
   } catch {}
 }
 
+import { CANONICAL_PRODUCTS } from './productCatalog'
+
+let _cachedProductsMemory: ProductRow[] | null = null
+
 export async function fetchAllProducts(): Promise<{ products: ProductRow[]; error: any }> {
+  // 1. If memory or sessionStorage cache is present, return immediately for instant optimistic rendering
+  const deletedIds = getDeletedIds('flowerzfc_deleted_products')
+
+  let initialList: ProductRow[] = _cachedProductsMemory || []
+  if (initialList.length === 0 && typeof sessionStorage !== 'undefined') {
+    try {
+      const stored = sessionStorage.getItem('flowerzfc_products_cache')
+      if (stored) {
+        initialList = JSON.parse(stored)
+      }
+    } catch {}
+  }
+
   let dbProducts: ProductRow[] = []
   let fetchError: any = null
+
   try {
     const { data, error } = await supabase
       .from('products')
@@ -357,25 +375,36 @@ export async function fetchAllProducts(): Promise<{ products: ProductRow[]; erro
     fetchError = err
   }
 
-  const deletedIds = getDeletedIds('flowerzfc_deleted_products')
+  // 2. Merge DB products with Canonical default catalog so mobile & desktop ALWAYS have the full catalog
+  const existingDbIds = new Set(dbProducts.map(p => String(p.id)))
+  const canonicalActive = (CANONICAL_PRODUCTS as any[]).filter(cp => !existingDbIds.has(String(cp.id)))
+  let allProducts = [...dbProducts, ...canonicalActive]
 
-  // Filter out any products marked as deleted
-  let allProducts = dbProducts.filter(p => !deletedIds.has(String(p.id)))
-
-  // Merge with locally created products (excluding deleted ones)
+  // 3. Merge with any local custom products
   try {
     const localProducts = JSON.parse(localStorage.getItem('flowerzfc_custom_products') || '[]')
     if (Array.isArray(localProducts) && localProducts.length > 0) {
       const activeLocal = localProducts
         .filter((lp: any) => !deletedIds.has(String(lp.id)))
         .map((p: any) => ({ ...p, id: String(p.id) }))
-      const existingIds = new Set(allProducts.map(p => String(p.id)))
-      const extraLocal = activeLocal.filter((lp: any) => !existingIds.has(String(lp.id)))
+      const allIds = new Set(allProducts.map(p => String(p.id)))
+      const extraLocal = activeLocal.filter((lp: any) => !allIds.has(String(lp.id)))
       allProducts = [...extraLocal, ...allProducts]
     }
   } catch (e) {
     /* ignore */
   }
+
+  // 4. Filter out any tombstones
+  allProducts = allProducts.filter(p => !deletedIds.has(String(p.id)))
+
+  // 5. Update caches
+  _cachedProductsMemory = allProducts
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('flowerzfc_products_cache', JSON.stringify(allProducts))
+    }
+  } catch {}
 
   return { products: allProducts, error: fetchError }
 }
