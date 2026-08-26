@@ -93,72 +93,44 @@ export function markSubredditJoined(name: string): void {
 
 // ─── Deep-link builder ───────────────────────────────────────────────────────
 // ─── Catchy Reddit Body Text Generator ────────────────────────────────────────
-// Generates viral, discussion-focused Markdown tailored for Reddit's format:
+// Generates natural, human-written text for Reddit (no robotic headers/emojis):
 export function generateRedditCatchyBody(opts: {
   title: string
   category?: string
   summary?: string
   articleUrl: string
-  preset?: 'debate' | 'breaking' | 'tldr' | 'quote'
+  preset?: 'natural' | 'quote' | 'short'
 }): string {
-  const { title, category = 'Football', summary = '', articleUrl, preset = 'debate' } = opts
+  const { title, summary = '', articleUrl, preset = 'natural' } = opts
+  const cleanUrl = articleUrl.split('?')[0]
   const cleanSummary = summary.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
-  const excerpt = cleanSummary.length > 20 ? cleanSummary : `${title}. Key developments and managerial reactions following the match.`
-
-  if (preset === 'breaking') {
-    return [
-      `🚨 **BREAKING NEWS | ${category.toUpperCase()}**`,
-      '',
-      `📌 **Key Details:**`,
-      `• ${excerpt.slice(0, 160)}...`,
-      `• Reactions and official statements are pouring in across the football world.`,
-      '',
-      `💬 **What are your immediate thoughts on this development?**`,
-      '',
-      `🔗 [Read the full report & live updates on FlowerZFC](${articleUrl})`,
-    ].join('\n')
-  }
+  const excerpt = cleanSummary.length > 30 ? cleanSummary : `${title}. Key reactions and developments following the match.`
 
   if (preset === 'quote') {
     return [
-      `🗣️ **Managerial & Player Reaction | ${category}**`,
+      `"${excerpt.slice(0, 240)}..."`,
       '',
-      `> "${title}"`,
+      `What are your thoughts on this?`,
       '',
-      `📌 **Context:**`,
-      `${excerpt.slice(0, 200)}...`,
-      '',
-      `🤔 **Did the referee get this decision right, or was the criticism justified?**`,
-      '',
-      `🔗 [Full Match Reaction & Analysis on FlowerZFC](${articleUrl})`,
+      `[Full story on FlowerZFC](${cleanUrl})`,
     ].join('\n')
   }
 
-  if (preset === 'tldr') {
+  if (preset === 'short') {
     return [
-      `⚡ **TL;DR Summary:**`,
-      `• **Story:** ${title}`,
-      `• **Highlights:** ${excerpt.slice(0, 180)}...`,
-      `• **Impact:** Major implications for the squad and upcoming fixtures.`,
+      `${excerpt.slice(0, 180)}...`,
       '',
-      `💭 **Drop your thoughts below — fair call or harsh decision?**`,
-      '',
-      `🔗 [Read full match story on FlowerZFC](${articleUrl})`,
+      `[Full report on FlowerZFC](${cleanUrl})`,
     ].join('\n')
   }
 
-  // Default 'debate' (Highest engagement / comments starter)
+  // Default 'natural'
   return [
-    `🔥 **Story Breakdown & Discussion | ${category}**`,
+    excerpt.slice(0, 260) + (excerpt.length > 260 ? '...' : ''),
     '',
-    `📌 **Summary:** ${excerpt.slice(0, 220)}...`,
+    `Fair call or harsh decision? What are your thoughts?`,
     '',
-    `❓ **Debate Points for Discussion:**`,
-    `1. Do you agree with the manager's reaction here?`,
-    `2. How will this impact the remainder of the campaign?`,
-    `3. What would you have done differently in this situation?`,
-    '',
-    `🔗 [Read full report, tactical breakdown & quotes on FlowerZFC](${articleUrl})`,
+    `[Full story on FlowerZFC](${cleanUrl})`,
   ].join('\n')
 }
 

@@ -963,7 +963,7 @@ export default function Admin() {
   const [redditSelectedArticleId, setRedditSelectedArticleId] = useState<string>('')
   const [redditCustomTitle, setRedditCustomTitle] = useState<string>('')
   const [redditCustomBody, setRedditCustomBody] = useState<string>('')
-  const [redditBodyPreset, setRedditBodyPreset] = useState<'debate' | 'breaking' | 'tldr' | 'quote'>('debate')
+  const [redditBodyPreset, setRedditBodyPreset] = useState<'natural' | 'quote' | 'short'>('natural')
   const [redditSubreddit, setRedditSubreddit] = useState<string>('soccer')
   const [redditScheduleDate, setRedditScheduleDate] = useState<string>('')
   const [redditAutoRules, setRedditAutoRules] = useState<RedditAutoRule[]>(() => getAutoRules())
@@ -4922,8 +4922,7 @@ export default function Admin() {
                                 else if (cat.includes('bundesliga')) targetSub = 'Bundesliga'
                                 setRedditSubreddit(targetSub)
 
-                                const imgParam = art.imageUrl ? `?img=${encodeURIComponent(art.imageUrl)}` : ''
-                                const destUrl = `https://djflowerz.co.ke/news/${art.slug || art.id}${imgParam}`
+                                const destUrl = `https://djflowerz.co.ke/news/${art.slug || art.id}`
                                 const body = generateRedditCatchyBody({
                                   title: art.title,
                                   category: art.category,
@@ -4932,6 +4931,18 @@ export default function Admin() {
                                   preset: redditBodyPreset,
                                 })
                                 setRedditCustomBody(body)
+
+                                // Ensure article is saved into Supabase DB so Cloudflare Edge Functions find image & metadata immediately
+                                saveArticleToDb({
+                                  id: art.id,
+                                  title: art.title,
+                                  category: art.category || 'Football',
+                                  body: (art as any).body || art.summary || '',
+                                  image_url: art.imageUrl || '',
+                                  published_at: (art as any).date || new Date().toISOString(),
+                                  author: art.author || 'Admin',
+                                  slug: art.slug || art.id,
+                                }).catch(() => {})
                               }}
                               className={`p-3 rounded-xl border cursor-pointer transition-all ${
                                 isSelected
@@ -4964,8 +4975,7 @@ export default function Admin() {
                 <div className="lg:col-span-7 space-y-4">
                   {(() => {
                     const selectedArticle = articles.find(a => a.id === redditSelectedArticleId) || articles[0]
-                    const imgParam = selectedArticle?.imageUrl ? `?img=${encodeURIComponent(selectedArticle.imageUrl)}` : ''
-                    const currentUrl = selectedArticle ? `https://djflowerz.co.ke/news/${selectedArticle.slug || selectedArticle.id}${imgParam}` : 'https://djflowerz.co.ke'
+                    const currentUrl = selectedArticle ? `https://djflowerz.co.ke/news/${selectedArticle.slug || selectedArticle.id}` : 'https://djflowerz.co.ke'
                     const finalTitle = redditCustomTitle || selectedArticle?.title || 'FlowerZFC Football News'
                     const defaultBody = selectedArticle ? generateRedditCatchyBody({
                       title: finalTitle,
@@ -5030,10 +5040,10 @@ export default function Admin() {
                         <div className="space-y-2">
                           <div className="flex items-center justify-between flex-wrap gap-2">
                             <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-                              <span>💬</span> Catchy Body Text (Pre-filled Markdown)
+                              <span>💬</span> Natural Body Text (Editable Markdown)
                             </label>
                             <div className="flex items-center gap-1">
-                              {(['debate', 'tldr', 'breaking', 'quote'] as const).map(preset => (
+                              {(['natural', 'quote', 'short'] as const).map(preset => (
                                 <button
                                   key={preset}
                                   type="button"
@@ -5050,16 +5060,15 @@ export default function Admin() {
                                       setRedditCustomBody(newBody)
                                     }
                                   }}
-                                  className={`px-2 py-0.5 text-[9px] font-bold rounded-lg uppercase tracking-wider border transition-all ${
+                                  className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider border transition-all ${
                                     redditBodyPreset === preset
                                       ? 'bg-[#ff4500] text-white border-[#ff4500]'
                                       : 'bg-white/5 text-gray-400 border-white/10 hover:text-white'
                                   }`}
                                 >
-                                  {preset === 'debate' && '🔥 Debate'}
-                                  {preset === 'tldr' && '⚡ TL;DR'}
-                                  {preset === 'breaking' && '🚨 Breaking'}
-                                  {preset === 'quote' && '🗣️ Quote'}
+                                  {preset === 'natural' && '✍️ Natural Summary'}
+                                  {preset === 'quote' && '🗣️ Key Quotes'}
+                                  {preset === 'short' && '⚡ Short & Direct'}
                                 </button>
                               ))}
                             </div>
@@ -5068,20 +5077,20 @@ export default function Admin() {
                             rows={5}
                             value={redditCustomBody || defaultBody}
                             onChange={e => setRedditCustomBody(e.target.value)}
-                            placeholder="Add engaging summary, quotes, and debate questions to attract viewers..."
+                            placeholder="Natural summary and opinion question to attract viewers..."
                             className="w-full bg-[#0d0d1e] border border-[#1e1e32] p-3 rounded-xl text-xs text-white font-mono leading-relaxed outline-none focus:border-[#ff4500]"
                           />
                         </div>
 
                         {/* Target Link Preview */}
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-gray-400">Article Destination URL</label>
+                          <label className="text-[10px] font-black uppercase tracking-wider text-gray-400">Clean Article URL (No Query Params)</label>
                           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#0d0d1e] border border-[#1e1e32]">
                             <span className="text-xs text-emerald-400 font-mono flex-1 truncate">{currentUrl}</span>
                             <button
                               onClick={() => {
                                 navigator.clipboard.writeText(currentUrl)
-                                toast('📋 Article URL copied!', 'info')
+                                toast('📋 Clean Article URL copied!', 'info')
                               }}
                               className="text-[10px] font-bold text-gray-400 hover:text-white px-2 py-1 rounded bg-white/5"
                             >
@@ -5100,7 +5109,7 @@ export default function Admin() {
                             <div className="h-32 w-full rounded-lg overflow-hidden border border-white/5 relative bg-black/40">
                               <img src={selectedArticle.imageUrl} alt="" className="w-full h-full object-cover" />
                               <span className="absolute bottom-2 left-2 bg-black/80 px-2 py-0.5 rounded text-[9px] text-emerald-400 font-mono">
-                                🖼️ Link Card Image Attached
+                                🖼️ High-Res Article Photo Linked
                               </span>
                             </div>
                           )}
@@ -5118,6 +5127,18 @@ export default function Admin() {
                                 toast('Please select an article first', 'warning')
                                 return
                               }
+                              // Save to database before opening
+                              saveArticleToDb({
+                                id: selectedArticle.id,
+                                title: selectedArticle.title,
+                                category: selectedArticle.category || 'Football',
+                                body: (selectedArticle as any).body || selectedArticle.summary || '',
+                                image_url: selectedArticle.imageUrl || '',
+                                published_at: (selectedArticle as any).date || new Date().toISOString(),
+                                author: selectedArticle.author || 'Admin',
+                                slug: selectedArticle.slug || selectedArticle.id,
+                              }).catch(() => {})
+
                               const { submitUrl, record } = await openRedditPost({
                                 articleId: selectedArticle.id,
                                 articleTitle: selectedArticle.title,
