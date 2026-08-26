@@ -100,9 +100,15 @@ export function buildRedditSubmitUrl(opts: {
   title: string
   type?: 'link' | 'text'
 }): string {
+  // Always sanitize URL to remove client-side hash fragments (which break Reddit scraper)
+  let cleanUrl = opts.articleUrl.replace('/#/', '/')
+  if (!cleanUrl.startsWith('http')) {
+    cleanUrl = `https://djflowerz.co.ke${cleanUrl.startsWith('/') ? cleanUrl : '/' + cleanUrl}`
+  }
+
   const base = `https://www.reddit.com/r/${opts.subreddit}/submit`
   const params = new URLSearchParams({
-    url: opts.articleUrl,
+    url: cleanUrl,
     title: opts.title,
     type: opts.type || 'link',
   })

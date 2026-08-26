@@ -184,7 +184,35 @@ export default function Article() {
       }
 
       setArticle(foundData)
-      if (foundData) setLikeCount(foundData.likes)
+      if (foundData) {
+        setLikeCount(foundData.likes)
+        document.title = `${foundData.title} — FlowerzFC`
+        
+        // Dynamically update Open Graph meta tags in browser DOM
+        const updateMeta = (selector: string, content: string) => {
+          let el = document.querySelector(selector) as HTMLMetaElement
+          if (el) {
+            el.setAttribute('content', content)
+          } else {
+            el = document.createElement('meta')
+            if (selector.startsWith('meta[property=')) {
+              el.setAttribute('property', selector.replace(/meta\[property="?|"?\]/g, ''))
+            } else if (selector.startsWith('meta[name=')) {
+              el.setAttribute('name', selector.replace(/meta\[name="?|"?\]/g, ''))
+            }
+            el.setAttribute('content', content)
+            document.head.appendChild(el)
+          }
+        }
+
+        updateMeta('meta[property="og:title"]', foundData.title)
+        updateMeta('meta[property="og:description"]', foundData.subtitle || foundData.paragraphs[0] || 'Read the full story on FlowerzFC.')
+        updateMeta('meta[property="og:image"]', foundData.image)
+        updateMeta('meta[property="og:url"]', `${window.location.origin}/news/${foundData.id}`)
+        updateMeta('meta[name="twitter:title"]', foundData.title)
+        updateMeta('meta[name="twitter:description"]', foundData.subtitle || foundData.paragraphs[0] || 'Read the full story on FlowerzFC.')
+        updateMeta('meta[name="twitter:image"]', foundData.image)
+      }
     }).finally(() => setLoading(false))
 
     // Load real comments from Supabase
@@ -419,42 +447,47 @@ export default function Article() {
               </button>
 
               {/* Native / Social Share controls */}
-              <div className="flex items-center gap-2 ml-auto">
-                <span className="text-xs text-gray-500 hidden sm:inline">{t('shareOn')}:</span>
-                <a
-                  href={`https://wa.me/?text=${encodeURIComponent(article.title + ' — ' + window.location.href)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1.5 rounded bg-[#131320] border border-[#1e1e32] text-green-400 hover:text-green-300 transition-colors text-sm"
-                  title="Share to WhatsApp"
-                >
-                  💬 WhatsApp
-                </a>
-                <a
-                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(article.title)}&url=${encodeURIComponent(window.location.href)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1.5 rounded bg-[#131320] border border-[#1e1e32] text-gray-300 hover:text-white transition-colors text-xs font-bold"
-                  title="Share to X / Twitter"
-                >
-                  𝕏 Post
-                </a>
-                <a
-                  href={`https://www.reddit.com/submit?url=${encodeURIComponent(window.location.href)}&title=${encodeURIComponent(article.title)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-2.5 py-1.5 rounded bg-[#131320] border border-[#1e1e32] text-[#ff4500] hover:text-orange-400 transition-colors text-xs font-bold"
-                  title="Share to Reddit"
-                >
-                  🟠 Reddit
-                </a>
-                <button
-                  onClick={handleShare}
-                  className="px-3 py-1.5 rounded bg-[#131320] border border-[#1e1e32] text-xs font-bold text-gray-300 hover:text-white transition-colors"
-                >
-                  {linkCopied ? '✓ Link Copied!' : '🔗 Share'}
-                </button>
-              </div>
+              {(() => {
+                const articleUrl = `${window.location.origin}/news/${article.id}`
+                return (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-xs text-gray-500 hidden sm:inline">{t('shareOn')}:</span>
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(article.title + ' — ' + articleUrl)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1.5 rounded bg-[#131320] border border-[#1e1e32] text-green-400 hover:text-green-300 transition-colors text-sm"
+                      title="Share to WhatsApp"
+                    >
+                      💬 WhatsApp
+                    </a>
+                    <a
+                      href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(article.title)}&url=${encodeURIComponent(articleUrl)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1.5 rounded bg-[#131320] border border-[#1e1e32] text-gray-300 hover:text-white transition-colors text-xs font-bold"
+                      title="Share to X / Twitter"
+                    >
+                      𝕏 Post
+                    </a>
+                    <a
+                      href={`https://www.reddit.com/submit?url=${encodeURIComponent(articleUrl)}&title=${encodeURIComponent(article.title)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1.5 rounded bg-[#131320] border border-[#1e1e32] text-[#ff4500] hover:text-orange-400 transition-colors text-xs font-bold"
+                      title="Share to Reddit"
+                    >
+                      🟠 Reddit
+                    </a>
+                    <button
+                      onClick={handleShare}
+                      className="px-3 py-1.5 rounded bg-[#131320] border border-[#1e1e32] text-xs font-bold text-gray-300 hover:text-white transition-colors"
+                    >
+                      {linkCopied ? '✓ Link Copied!' : '🔗 Share'}
+                    </button>
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Comments Section */}

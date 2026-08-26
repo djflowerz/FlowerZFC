@@ -47,10 +47,10 @@ a{color:${BRAND_GREEN};text-decoration:none;}
   <tr><td style="background:#0d0d1a;border-radius:0 0 14px 14px;padding:22px 32px;border:1px solid #1e1e32;border-top:none;">
     <p style="font-size:11px;color:#9ca3af;margin-bottom:8px;">
       <a href="${SITE_URL}" style="color:${BRAND_GREEN};font-weight:bold;">djflowerz.co.ke</a> &nbsp;·&nbsp;
-      <a href="${SITE_URL}/#/shop" style="color:${BRAND_GREEN};">Shop</a> &nbsp;·&nbsp;
-      <a href="${SITE_URL}/#/news" style="color:${BRAND_GREEN};">News</a> &nbsp;·&nbsp;
-      <a href="${SITE_URL}/#/scores" style="color:${BRAND_GREEN};">Live Scores</a> &nbsp;·&nbsp;
-      <a href="${SITE_URL}/#/mixes" style="color:${BRAND_GREEN};">Mixes</a>
+      <a href="${SITE_URL}/shop" style="color:${BRAND_GREEN};">Shop</a> &nbsp;·&nbsp;
+      <a href="${SITE_URL}/news" style="color:${BRAND_GREEN};">News</a> &nbsp;·&nbsp;
+      <a href="${SITE_URL}/scores" style="color:${BRAND_GREEN};">Live Scores</a> &nbsp;·&nbsp;
+      <a href="${SITE_URL}/mixes" style="color:${BRAND_GREEN};">Mixes</a>
     </p>
     <p style="font-size:10px;color:#6b7280;line-height:1.5;">📞 (+254) 712 293 303 &nbsp;·&nbsp; 💬 WhatsApp: (+254) 789 783 258 &nbsp;·&nbsp; ✉️ support@djflowerz.co.ke</p>
     <p style="font-size:10px;color:#4b5563;margin-top:8px;">© ${year} FlowerZFC. All rights reserved. Nairobi, Kenya.</p>
@@ -200,7 +200,7 @@ export async function sendPasswordChanged(params: { to: string; name?: string; d
     </div>
     <p style="color:#9ca3af;font-size:12px;margin-bottom:16px;">If you made this change, no further action is needed. If you didn't change your password, please secure your account immediately.</p>
     <div style="text-align:center;">
-      <a href="${SITE_URL}/#/account/settings" class="btn-orange">SECURE MY ACCOUNT →</a>
+      <a href="${SITE_URL}/account/settings" class="btn-orange">SECURE MY ACCOUNT →</a>
     </div>`
 
   return sendEmail(params.to, 'Your FlowerZFC Password Was Changed', baseTemplate('Security notice: Your password was updated.', body))
@@ -224,7 +224,7 @@ export async function sendNewLoginDetected(params: { to: string; name?: string; 
     </div>
     <p style="color:#9ca3af;font-size:12px;margin-bottom:16px;">If this was you, you can ignore this email. If you don't recognize this activity, secure your account immediately.</p>
     <div style="text-align:center;">
-      <a href="${SITE_URL}/#/account/settings" class="btn-orange">SECURE MY ACCOUNT →</a>
+      <a href="${SITE_URL}/account/settings" class="btn-orange">SECURE MY ACCOUNT →</a>
     </div>`
 
   return sendEmail(params.to, 'New Login Detected 🔐 | FlowerZFC Security', baseTemplate('New login detected on your account.', body))
@@ -244,7 +244,7 @@ export async function sendEmailAddressChanged(params: { to: string; name?: strin
     </div>
     <p style="color:#9ca3af;font-size:12px;margin-bottom:16px;">If you made this change, no further action is required. If you didn't authorize this change, please contact FlowerZFC Support immediately.</p>
     <div style="text-align:center;">
-      <a href="${SITE_URL}/#/contact" class="btn">CONTACT SUPPORT →</a>
+      <a href="${SITE_URL}/contact" class="btn">CONTACT SUPPORT →</a>
     </div>`
 
   return sendEmail(params.to, 'Your FlowerZFC Email Address Was Changed', baseTemplate('Security notice: Email address updated.', body))
@@ -311,7 +311,7 @@ export async function sendWeeklyDigest(params: {
       ${matchList}
     </div>
     <div style="text-align:center;margin:24px 0;">
-      <a href="${SITE_URL}/#/news" class="btn">READ MORE ON FLOWERZFC →</a>
+      <a href="${SITE_URL}/news" class="btn">READ MORE ON FLOWERZFC →</a>
     </div>`
 
   return sendEmail(params.to, '⚽ This Week in Football | FlowerZFC Weekly', baseTemplate('Top stories, fixture schedules, and tactical previews.', body))
@@ -342,7 +342,7 @@ export async function sendMatchAlert(params: {
       </div>
     </div>
     <div style="text-align:center;margin:24px 0;">
-      <a href="${SITE_URL}/#/scores" class="btn">VIEW LIVE SCORES →</a>
+      <a href="${SITE_URL}/scores" class="btn">VIEW LIVE SCORES →</a>
     </div>`
 
   return sendEmail(params.to, `🔴 Match Alert: ${params.homeTeam} vs ${params.awayTeam}`, baseTemplate(`Kickoff alert: ${params.homeTeam} vs ${params.awayTeam}`, body))
@@ -373,7 +373,7 @@ export async function sendFullTimeSummary(params: {
       <p style="font-size:12px;color:#9ca3af;line-height:1.5;">${params.keyMoments}</p>` : ''}
     </div>
     <div style="text-align:center;margin:24px 0;">
-      <a href="${SITE_URL}/#/scores" class="btn">VIEW MATCH DETAILS →</a>
+      <a href="${SITE_URL}/scores" class="btn">VIEW MATCH DETAILS →</a>
     </div>`
 
   return sendEmail(params.to, `⚽ Full Time: ${params.homeTeam} ${params.homeScore}–${params.awayScore} ${params.awayTeam}`, baseTemplate(`Full time result and match summary.`, body))
@@ -405,7 +405,7 @@ export async function sendTransferAlert(params: {
       </div>
     </div>
     <div style="text-align:center;margin:24px 0;">
-      <a href="${SITE_URL}/#/transfers" class="btn">READ THE FULL STORY →</a>
+      <a href="${SITE_URL}/transfers" class="btn">READ THE FULL STORY →</a>
     </div>`
 
   return sendEmail(params.to, `🚨 Transfer Alert: ${params.playerName} to ${params.newClub}`, baseTemplate(`Major transfer update: ${params.playerName}`, body))
@@ -443,7 +443,7 @@ export async function sendMatchPreview(params: {
       </div>
     </div>
     <div style="text-align:center;margin:24px 0;">
-      <a href="${SITE_URL}/#/scores" class="btn">VIEW FULL PREVIEW →</a>
+      <a href="${SITE_URL}/scores" class="btn">VIEW FULL PREVIEW →</a>
     </div>`
 
   return sendEmail(params.to, `🔮 Match Preview: ${params.homeTeam} vs ${params.awayTeam}`, baseTemplate(`Tactical preview and AI prediction for ${params.homeTeam} vs ${params.awayTeam}`, body))
@@ -498,7 +498,7 @@ export async function sendOrderConfirmation(params: {
       <p style="font-size:13px;color:#fff;">${shippingAddress}</p>
     </div>` : ''}
     <div style="text-align:center;margin:28px 0 16px 0;">
-      <a href="${SITE_URL}/#/account/orders" class="btn">VIEW MY ORDER →</a>
+      <a href="${SITE_URL}/account/orders" class="btn">VIEW MY ORDER →</a>
     </div>
     <p style="color:#6b7280;font-size:12px;text-align:center;">We'll send you another email when your order is on its way.</p>`
 
@@ -533,7 +533,7 @@ export async function sendPaymentReceived(params: {
     </div>
     <p style="color:#9ca3af;font-size:12px;margin-bottom:16px;">Your order is now being processed.</p>
     <div style="text-align:center;">
-      <a href="${SITE_URL}/#/account/orders" class="btn">VIEW ORDER →</a>
+      <a href="${SITE_URL}/account/orders" class="btn">VIEW ORDER →</a>
     </div>`
 
   return sendEmail(params.to, `Payment Received ✅ — Order #${params.orderId}`, baseTemplate(`Payment of ${cur} ${params.amount} received.`, body))
@@ -561,10 +561,10 @@ export async function sendPaymentFailed(params: {
       </div>
     </div>
     <div style="text-align:center;margin:24px 0 12px 0;">
-      <a href="${SITE_URL}/#/checkout" class="btn-orange">TRY PAYMENT AGAIN →</a>
+      <a href="${SITE_URL}/checkout" class="btn-orange">TRY PAYMENT AGAIN →</a>
     </div>
     <div style="text-align:center;">
-      <a href="${SITE_URL}/#/contact" class="btn-ghost">CONTACT SUPPORT →</a>
+      <a href="${SITE_URL}/contact" class="btn-ghost">CONTACT SUPPORT →</a>
     </div>`
 
   return sendEmail(params.to, `Payment Failed ⚠️ — Order #${params.orderId}`, baseTemplate(`Payment could not be completed for #${params.orderId}.`, body))
@@ -591,7 +591,7 @@ export async function sendOrderPrepared(params: {
       <p style="font-size:14px;font-weight:bold;color:${BRAND_GREEN};">Total: ${cur} ${params.total.toLocaleString()}</p>
     </div>
     <div style="text-align:center;margin:24px 0;">
-      <a href="${SITE_URL}/#/account/orders" class="btn">TRACK MY ORDER →</a>
+      <a href="${SITE_URL}/account/orders" class="btn">TRACK MY ORDER →</a>
     </div>`
 
   return sendEmail(params.to, `Your Order #${params.orderId} Is Being Prepared 📦`, baseTemplate(`Order #${params.orderId} is now being prepared for shipping.`, body))
@@ -621,7 +621,7 @@ export async function sendShippingUpdate(params: {
       </div>
     </div>
     <div style="text-align:center;margin:28px 0 16px 0;">
-      <a href="${SITE_URL}/#/account/orders" class="btn">TRACK MY PACKAGE →</a>
+      <a href="${SITE_URL}/account/orders" class="btn">TRACK MY PACKAGE →</a>
     </div>`
 
   return sendEmail(to, `Your Order #${orderId} Has Shipped! 🚚 | FlowerZFC`, baseTemplate(`Order #${orderId} is on the way via ${courier}.`, body))
@@ -644,7 +644,7 @@ export async function sendOrderDelivered(params: {
       <p style="font-size:12px;color:#9ca3af;">How was your experience with your new gear?</p>
     </div>
     <div style="text-align:center;margin:24px 0;">
-      <a href="${SITE_URL}/#/account/orders" class="btn">LEAVE A REVIEW →</a>
+      <a href="${SITE_URL}/account/orders" class="btn">LEAVE A REVIEW →</a>
     </div>`
 
   return sendEmail(params.to, `Order #${params.orderId} Delivered 🎉 | FlowerZFC`, baseTemplate(`Order #${params.orderId} was delivered successfully.`, body))
@@ -674,7 +674,7 @@ export async function sendOrderCancelled(params: {
       <p style="font-size:11px;color:#9ca3af;margin-top:10px;">If a refund is applicable, we'll process it according to our refund policy.</p>
     </div>
     <div style="text-align:center;">
-      <a href="${SITE_URL}/#/contact" class="btn-ghost">CONTACT SUPPORT →</a>
+      <a href="${SITE_URL}/contact" class="btn-ghost">CONTACT SUPPORT →</a>
     </div>`
 
   return sendEmail(params.to, `Order #${params.orderId} Cancelled | FlowerZFC`, baseTemplate(`Order #${params.orderId} cancellation update.`, body))
@@ -772,7 +772,7 @@ export async function sendNewMixAlert(params: {
       </div>
     </div>
     <div style="text-align:center;margin:24px 0;">
-      <a href="${params.mixUrl || `${SITE_URL}/#/mixes`}" class="btn">LISTEN NOW →</a>
+      <a href="${params.mixUrl || `${SITE_URL}/mixes`}" class="btn">LISTEN NOW →</a>
     </div>`
 
   return sendEmail(params.to, `🔥 New DJ Flowerz Mix Is Out Now! — ${params.mixTitle}`, baseTemplate(`New high-energy mix drop: ${params.mixTitle}`, body))
@@ -807,7 +807,7 @@ export async function sendRefundInitiated(params: {
       <p style="font-size:11px;color:#9ca3af;margin-top:10px;">The time it takes for funds to appear depends on your payment provider (usually 2-5 business days).</p>
     </div>
     <div style="text-align:center;">
-      <a href="${SITE_URL}/#/account/orders" class="btn">VIEW ORDER →</a>
+      <a href="${SITE_URL}/account/orders" class="btn">VIEW ORDER →</a>
     </div>`
 
   return sendEmail(params.to, `Refund Initiated 💰 — Order #${params.orderId}`, baseTemplate(`Refund initiated for #${params.orderId}.`, body))
@@ -919,7 +919,7 @@ export async function sendExclusiveOffer(params: {
       <p style="font-size:11px;color:#f59e0b;">Offer ends: ${params.expiryDate}</p>
     </div>
     <div style="text-align:center;margin:24px 0;">
-      <a href="${SITE_URL}/#/shop" class="btn">SHOP NOW →</a>
+      <a href="${SITE_URL}/shop" class="btn">SHOP NOW →</a>
     </div>`
 
   return sendEmail(params.to, `🛍️ Exclusive Offer: ${params.offerTitle} | FlowerZFC`, baseTemplate(`Special offer for you with coupon ${params.couponCode}`, body))
@@ -945,7 +945,7 @@ export async function sendAbandonedCartReminder(params: {
       <p style="font-size:14px;font-weight:bold;color:${BRAND_GREEN};">Cart Total: ${cur} ${params.cartTotal.toLocaleString()}</p>
     </div>
     <div style="text-align:center;margin:24px 0;">
-      <a href="${SITE_URL}/#/checkout" class="btn">RETURN TO MY CART →</a>
+      <a href="${SITE_URL}/checkout" class="btn">RETURN TO MY CART →</a>
     </div>`
 
   return sendEmail(params.to, 'You Left Something in Your Cart 🛒 | FlowerZFC', baseTemplate('Complete your purchase at FlowerZFC.', body))
@@ -985,7 +985,7 @@ export async function notifyAdminNewOrder(params: {
       <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:12px;">${rows}</table>
     </div>
     <div style="text-align:center;">
-      <a href="${SITE_URL}/#/admin" class="btn">VIEW ORDER IN ADMIN →</a>
+      <a href="${SITE_URL}/admin" class="btn">VIEW ORDER IN ADMIN →</a>
     </div>`
 
   return sendEmail(ADMIN_EMAIL, `🛍️ New Order #${orderId} (${currency} ${total.toLocaleString()}) — ${customerName}`, baseTemplate(`New order #${orderId} from ${customerName}`, body))
@@ -1020,7 +1020,7 @@ export async function notifyAdminAdInquiry(params: {
       </div>
     </div>
     <div style="text-align:center;">
-      <a href="${SITE_URL}/#/admin" class="btn">OPEN ADMIN DASHBOARD →</a>
+      <a href="${SITE_URL}/admin" class="btn">OPEN ADMIN DASHBOARD →</a>
     </div>`
 
   return sendEmail(ADMIN_EMAIL, `📢 New Ad Inquiry: ${businessName} (${planName})`, baseTemplate(`Ad inquiry from ${businessName}`, body))
@@ -1055,7 +1055,7 @@ export async function sendAdvertiseConfirmation(params: {
     </div>
     <p style="color:#9ca3af;font-size:12px;text-align:center;margin-bottom:16px;">We'll review your campaign details and get back to you within 24 hours.</p>
     <div style="text-align:center;">
-      <a href="${SITE_URL}/#/advertise" class="btn">VIEW ADVERTISING PORTAL →</a>
+      <a href="${SITE_URL}/advertise" class="btn">VIEW ADVERTISING PORTAL →</a>
     </div>`
 
   return sendEmail(to, `Advertising Request Received 📢 — ${businessName} | FlowerZFC`, baseTemplate(`We received your ad inquiry for ${businessName}.`, body))
@@ -1086,7 +1086,7 @@ export async function sendAdCampaignApproved(params: {
       </div>
     </div>
     <div style="text-align:center;margin:24px 0;">
-      <a href="${SITE_URL}/#/advertise" class="btn">VIEW CAMPAIGN →</a>
+      <a href="${SITE_URL}/advertise" class="btn">VIEW CAMPAIGN →</a>
     </div>`
 
   return sendEmail(params.to, `Your Campaign Is Approved 🎉 — ${params.campaignName}`, baseTemplate(`Ad campaign approved for ${params.campaignName}`, body))
@@ -1115,7 +1115,7 @@ export async function sendAdCampaignLive(params: {
       </div>
     </div>
     <div style="text-align:center;margin:24px 0;">
-      <a href="${SITE_URL}/#/advertise" class="btn">VIEW PERFORMANCE →</a>
+      <a href="${SITE_URL}/advertise" class="btn">VIEW PERFORMANCE →</a>
     </div>`
 
   return sendEmail(params.to, `Your Campaign Is Live 🚀 — ${params.campaignName}`, baseTemplate(`Ad campaign live on FlowerZFC: ${params.campaignName}`, body))
@@ -1238,7 +1238,7 @@ export async function sendTipConfirmation(params: {
     </div>
 
     <div style="text-align:center;margin-bottom:12px;">
-      <a href="${SITE_URL}/#/tip" class="btn">Send Another Tip ☕</a>
+      <a href="${SITE_URL}/tip" class="btn">Send Another Tip ☕</a>
     </div>
     <div style="text-align:center;">
       <a href="${SITE_URL}" class="btn-ghost">Back to FlowerZFC →</a>
@@ -1280,7 +1280,7 @@ export async function notifyAdminTipReceived(params: {
       </div>
     </div>
     <div style="text-align:center;">
-      <a href="${SITE_URL}/#/admin" class="btn">View Admin Dashboard →</a>
+      <a href="${SITE_URL}/admin" class="btn">View Admin Dashboard →</a>
     </div>`
 
   return sendEmail(
