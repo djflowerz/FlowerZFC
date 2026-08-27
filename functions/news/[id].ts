@@ -133,17 +133,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     rawImage = 'https:' + rawImage
   }
 
-  // Route all external images through our CORS-safe proxy.
-  // Reddit's link preview scraper is blocked by many external CDNs without CORS headers.
-  // djflowerz.co.ke/api/img-proxy fetches them server-side and returns with proper headers.
-  const isExternal = rawImage.startsWith('http') &&
-    !rawImage.includes('djflowerz.co.ke') &&
-    !rawImage.includes('unsplash.com') &&
-    !rawImage.includes('images.unsplash.com')
-
-  const image = isExternal
-    ? `https://djflowerz.co.ke/api/img-proxy?url=${encodeURIComponent(rawImage)}`
-    : rawImage
+  // Direct image URL for maximum compatibility with Reddit, Twitter/X, Facebook, and Discord scrapers
+  const image = rawImage
 
   const canonicalUrl = `https://djflowerz.co.ke/news/${article?.slug || id}`
 
@@ -176,9 +167,11 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     <meta property="og:image:height" content="630" />
     <meta property="og:url" content="${canonicalUrl}" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@FlowerZFC" />
     <meta name="twitter:title" content="${cleanText(titleRaw)}" />
     <meta name="twitter:description" content="${description}" />
     <meta name="twitter:image" content="${image}" />
+    <meta name="twitter:image:src" content="${image}" />
 `,
           { html: true }
         )
