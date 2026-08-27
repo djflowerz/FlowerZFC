@@ -5368,8 +5368,8 @@ export default function Admin() {
                               // serves the 100% exact high-res article photo to Reddit's scraper.
                               // The body text markdown stays 100% clean with no query strings!
                               const redditSubmitUrlWithImg = selectedArticle?.imageUrl
-                                ? `${currentUrl}?img=${encodeURIComponent(selectedArticle.imageUrl)}`
-                                : currentUrl
+                                ? `${currentUrl}?img=${encodeURIComponent(selectedArticle.imageUrl)}&title=${encodeURIComponent(finalTitle)}`
+                                : `${currentUrl}?title=${encodeURIComponent(finalTitle)}`
 
                               const { submitUrl, record } = await openRedditPost({
                                 articleId: selectedArticle.id,
@@ -5394,8 +5394,8 @@ export default function Admin() {
                           <button
                             onClick={() => {
                               const redditSubmitUrlWithImg = selectedArticle?.imageUrl
-                                ? `${currentUrl}?img=${encodeURIComponent(selectedArticle.imageUrl)}`
-                                : currentUrl
+                                ? `${currentUrl}?img=${encodeURIComponent(selectedArticle.imageUrl)}&title=${encodeURIComponent(finalTitle)}`
+                                : `${currentUrl}?title=${encodeURIComponent(finalTitle)}`
                               const shareUrl = buildRedditSubmitUrl({
                                 subreddit: redditSubreddit,
                                 articleUrl: redditSubmitUrlWithImg,
