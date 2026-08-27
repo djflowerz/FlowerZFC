@@ -232,7 +232,26 @@ export function markSubredditJoined(name: string): void {
   }
 }
 
-// ─── Deep-link builder ───────────────────────────────────────────────────────
+// ─── Clean SEO Article Slug Generator ─────────────────────────────────────────
+// Generates human-readable, professional URL slugs from article titles:
+// e.g. "Man City join Liverpool in race..." -> "man-city-join-liverpool-in-race"
+export function generateArticleSlug(title: string, fallbackId?: string): string {
+  if (!title || typeof title !== 'string') {
+    return fallbackId ? String(fallbackId).replace(/[^a-z0-9]/gi, '-').toLowerCase() : 'football-news'
+  }
+  const clean = title
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
+    .replace(/[^a-z0-9\s-]/g, '')                     // strip punctuation
+    .trim()
+    .replace(/\s+/g, '-')                             // spaces to dashes
+    .replace(/-+/g, '-')                             // collapse multiple dashes
+    .slice(0, 80)                                    // limit length
+    .replace(/-$/, '')                               // trim trailing dash
+
+  return clean || (fallbackId ? String(fallbackId).replace(/[^a-z0-9]/gi, '-').toLowerCase() : 'football-news')
+}
+
 // ─── Catchy Reddit Body Text Generator ────────────────────────────────────────
 // Generates natural, human-written text for Reddit (no robotic headers/emojis):
 export function generateRedditCatchyBody(opts: {

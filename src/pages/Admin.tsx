@@ -13,7 +13,7 @@ import { LayoutDashboard, Package, ShoppingBag, Newspaper, Headphones, Ticket, U
 import {
   FOOTBALL_SUBREDDITS, DISCOVERABLE_SUBREDDITS, getAllAvailableSubreddits,
   saveCustomSubreddit, removeCustomSubreddit, getCuratedTopArticlesForSubreddit,
-  getRedditPosts, createRedditPost, updateRedditPost, deleteRedditPost, openRedditPost,
+  generateArticleSlug, getRedditPosts, createRedditPost, updateRedditPost, deleteRedditPost, openRedditPost,
   getAutoRules, saveAutoRules, getJoinedSubreddits, markSubredditJoined, buildRedditSubmitUrl,
   generateRedditCatchyBody, buildIFTTTInstructions, SITE_RSS_URL,
   type RedditPost, type RedditAutoRule, type FootballSubreddit
@@ -4892,7 +4892,8 @@ export default function Admin() {
                                   onClick={() => {
                                     setRedditSelectedArticleId(art.id)
                                     setRedditCustomTitle(art.title)
-                                    const destUrl = `https://djflowerz.co.ke/news/${art.slug || art.id}`
+                                    const articleSlug = (art.slug && !art.slug.startsWith('ing-') && !art.slug.startsWith('art-ing-') && !art.slug.startsWith('ls_')) ? art.slug : generateArticleSlug(art.title, art.id)
+                                    const destUrl = `https://djflowerz.co.ke/news/${articleSlug}`
                                     const body = generateRedditCatchyBody({
                                       title: art.title,
                                       category: art.category,
@@ -4902,7 +4903,7 @@ export default function Admin() {
                                     })
                                     setRedditCustomBody(body)
 
-                                    // Save to database
+                                    // Save to database with clean human-readable slug
                                     saveArticleToDb({
                                       id: art.id,
                                       title: art.title,
@@ -4911,7 +4912,7 @@ export default function Admin() {
                                       image_url: art.imageUrl || '',
                                       published_at: art.date || new Date().toISOString(),
                                       author: art.author || 'Admin',
-                                      slug: art.slug || art.id,
+                                      slug: articleSlug,
                                     }).catch(() => {})
                                   }}
                                   className={`p-2 rounded-xl border cursor-pointer transition-all flex items-center gap-2.5 ${
@@ -5006,7 +5007,8 @@ export default function Admin() {
                                 else if (cat.includes('bundesliga')) targetSub = 'Bundesliga'
                                 setRedditSubreddit(targetSub)
 
-                                const destUrl = `https://djflowerz.co.ke/news/${art.slug || art.id}`
+                                const articleSlug = (art.slug && !art.slug.startsWith('ing-') && !art.slug.startsWith('art-ing-') && !art.slug.startsWith('ls_')) ? art.slug : generateArticleSlug(art.title, art.id)
+                                const destUrl = `https://djflowerz.co.ke/news/${articleSlug}`
                                 const body = generateRedditCatchyBody({
                                   title: art.title,
                                   category: art.category,
@@ -5025,7 +5027,7 @@ export default function Admin() {
                                   image_url: art.imageUrl || '',
                                   published_at: art.date || new Date().toISOString(),
                                   author: art.author || 'Admin',
-                                  slug: art.slug || art.id,
+                                  slug: articleSlug,
                                 }).catch(() => {})
                               }}
                               className={`p-3 rounded-xl border cursor-pointer transition-all ${
@@ -5059,8 +5061,9 @@ export default function Admin() {
                 <div className="lg:col-span-7 space-y-4">
                   {(() => {
                     const selectedArticle = articles.find(a => a.id === redditSelectedArticleId) || articles[0]
+                    const cleanSlug = selectedArticle ? ((selectedArticle.slug && !selectedArticle.slug.startsWith('ing-') && !selectedArticle.slug.startsWith('art-ing-') && !selectedArticle.slug.startsWith('ls_')) ? selectedArticle.slug : generateArticleSlug(selectedArticle.title, selectedArticle.id)) : ''
                     const currentUrl = selectedArticle
-                      ? `https://djflowerz.co.ke/news/${selectedArticle.slug || selectedArticle.id}`
+                      ? `https://djflowerz.co.ke/news/${cleanSlug}`
                       : 'https://djflowerz.co.ke'
                     const finalTitle = redditCustomTitle || selectedArticle?.title || 'FlowerZFC Football News'
                     const defaultBody = selectedArticle ? generateRedditCatchyBody({

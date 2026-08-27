@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import AdBanner from '../components/AdBanner'
-import { getArticle } from '../services/articleStore'
+import { getArticle, getAllArticles } from '../services/articleStore'
 import { fetchAllArticles, saveCommentToDb, fetchAllComments } from '../services/supabaseClient'
 import { getIngestedPosts } from '../services/contentIngestion'
 
@@ -81,12 +81,15 @@ export default function Article() {
       let foundData: ArticleData | null = null
 
       if (!error && dbArts && dbArts.length > 0) {
-        const matched = dbArts.find(a =>
-          a.id === id ||
-          a.slug === id ||
-          a.id.toLowerCase() === id.toLowerCase() ||
-          (a.slug && id && a.slug.toLowerCase().includes(id.toLowerCase()))
-        )
+        const cleanId = id.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+        const matched = dbArts.find(a => {
+          if (a.id === id || a.slug === id) return true
+          if (a.id.toLowerCase() === id.toLowerCase()) return true
+          if (a.slug && a.slug.toLowerCase() === id.toLowerCase()) return true
+          const aTitleSlug = (a.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+          if (aTitleSlug && (aTitleSlug === cleanId || aTitleSlug.includes(cleanId) || cleanId.includes(aTitleSlug.slice(0, 30)))) return true
+          return false
+        })
         if (matched) {
           const bodyText = matched.body || ''
           const paras = buildFullArticleStory(matched.title, matched.category, bodyText)
@@ -117,7 +120,15 @@ export default function Article() {
 
       // 2. Fallback to localStorage articleStore
       if (!foundData) {
-        const stored = getArticle(id)
+        const storedAll = getAllArticles()
+        const cleanId = id.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+        const stored = getArticle(id) || storedAll.find(a => {
+          if (a.id === id || a.slug === id) return true
+          if (a.slug && a.slug.toLowerCase() === id.toLowerCase()) return true
+          const aTitleSlug = (a.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+          if (aTitleSlug && (aTitleSlug === cleanId || aTitleSlug.includes(cleanId) || cleanId.includes(aTitleSlug.slice(0, 30)))) return true
+          return false
+        })
         if (stored) {
           const bodyText = stored.body || ''
           const paras = buildFullArticleStory(stored.title, stored.category, bodyText)
