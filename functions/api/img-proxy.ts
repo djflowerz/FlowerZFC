@@ -1,9 +1,26 @@
 export const onRequest: PagesFunction = async (context) => {
   const url = new URL(context.request.url)
-  const target = url.searchParams.get('url')
+  let target = url.searchParams.get('url') || ''
 
   if (!target) {
     return new Response('Missing url parameter', { status: 400 })
+  }
+
+  // Safely decode if double-encoded or encoded by proxy chain
+  while (target.includes('%3A') || target.includes('%2F') || target.includes('%25')) {
+    try {
+      const next = decodeURIComponent(target)
+      if (next === target) break
+      target = next
+    } catch { break }
+  }
+
+  if (!target.startsWith('http://') && !target.startsWith('https://')) {
+    if (target.startsWith('//')) {
+      target = 'https:' + target
+    } else {
+      return new Response('Invalid URL scheme', { status: 400 })
+    }
   }
 
   try {

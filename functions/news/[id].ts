@@ -119,6 +119,16 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
   // Valid image with HTTPS & proxy for external hosts without CORS
   let rawImage = queryImg || article?.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1200&h=630&fit=crop&auto=format'
+
+  // Safely decode if queryImg was encoded or double-encoded
+  while (rawImage.includes('%3A') || rawImage.includes('%2F') || rawImage.includes('%25')) {
+    try {
+      const next = decodeURIComponent(rawImage)
+      if (next === rawImage) break
+      rawImage = next
+    } catch { break }
+  }
+
   if (rawImage.startsWith('//')) {
     rawImage = 'https:' + rawImage
   }
