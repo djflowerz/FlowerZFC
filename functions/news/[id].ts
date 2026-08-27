@@ -118,7 +118,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   const description = cleanText(descRaw).slice(0, 200)
 
   // Valid image with HTTPS & proxy for external hosts without CORS
-  let rawImage = article?.image_url || queryImg || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1200&h=630&fit=crop&auto=format'
+  let rawImage = queryImg || article?.image_url || 'https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1200&h=630&fit=crop&auto=format'
   if (rawImage.startsWith('//')) {
     rawImage = 'https:' + rawImage
   }

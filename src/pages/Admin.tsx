@@ -5364,10 +5364,17 @@ export default function Admin() {
                                 slug: selectedArticle.slug || selectedArticle.id,
                               }).catch(() => {})
 
+                              // The Reddit submit URL includes ?img= so the Cloudflare Edge Worker
+                              // serves the 100% exact high-res article photo to Reddit's scraper.
+                              // The body text markdown stays 100% clean with no query strings!
+                              const redditSubmitUrlWithImg = selectedArticle?.imageUrl
+                                ? `${currentUrl}?img=${encodeURIComponent(selectedArticle.imageUrl)}`
+                                : currentUrl
+
                               const { submitUrl, record } = await openRedditPost({
                                 articleId: selectedArticle.id,
                                 articleTitle: selectedArticle.title,
-                                articleUrl: currentUrl,
+                                articleUrl: redditSubmitUrlWithImg,
                                 subreddit: redditSubreddit,
                                 customTitle: finalTitle,
                                 bodyText: finalBody,
@@ -5386,9 +5393,12 @@ export default function Admin() {
 
                           <button
                             onClick={() => {
+                              const redditSubmitUrlWithImg = selectedArticle?.imageUrl
+                                ? `${currentUrl}?img=${encodeURIComponent(selectedArticle.imageUrl)}`
+                                : currentUrl
                               const shareUrl = buildRedditSubmitUrl({
                                 subreddit: redditSubreddit,
-                                articleUrl: currentUrl,
+                                articleUrl: redditSubmitUrlWithImg,
                                 title: finalTitle,
                                 bodyText: finalBody,
                                 flair: redditFlair,
