@@ -35,29 +35,76 @@ export const onRequest: PagesFunction<Env> = async (context) => {
   const supabaseKey = env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY
 
   let article: any = null
+  const cleanId = id.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-')
 
-  // 1. Try querying Supabase
+  // 1. Try querying Contentful API for live articles
   try {
-    const encodedId = encodeURIComponent(id)
-    const apiRes = await fetch(
-      `${supabaseUrl}/rest/v1/articles?or=(id.eq.${encodedId},slug.eq.${encodedId})&select=id,slug,title,summary,body,image_url,category,author,published_at&limit=1`,
-      {
-        headers: {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-          Accept: 'application/json',
-        },
-      }
-    )
+    const contentfulUrl = 'https://cdn.contentful.com/spaces/u47hn5mzoiuo/environments/master/entries?access_token=BajQyLYH7tgna4_YpZXm_9TEpTTy7E7GJbm8w5JeWhM&content_type=article&limit=100&order=-sys.createdAt'
+    const cfRes = await fetch(contentfulUrl)
+    if (cfRes.ok) {
+      const cfData: any = await cfRes.json()
+      const assets = new Map<string, string>()
+      ;(cfData.includes?.Asset || []).forEach((a: any) => {
+        if (a.sys?.id && a.fields?.file?.url) {
+          const u: string = a.fields.file.url
+          assets.set(a.sys.id, u.startsWith('http') ? u : 'https:' + u)
+        }
+      })
 
-    if (apiRes.ok) {
-      const data = await apiRes.json()
-      if (Array.isArray(data) && data.length > 0) {
-        article = data[0]
+      const match = (cfData.items || []).find((item: any) => {
+        const itemTitle = (item.fields?.title || '').toLowerCase()
+        const itemSlug = (item.fields?.slug || '').toLowerCase()
+        const itemTitleSlug = itemTitle.replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-').slice(0, 80)
+        const sysId = (item.sys?.id || '').toLowerCase()
+
+        if (sysId === cleanId || `ing-${sysId}` === cleanId) return true
+        if (itemSlug === cleanId || itemTitleSlug === cleanId) return true
+        if (cleanId.length > 15 && (itemTitleSlug.includes(cleanId.slice(0, 35)) || cleanId.includes(itemTitleSlug.slice(0, 35)))) return true
+        return false
+      })
+
+      if (match) {
+        const imgId = match.fields?.mainImage?.sys?.id || match.fields?.image?.sys?.id || match.fields?.heroImage?.sys?.id
+        const metaImg = match.fields?.metaData?.imageUrl
+        const resolvedImg = metaImg || assets.get(imgId)
+
+        article = {
+          id: match.sys?.id,
+          title: match.fields?.title,
+          slug: cleanId,
+          summary: match.fields?.summary || match.fields?.teaser || match.fields?.title,
+          image_url: resolvedImg,
+        }
       }
     }
   } catch (err) {
-    console.error('Error fetching article for OpenGraph:', err)
+    console.error('Error querying Contentful for OpenGraph:', err)
+  }
+
+  // 2. Try querying Supabase if not found in Contentful
+  if (!article) {
+    try {
+      const encodedId = encodeURIComponent(id)
+      const apiRes = await fetch(
+        `${supabaseUrl}/rest/v1/articles?or=(id.eq.${encodedId},slug.eq.${encodedId})&select=id,slug,title,summary,body,image_url,category,author,published_at&limit=1`,
+        {
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+            Accept: 'application/json',
+          },
+        }
+      )
+
+      if (apiRes.ok) {
+        const data = await apiRes.json()
+        if (Array.isArray(data) && data.length > 0) {
+          article = data[0]
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching article from Supabase for OpenGraph:', err)
+    }
   }
 
   // 2. Fallbacks from query params if article is newly ingested / not yet in DB
