@@ -142,6 +142,7 @@ export function buildRedditSubmitUrl(opts: {
   articleUrl: string
   title: string
   bodyText?: string
+  flair?: string
   type?: 'link' | 'text'
 }): string {
   // Always sanitize URL to remove client-side hash fragments (which break Reddit scraper)
@@ -158,6 +159,11 @@ export function buildRedditSubmitUrl(opts: {
   })
   if (opts.bodyText && opts.bodyText.trim()) {
     params.set('text', opts.bodyText.trim())
+  }
+  if (opts.flair && opts.flair.trim()) {
+    params.set('flair', opts.flair.trim())
+    params.set('flair_name', opts.flair.trim())
+    params.set('flair_text', opts.flair.trim())
   }
   return `${base}?${params.toString()}`
 }
@@ -215,6 +221,7 @@ export async function openRedditPost(opts: {
     articleUrl: opts.articleUrl,
     title,
     bodyText: opts.bodyText,
+    flair: opts.flair,
   })
 
   const record = await createRedditPost({

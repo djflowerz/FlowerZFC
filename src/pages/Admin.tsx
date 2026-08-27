@@ -964,6 +964,7 @@ export default function Admin() {
   const [redditCustomTitle, setRedditCustomTitle] = useState<string>('')
   const [redditCustomBody, setRedditCustomBody] = useState<string>('')
   const [redditBodyPreset, setRedditBodyPreset] = useState<'natural' | 'quote' | 'short'>('natural')
+  const [redditFlair, setRedditFlair] = useState<string>('News')
   const [redditSubreddit, setRedditSubreddit] = useState<string>('soccer')
   const [redditScheduleDate, setRedditScheduleDate] = useState<string>('')
   const [redditAutoRules, setRedditAutoRules] = useState<RedditAutoRule[]>(() => getAutoRules())
@@ -5063,6 +5064,43 @@ export default function Admin() {
                           </div>
                         </div>
 
+                        {/* Post Flair Selector (Required by r/soccer & r/PremierLeague) */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                              <span>🏷️</span> Post Flair (Required by Reddit)
+                            </label>
+                            <span className="text-[10px] text-amber-400 font-bold">Must select on Reddit</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {[
+                              { label: '📰 News', val: 'News' },
+                              { label: '🗣️ Quotes', val: 'Quotes' },
+                              { label: '💬 Discussion', val: 'Discussion' },
+                              { label: '🔄 Transfer / Rumour', val: 'Transfer' },
+                              { label: '🧠 Analysis / Tactics', val: 'Analysis' },
+                              { label: '🚨 Breaking', val: 'Breaking' },
+                            ].map(fl => (
+                              <button
+                                key={fl.val}
+                                type="button"
+                                onClick={() => setRedditFlair(fl.val)}
+                                className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider border transition-all ${
+                                  redditFlair === fl.val
+                                    ? 'bg-amber-500/20 text-amber-300 border-amber-500 font-black'
+                                    : 'bg-white/5 text-gray-400 border-white/10 hover:text-white'
+                                }`}
+                              >
+                                {fl.label}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg leading-relaxed flex items-center gap-1.5">
+                            <span>⚠️</span>
+                            <span><strong>Reddit Posting Rule:</strong> When the Reddit tab opens, click <strong>"+ Add flair and tags"</strong> and pick <strong>"{redditFlair}"</strong> so Reddit enables the "Post" button.</span>
+                          </p>
+                        </div>
+
                         {/* Title override */}
                         <div className="space-y-1.5">
                           <div className="flex items-center justify-between">
@@ -5143,9 +5181,14 @@ export default function Admin() {
 
                         {/* Live Reddit Preview Box */}
                         <div className="p-4 rounded-xl border border-orange-500/20 bg-[#0d0d1e] space-y-2.5">
-                          <p className="text-[10px] font-black uppercase text-[#ff4500] tracking-wider flex items-center gap-1">
-                            <span>👀</span> Preview on r/{redditSubreddit}
-                          </p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-black uppercase text-[#ff4500] tracking-wider flex items-center gap-1">
+                              <span>👀</span> Preview on r/{redditSubreddit}
+                            </p>
+                            <span className="text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded">
+                              Flair: {redditFlair}
+                            </span>
+                          </div>
                           <p className="text-sm font-bold text-white">{finalTitle}</p>
                           {selectedArticle?.imageUrl && (
                             <div className="h-32 w-full rounded-lg overflow-hidden border border-white/5 relative bg-black/40">
@@ -5188,6 +5231,7 @@ export default function Admin() {
                                 subreddit: redditSubreddit,
                                 customTitle: finalTitle,
                                 bodyText: finalBody,
+                                flair: redditFlair,
                               })
                               if (record) {
                                 setRedditPosts(prev => [record, ...prev])
@@ -5207,6 +5251,7 @@ export default function Admin() {
                                 articleUrl: currentUrl,
                                 title: finalTitle,
                                 bodyText: finalBody,
+                                flair: redditFlair,
                               })
                               navigator.clipboard.writeText(shareUrl)
                               toast('📋 Reddit Direct Submit Link copied!', 'info')
