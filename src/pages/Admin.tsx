@@ -11,10 +11,12 @@ import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type H
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
 import { LayoutDashboard, Package, ShoppingBag, Newspaper, Headphones, Ticket, Users, Wallet, BarChart3, MessageSquare, Megaphone, Mail, Settings2, Server, Settings as SettingsIcon, Satellite, ExternalLink, Share2, Rss, Zap, CheckCircle, Clock, XCircle, AlertTriangle, Copy, Plus, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
-  FOOTBALL_SUBREDDITS, getRedditPosts, createRedditPost, updateRedditPost,
-  deleteRedditPost, openRedditPost, getAutoRules, saveAutoRules, getJoinedSubreddits,
-  markSubredditJoined, buildRedditSubmitUrl, generateRedditCatchyBody, buildIFTTTInstructions, SITE_RSS_URL,
-  type RedditPost, type RedditAutoRule
+  FOOTBALL_SUBREDDITS, DISCOVERABLE_SUBREDDITS, getAllAvailableSubreddits,
+  saveCustomSubreddit, removeCustomSubreddit, getCuratedTopArticlesForSubreddit,
+  getRedditPosts, createRedditPost, updateRedditPost, deleteRedditPost, openRedditPost,
+  getAutoRules, saveAutoRules, getJoinedSubreddits, markSubredditJoined, buildRedditSubmitUrl,
+  generateRedditCatchyBody, buildIFTTTInstructions, SITE_RSS_URL,
+  type RedditPost, type RedditAutoRule, type FootballSubreddit
 } from '../services/redditService'
 import {
   saveArticle, saveArticles, getAllArticles, deleteArticle as storeDeleteArticle, deleteArticles as storeDeleteArticles, clearArticleStore,
@@ -971,6 +973,10 @@ export default function Admin() {
   const [redditArticleSearch, setRedditArticleSearch] = useState<string>('')
   const [redditCategoryFilter, setRedditCategoryFilter] = useState<string>('All')
   const [joinedSubs, setJoinedSubs] = useState<string[]>(() => getJoinedSubreddits())
+  const [allSubreddits, setAllSubreddits] = useState<FootballSubreddit[]>(() => getAllAvailableSubreddits())
+  const [subredditSearchQuery, setSubredditSearchQuery] = useState<string>('')
+  const [showSubredditScanner, setShowSubredditScanner] = useState<boolean>(false)
+  const [newSubInput, setNewSubInput] = useState<string>('')
   const [redditActiveSubTab, setRedditActiveSubTab] = useState<'compose' | 'subreddits' | 'queue' | 'rules' | 'rss'>('compose')
 
   useEffect(() => {
@@ -4859,22 +4865,99 @@ export default function Admin() {
             {/* ── SUB-TAB 1: COMPOSE & POST ────────────────────────────────────── */}
             {redditActiveSubTab === 'compose' && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Left: Article Selector */}
+                {/* Left: Article Selector & Curated Picks */}
                 <div className="lg:col-span-5 space-y-4">
+                  {/* Top 3 Curated Recommendations per Subreddit */}
+                  {(() => {
+                    const curatedPicks = getCuratedTopArticlesForSubreddit(articles, redditSubreddit)
+                    return (
+                      <div className="rounded-2xl p-4 border bg-[#131320] border-emerald-500/30 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-xs font-black uppercase text-emerald-400 tracking-wider flex items-center gap-1.5">
+                            <span>🎯</span> Top 3 Picks for r/{redditSubreddit}
+                          </h3>
+                          <span className="text-[9px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+                            Auto-Curated
+                          </span>
+                        </div>
+                        {curatedPicks.length === 0 ? (
+                          <p className="text-xs text-gray-500 italic py-2">No matching site articles yet. Publish articles to see recommendations.</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {curatedPicks.map((art: Article, pickIdx: number) => {
+                              const isSelected = redditSelectedArticleId === art.id
+                              return (
+                                <div
+                                  key={`curated-${art.id}`}
+                                  onClick={() => {
+                                    setRedditSelectedArticleId(art.id)
+                                    setRedditCustomTitle(art.title)
+                                    const destUrl = `https://djflowerz.co.ke/news/${art.slug || art.id}`
+                                    const body = generateRedditCatchyBody({
+                                      title: art.title,
+                                      category: art.category,
+                                      summary: art.body || art.excerpt || '',
+                                      articleUrl: destUrl,
+                                      preset: redditBodyPreset,
+                                    })
+                                    setRedditCustomBody(body)
+
+                                    // Save to database
+                                    saveArticleToDb({
+                                      id: art.id,
+                                      title: art.title,
+                                      category: art.category || 'Football',
+                                      body: art.body || art.excerpt || '',
+                                      image_url: art.imageUrl || '',
+                                      published_at: art.date || new Date().toISOString(),
+                                      author: art.author || 'Admin',
+                                      slug: art.slug || art.id,
+                                    }).catch(() => {})
+                                  }}
+                                  className={`p-2 rounded-xl border cursor-pointer transition-all flex items-center gap-2.5 ${
+                                    isSelected
+                                      ? 'bg-emerald-500/15 border-emerald-500'
+                                      : 'bg-[#0d0d1e] border-[#1e1e32] hover:border-emerald-500/50'
+                                  }`}
+                                >
+                                  <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-black flex items-center justify-center shrink-0">
+                                    #{pickIdx + 1}
+                                  </div>
+                                  {art.imageUrl ? (
+                                    <img src={art.imageUrl} alt="" className="w-10 h-10 object-cover rounded-lg shrink-0 border border-white/5" />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0 text-sm">⚽</div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold text-white line-clamp-1">{art.title}</p>
+                                    <p className="text-[9px] text-emerald-400 font-mono flex items-center gap-1">
+                                      <span>⚡ Recommended Match</span>
+                                      <span className="text-gray-500">· {art.category}</span>
+                                    </p>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+
+                  {/* All Published Site Articles */}
                   <div className="rounded-2xl p-5 border bg-[#131320] border-[#1e1e32] space-y-3">
-                    {/* Article Selector header */}
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="text-xs font-black uppercase text-white tracking-wider flex items-center gap-2">
-                        <span>📰</span> Select Article to Post
+                        <span>📚</span> Published Site Articles
                       </h3>
-                      <span className="text-[10px] text-gray-500">{articles.length + ingestedPosts.length} available</span>
+                      <span className="text-[10px] text-gray-500">{articles.length} on site</span>
                     </div>
 
                     {/* Search & Category Filter */}
                     <div className="space-y-2">
                       <input
                         type="text"
-                        placeholder="Search articles by title or author…"
+                        placeholder="Search published articles…"
                         value={redditArticleSearch}
                         onChange={e => setRedditArticleSearch(e.target.value)}
                         className="w-full bg-[#0d0d1e] border border-[#1e1e32] px-3 py-2 rounded-xl text-xs text-white placeholder-gray-600 outline-none focus:border-[#00b341]"
@@ -4896,102 +4979,78 @@ export default function Admin() {
                       </div>
                     </div>
 
-                    {/* Articles List — merges saved articles with live ingested posts */}
-                    <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-                      {(() => {
-                        // Convert ingestedPosts to a compatible shape
-                        const ingestedAsArticles = ingestedPosts
-                          .filter(p => p.status !== 'Rejected')
-                          .map(p => ({
-                            id: `ing-${p.id}`,
-                            title: p.transformedTitle || p.sourceTitle,
-                            slug: `ing-${p.id}`,
-                            category: p.category,
-                            author: p.author || 'FlowerZFC',
-                            imageUrl: p.sourceImage || '',
-                            summary: p.transformedBody || p.sourceBody || '',
-                            body: p.transformedBody || p.sourceBody || '',
-                            date: p.detectedAt || p.sourceDate || 'Today',
-                          }))
+                    {/* Articles List — strictly website published articles */}
+                    <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                      {articles
+                        .filter(a => {
+                          const matchesCat = redditCategoryFilter === 'All' || (a.category || '').toLowerCase().includes(redditCategoryFilter.toLowerCase())
+                          const query = redditArticleSearch.toLowerCase()
+                          const matchesQuery = !query || (a.title || '').toLowerCase().includes(query) || (a.author || '').toLowerCase().includes(query)
+                          return matchesCat && matchesQuery
+                        })
+                        .slice(0, 50)
+                        .map(art => {
+                          const isSelected = redditSelectedArticleId === art.id
+                          return (
+                            <div
+                              key={art.id}
+                              onClick={() => {
+                                setRedditSelectedArticleId(art.id)
+                                setRedditCustomTitle(art.title)
+                                const cat = (art.category || '').toLowerCase()
+                                let targetSub = 'soccer'
+                                if (cat.includes('premier')) targetSub = 'PremierLeague'
+                                else if (cat.includes('champions')) targetSub = 'championsleague'
+                                else if (cat.includes('la liga')) targetSub = 'LaLiga'
+                                else if (cat.includes('serie')) targetSub = 'seriea'
+                                else if (cat.includes('bundesliga')) targetSub = 'Bundesliga'
+                                setRedditSubreddit(targetSub)
 
-                        // Deduplicate: skip ingestedPosts already saved as articles
-                        const articleIds = new Set(articles.map(a => a.id))
-                        const uniqueIngested = ingestedAsArticles.filter(ia => !articleIds.has(ia.id))
+                                const destUrl = `https://djflowerz.co.ke/news/${art.slug || art.id}`
+                                const body = generateRedditCatchyBody({
+                                  title: art.title,
+                                  category: art.category,
+                                  summary: art.body || art.excerpt || '',
+                                  articleUrl: destUrl,
+                                  preset: redditBodyPreset,
+                                })
+                                setRedditCustomBody(body)
 
-                        // Merge: ingested (newest) first, then saved articles
-                        const merged = [...uniqueIngested, ...articles]
-
-                        return merged
-                          .filter(a => {
-                            const matchesCat = redditCategoryFilter === 'All' || (a.category || '').toLowerCase().includes(redditCategoryFilter.toLowerCase())
-                            const query = redditArticleSearch.toLowerCase()
-                            const matchesQuery = !query || (a.title || '').toLowerCase().includes(query) || (a.author || '').toLowerCase().includes(query)
-                            return matchesCat && matchesQuery
-                          })
-                          .slice(0, 50)
-                          .map(art => {
-                            const isSelected = redditSelectedArticleId === art.id
-                            return (
-                              <div
-                                key={art.id}
-                                onClick={() => {
-                                  setRedditSelectedArticleId(art.id)
-                                  setRedditCustomTitle(art.title)
-                                  const cat = (art.category || '').toLowerCase()
-                                  let targetSub = 'soccer'
-                                  if (cat.includes('premier')) targetSub = 'PremierLeague'
-                                  else if (cat.includes('champions')) targetSub = 'championsleague'
-                                  else if (cat.includes('la liga')) targetSub = 'LaLiga'
-                                  else if (cat.includes('serie')) targetSub = 'seriea'
-                                  else if (cat.includes('bundesliga')) targetSub = 'Bundesliga'
-                                  setRedditSubreddit(targetSub)
-
-                                  const destUrl = `https://djflowerz.co.ke/news/${art.slug || art.id}`
-                                  const body = generateRedditCatchyBody({
-                                    title: art.title,
-                                    category: art.category,
-                                    summary: (art as any).summary || (art as any).body || '',
-                                    articleUrl: destUrl,
-                                    preset: redditBodyPreset,
-                                  })
-                                  setRedditCustomBody(body)
-
-                                  // Sync to Supabase so Edge Function can find image
-                                  saveArticleToDb({
-                                    id: art.id,
-                                    title: art.title,
-                                    category: art.category || 'Football',
-                                    body: (art as any).body || (art as any).summary || '',
-                                    image_url: art.imageUrl || '',
-                                    published_at: new Date().toISOString(),
-                                    author: art.author || 'Admin',
-                                    slug: art.slug || art.id,
-                                  }).catch(() => {})
-                                }}
-                                className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                                  isSelected
-                                    ? 'bg-orange-500/10 border-[#ff4500]'
-                                    : 'bg-[#0d0d1e] border-[#1e1e32] hover:border-gray-600'
-                                }`}
-                              >
-                                <div className="flex items-start gap-2.5">
-                                  {art.imageUrl ? (
-                                    <img src={art.imageUrl} alt="" className="w-12 h-12 object-cover rounded-lg shrink-0 border border-white/5" />
-                                  ) : (
-                                    <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center shrink-0 text-base">⚽</div>
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5 mb-0.5">
-                                      <span className="text-[9px] font-black uppercase text-emerald-400">{art.category}</span>
-                                      <span className="text-[9px] text-gray-500">· {art.date || 'Recent'}</span>
-                                    </div>
-                                    <p className="text-xs font-bold text-white line-clamp-2 leading-tight">{art.title}</p>
+                                // Save to Supabase so Edge Worker serves the real image
+                                saveArticleToDb({
+                                  id: art.id,
+                                  title: art.title,
+                                  category: art.category || 'Football',
+                                  body: art.body || art.excerpt || '',
+                                  image_url: art.imageUrl || '',
+                                  published_at: art.date || new Date().toISOString(),
+                                  author: art.author || 'Admin',
+                                  slug: art.slug || art.id,
+                                }).catch(() => {})
+                              }}
+                              className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'bg-orange-500/10 border-[#ff4500]'
+                                  : 'bg-[#0d0d1e] border-[#1e1e32] hover:border-gray-600'
+                              }`}
+                            >
+                              <div className="flex items-start gap-2.5">
+                                {art.imageUrl ? (
+                                  <img src={art.imageUrl} alt="" className="w-12 h-12 object-cover rounded-lg shrink-0 border border-white/5" />
+                                ) : (
+                                  <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center shrink-0 text-base">⚽</div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 mb-0.5">
+                                    <span className="text-[9px] font-black uppercase text-emerald-400">{art.category}</span>
+                                    <span className="text-[9px] text-gray-500">· {art.date || 'Recent'}</span>
                                   </div>
+                                  <p className="text-xs font-bold text-white line-clamp-2 leading-tight">{art.title}</p>
                                 </div>
                               </div>
-                            )
-                          })
-                      })()}
+                            </div>
+                          )
+                        })}
                     </div>
                   </div>
                 </div>
@@ -4999,31 +5058,15 @@ export default function Admin() {
                 {/* Right: Compose & Publish Panel */}
                 <div className="lg:col-span-7 space-y-4">
                   {(() => {
-                    const savedArticle = articles.find(a => a.id === redditSelectedArticleId)
-                    const ingestedMatch = !savedArticle ? ingestedPosts.find(p => `ing-${p.id}` === redditSelectedArticleId) : null
-                    const selectedArticle = savedArticle || (ingestedMatch ? {
-                      id: `ing-${ingestedMatch.id}`,
-                      title: ingestedMatch.transformedTitle || ingestedMatch.sourceTitle,
-                      slug: `ing-${ingestedMatch.id}`,
-                      category: ingestedMatch.category,
-                      author: ingestedMatch.author,
-                      imageUrl: ingestedMatch.sourceImage || '',
-                      summary: ingestedMatch.transformedBody || ingestedMatch.sourceBody || '',
-                      body: ingestedMatch.transformedBody || ingestedMatch.sourceBody || '',
-                      date: ingestedMatch.detectedAt || ingestedMatch.sourceDate || 'Today',
-                    } : null) || articles[0]
-                    // Always include ?img= so the Cloudflare Edge Function serves the correct
-                    // og:image even if the article hasn't been saved to Supabase yet.
-                    // Query params are safe with Reddit — only # hash fragments break scrapers.
-                    const imgParam = selectedArticle?.imageUrl ? `?img=${encodeURIComponent(selectedArticle.imageUrl)}` : ''
+                    const selectedArticle = articles.find(a => a.id === redditSelectedArticleId) || articles[0]
                     const currentUrl = selectedArticle
-                      ? `https://djflowerz.co.ke/news/${selectedArticle.slug || selectedArticle.id}${imgParam}`
+                      ? `https://djflowerz.co.ke/news/${selectedArticle.slug || selectedArticle.id}`
                       : 'https://djflowerz.co.ke'
                     const finalTitle = redditCustomTitle || selectedArticle?.title || 'FlowerZFC Football News'
                     const defaultBody = selectedArticle ? generateRedditCatchyBody({
                       title: finalTitle,
                       category: selectedArticle.category,
-                      summary: (selectedArticle as any).summary || (selectedArticle as any).body || '',
+                      summary: (selectedArticle as any).body || (selectedArticle as any).excerpt || '',
                       articleUrl: currentUrl,
                       preset: redditBodyPreset,
                     }) : ''
@@ -5040,11 +5083,105 @@ export default function Admin() {
                           </span>
                         </div>
 
-                        {/* Subreddit Picker */}
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-gray-400">Target Subreddit</label>
+                        {/* Subreddit Picker & Scanner Toggle */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-gray-400">Target Subreddit</label>
+                            <button
+                              type="button"
+                              onClick={() => setShowSubredditScanner(!showSubredditScanner)}
+                              className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20"
+                            >
+                              <span>🔍</span>
+                              <span>{showSubredditScanner ? 'Close Scanner' : 'Discover & Add Subreddits (+)'}</span>
+                            </button>
+                          </div>
+
+                          {/* Subreddit Scanner / Directory Drawer */}
+                          {showSubredditScanner && (
+                            <div className="p-3 rounded-xl border border-emerald-500/30 bg-[#0d0d1e] space-y-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[10px] font-black uppercase text-emerald-400">Search 40+ Football Subreddits</span>
+                                <span className="text-[9px] text-gray-500 font-mono">Clubs, Leagues & National</span>
+                              </div>
+                              <input
+                                type="text"
+                                placeholder="Search by club or league (e.g. Real Madrid, Arsenal, Serie A, Newcastle)..."
+                                value={subredditSearchQuery}
+                                onChange={e => setSubredditSearchQuery(e.target.value)}
+                                className="w-full bg-[#131320] border border-[#1e1e32] px-3 py-1.5 rounded-lg text-xs text-white placeholder-gray-500 outline-none focus:border-emerald-500"
+                              />
+
+                              {/* Custom Subreddit Input */}
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="Or add custom subreddit (e.g. Gunners)"
+                                  value={newSubInput}
+                                  onChange={e => setNewSubInput(e.target.value)}
+                                  className="flex-1 bg-[#131320] border border-[#1e1e32] px-3 py-1.5 rounded-lg text-xs text-white placeholder-gray-500 outline-none focus:border-emerald-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const clean = newSubInput.replace(/^r\//, '').trim()
+                                    if (!clean) return
+                                    const newSub: FootballSubreddit = {
+                                      name: clean,
+                                      display: `r/${clean}`,
+                                      subscribers: 'Custom',
+                                      flag: '⚽',
+                                      description: 'Custom added football community',
+                                      tags: ['Football'],
+                                    }
+                                    saveCustomSubreddit(newSub)
+                                    setAllSubreddits(getAllAvailableSubreddits())
+                                    setRedditSubreddit(clean)
+                                    setNewSubInput('')
+                                    toast(`✅ Added r/${clean} to your subreddits list!`, 'success')
+                                  }}
+                                  className="px-3 py-1.5 text-xs font-bold bg-emerald-500 text-black rounded-lg hover:bg-emerald-400"
+                                >
+                                  + Add
+                                </button>
+                              </div>
+
+                              {/* Search Results */}
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                                {DISCOVERABLE_SUBREDDITS
+                                  .filter(s => {
+                                    const q = subredditSearchQuery.toLowerCase()
+                                    return !q || s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q)
+                                  })
+                                  .map(sub => (
+                                    <button
+                                      key={sub.name}
+                                      type="button"
+                                      onClick={() => {
+                                        setRedditSubreddit(sub.name)
+                                        saveCustomSubreddit(sub)
+                                        setAllSubreddits(getAllAvailableSubreddits())
+                                        toast(`Selected r/${sub.name}!`, 'info')
+                                      }}
+                                      className={`p-1.5 rounded-lg text-left border text-xs transition-all ${
+                                        redditSubreddit === sub.name
+                                          ? 'bg-[#ff4500] text-white border-[#ff4500] font-black'
+                                          : 'bg-[#131320] text-gray-300 border-[#1e1e32] hover:border-emerald-500'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <span className="truncate">{sub.flag} {sub.display}</span>
+                                        <span className="text-[9px] opacity-70 font-mono">{sub.subscribers}</span>
+                                      </div>
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Quick Active Subreddit Pills */}
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {FOOTBALL_SUBREDDITS.slice(0, 9).map(sub => (
+                            {allSubreddits.slice(0, 9).map(sub => (
                               <button
                                 key={sub.name}
                                 type="button"
@@ -5133,7 +5270,7 @@ export default function Admin() {
                                       const newBody = generateRedditCatchyBody({
                                         title: finalTitle,
                                         category: selectedArticle.category,
-                                        summary: selectedArticle.summary || (selectedArticle as any).body || '',
+                                        summary: selectedArticle.body || selectedArticle.excerpt || '',
                                         articleUrl: currentUrl,
                                         preset,
                                       })
@@ -5217,7 +5354,7 @@ export default function Admin() {
                                 id: selectedArticle.id,
                                 title: selectedArticle.title,
                                 category: selectedArticle.category || 'Football',
-                                body: (selectedArticle as any).body || selectedArticle.summary || '',
+                                body: (selectedArticle as any).body || selectedArticle.excerpt || '',
                                 image_url: selectedArticle.imageUrl || '',
                                 published_at: (selectedArticle as any).date || new Date().toISOString(),
                                 author: selectedArticle.author || 'Admin',
