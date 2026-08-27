@@ -965,7 +965,8 @@ export default function Admin() {
   const [redditSelectedArticleId, setRedditSelectedArticleId] = useState<string>('')
   const [redditCustomTitle, setRedditCustomTitle] = useState<string>('')
   const [redditCustomBody, setRedditCustomBody] = useState<string>('')
-  const [redditBodyPreset, setRedditBodyPreset] = useState<'natural' | 'quote' | 'short'>('natural')
+  const [redditBodyPreset, setRedditBodyPreset] = useState<'analysis' | 'fan' | 'debate' | 'clean' | 'natural' | 'quote' | 'short'>('natural')
+  const [redditIncludeBodyLink, setRedditIncludeBodyLink] = useState<boolean>(false)
   const [redditFlair, setRedditFlair] = useState<string>('News')
   const [redditSubreddit, setRedditSubreddit] = useState<string>('soccer')
   const [redditScheduleDate, setRedditScheduleDate] = useState<string>('')
@@ -5071,7 +5072,9 @@ export default function Admin() {
                       category: selectedArticle.category,
                       summary: (selectedArticle as any).body || (selectedArticle as any).excerpt || '',
                       articleUrl: currentUrl,
+                      subreddit: redditSubreddit,
                       preset: redditBodyPreset,
+                      includeLink: redditIncludeBodyLink,
                     }) : ''
                     const finalBody = redditCustomBody || defaultBody
 
@@ -5260,46 +5263,98 @@ export default function Admin() {
                         <div className="space-y-2">
                           <div className="flex items-center justify-between flex-wrap gap-2">
                             <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
-                              <span>💬</span> Natural Body Text (Editable Markdown)
+                              <span>💬</span> Authentic Body Text (Human & Non-Spammy)
                             </label>
-                            <div className="flex items-center gap-1">
-                              {(['natural', 'quote', 'short'] as const).map(preset => (
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {[
+                                { key: 'analysis', label: '🧠 Tactical Analysis' },
+                                { key: 'fan', label: '🏟️ Fan View' },
+                                { key: 'debate', label: '🔥 Debate' },
+                                { key: 'clean', label: '⚡ Pure Summary' },
+                                { key: 'quote', label: '🗣️ Key Quotes' },
+                              ].map(p => (
                                 <button
-                                  key={preset}
+                                  key={p.key}
                                   type="button"
                                   onClick={() => {
-                                    setRedditBodyPreset(preset)
+                                    const nextPreset = p.key as any
+                                    setRedditBodyPreset(nextPreset)
                                     if (selectedArticle) {
                                       const newBody = generateRedditCatchyBody({
                                         title: finalTitle,
                                         category: selectedArticle.category,
                                         summary: selectedArticle.body || selectedArticle.excerpt || '',
                                         articleUrl: currentUrl,
-                                        preset,
+                                        subreddit: redditSubreddit,
+                                        preset: nextPreset,
+                                        includeLink: redditIncludeBodyLink,
                                       })
                                       setRedditCustomBody(newBody)
                                     }
                                   }}
                                   className={`px-2.5 py-1 text-[10px] font-bold rounded-lg uppercase tracking-wider border transition-all ${
-                                    redditBodyPreset === preset
+                                    redditBodyPreset === p.key
                                       ? 'bg-[#ff4500] text-white border-[#ff4500]'
                                       : 'bg-white/5 text-gray-400 border-white/10 hover:text-white'
                                   }`}
                                 >
-                                  {preset === 'natural' && '✍️ Natural Summary'}
-                                  {preset === 'quote' && '🗣️ Key Quotes'}
-                                  {preset === 'short' && '⚡ Short & Direct'}
+                                  {p.label}
                                 </button>
                               ))}
                             </div>
                           </div>
+
+                          {/* Subreddit Specific Moderation Advice */}
+                          {['footballtactics', 'football', 'bootroom'].includes(redditSubreddit.toLowerCase()) && (
+                            <p className="text-[10px] text-blue-400 bg-blue-500/10 border border-blue-500/20 p-2 rounded-lg leading-relaxed flex items-center gap-1.5">
+                              <span>🛡️</span>
+                              <span><strong>r/{redditSubreddit} Mod Advice:</strong> Generic questions like "Thoughts?" get removed. Use the <strong>🧠 Tactical Analysis</strong> preset for deep tactical discussion prompts.</span>
+                            </p>
+                          )}
+                          {['liverpoolfc', 'gunners', 'arsenal', 'reddevils', 'chelseafc', 'mcfc', 'coys'].includes(redditSubreddit.toLowerCase()) && (
+                            <p className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 p-2 rounded-lg leading-relaxed flex items-center gap-1.5">
+                              <span>🛡️</span>
+                              <span><strong>r/{redditSubreddit} Mod Advice:</strong> Use the <strong>🏟️ Fan View</strong> preset. Leaving the body link off prevents AutoModerator removal for self-promotion.</span>
+                            </p>
+                          )}
+
                           <textarea
                             rows={5}
                             value={redditCustomBody || defaultBody}
                             onChange={e => setRedditCustomBody(e.target.value)}
-                            placeholder="Natural summary and opinion question to attract viewers..."
+                            placeholder="Authentic discussion and opinion prompt..."
                             className="w-full bg-[#0d0d1e] border border-[#1e1e32] p-3 rounded-xl text-xs text-white font-mono leading-relaxed outline-none focus:border-[#ff4500]"
                           />
+
+                          {/* Toggle include link in body */}
+                          <div className="flex items-center justify-between text-[11px] text-gray-400 pt-0.5">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={redditIncludeBodyLink}
+                                onChange={e => {
+                                  setRedditIncludeBodyLink(e.target.checked)
+                                  if (selectedArticle) {
+                                    const newBody = generateRedditCatchyBody({
+                                      title: finalTitle,
+                                      category: selectedArticle.category,
+                                      summary: selectedArticle.body || selectedArticle.excerpt || '',
+                                      articleUrl: currentUrl,
+                                      subreddit: redditSubreddit,
+                                      preset: redditBodyPreset,
+                                      includeLink: e.target.checked,
+                                    })
+                                    setRedditCustomBody(newBody)
+                                  }
+                                }}
+                                className="rounded accent-[#ff4500]"
+                              />
+                              <span>Include source link at end of text</span>
+                            </label>
+                            <span className="text-[10px] text-gray-500 italic">
+                              (Reddit Link Posts already link to the site in the title)
+                            </span>
+                          </div>
                         </div>
 
                         {/* Target Link Preview */}

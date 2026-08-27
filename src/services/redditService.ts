@@ -253,45 +253,74 @@ export function generateArticleSlug(title: string, fallbackId?: string): string 
 }
 
 // ─── Catchy Reddit Body Text Generator ────────────────────────────────────────
-// Generates natural, human-written text for Reddit (no robotic headers/emojis):
+// Generates natural, human-written text for Reddit with zero spam triggers
 export function generateRedditCatchyBody(opts: {
   title: string
   category?: string
   summary?: string
-  articleUrl: string
-  preset?: 'natural' | 'quote' | 'short'
+  articleUrl?: string
+  subreddit?: string
+  preset?: 'analysis' | 'fan' | 'debate' | 'clean' | 'natural' | 'quote' | 'short'
+  includeLink?: boolean
 }): string {
-  const { title, summary = '', articleUrl, preset = 'natural' } = opts
-  const cleanUrl = articleUrl.split('?')[0]
+  const { title, summary = '', articleUrl = '', subreddit = '', preset = 'natural', includeLink = false } = opts
+  const sub = subreddit.toLowerCase().replace(/^r\//, '').trim()
   const cleanSummary = summary.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
-  const excerpt = cleanSummary.length > 30 ? cleanSummary : `${title}. Key reactions and developments following the match.`
+  const excerpt = cleanSummary.length > 30 ? cleanSummary : `${title}. Key developments and talking points following the latest announcements.`
 
-  if (preset === 'quote') {
-    return [
-      `"${excerpt.slice(0, 240)}..."`,
+  const isTacticsSub = ['footballtactics', 'tactics', 'bootroom', 'football'].includes(sub)
+  const isClubSub = ['liverpoolfc', 'gunners', 'arsenal', 'reddevils', 'manchesterunited', 'chelseafc', 'mcfc', 'coys', 'tottenham', 'nufc', 'everton', 'realmadrid', 'barca', 'fcbayern', 'juve', 'acmilan', 'fcintermilan', 'psg'].includes(sub)
+
+  let paragraphs: string[] = []
+
+  if (preset === 'analysis' || (preset === 'natural' && isTacticsSub)) {
+    // In-depth tactical questions to pass r/footballtactics and r/football moderation rules
+    paragraphs = [
+      excerpt.slice(0, 320) + (excerpt.length > 320 ? '...' : ''),
       '',
-      `What are your thoughts on this?`,
+      `From a tactical standpoint: How do you see this impacting the team's spacing, transition phases, and pressing structure over 90 minutes? Does this tactical shift make sense against teams playing a low block?`,
+    ]
+  } else if (preset === 'fan' || (preset === 'natural' && isClubSub)) {
+    // Authentic club supporter perspective (no corporate voice)
+    paragraphs = [
+      excerpt.slice(0, 280) + (excerpt.length > 280 ? '...' : ''),
       '',
-      `[Full story on FlowerZFC](${cleanUrl})`,
-    ].join('\n')
+      `Curious to hear how other fans are viewing this. Given our current squad depth and upcoming fixtures, does this change how we should set up our starting XI?`,
+    ]
+  } else if (preset === 'debate') {
+    // Balanced debate angle for general football subreddits
+    paragraphs = [
+      excerpt.slice(0, 280) + (excerpt.length > 280 ? '...' : ''),
+      '',
+      `What's your take on how this situation is being handled? Is this the right move in the long run or are expectations unrealistic?`,
+    ]
+  } else if (preset === 'clean' || preset === 'short') {
+    // Pure concise summary with 0 fluff (100% immune to automod rules)
+    paragraphs = [
+      excerpt.slice(0, 300) + (excerpt.length > 300 ? '...' : ''),
+    ]
+  } else if (preset === 'quote') {
+    paragraphs = [
+      `"${excerpt.slice(0, 260)}..."`,
+      '',
+      `How do you evaluate this move considering the current phase of the season?`,
+    ]
+  } else {
+    // Standard natural discussion prompt
+    paragraphs = [
+      excerpt.slice(0, 280) + (excerpt.length > 280 ? '...' : ''),
+      '',
+      `How do you see this playing out over the coming weeks?`,
+    ]
   }
 
-  if (preset === 'short') {
-    return [
-      `${excerpt.slice(0, 180)}...`,
-      '',
-      `[Full report on FlowerZFC](${cleanUrl})`,
-    ].join('\n')
+  // Only append link if explicitly requested (Reddit link posts already link to the site in the post header)
+  if (includeLink && articleUrl) {
+    const cleanUrl = articleUrl.split('?')[0]
+    paragraphs.push('', `Source: ${cleanUrl}`)
   }
 
-  // Default 'natural'
-  return [
-    excerpt.slice(0, 260) + (excerpt.length > 260 ? '...' : ''),
-    '',
-    `Fair call or harsh decision? What are your thoughts?`,
-    '',
-    `[Full story on FlowerZFC](${cleanUrl})`,
-  ].join('\n')
+  return paragraphs.join('\n')
 }
 
 // ─── Deep-link builder ───────────────────────────────────────────────────────
