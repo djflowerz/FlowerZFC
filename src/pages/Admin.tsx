@@ -5011,7 +5011,13 @@ export default function Admin() {
                       body: ingestedMatch.transformedBody || ingestedMatch.sourceBody || '',
                       date: ingestedMatch.detectedAt || ingestedMatch.sourceDate || 'Today',
                     } : null) || articles[0]
-                    const currentUrl = selectedArticle ? `https://djflowerz.co.ke/news/${selectedArticle.slug || selectedArticle.id}` : 'https://djflowerz.co.ke'
+                    // Always include ?img= so the Cloudflare Edge Function serves the correct
+                    // og:image even if the article hasn't been saved to Supabase yet.
+                    // Query params are safe with Reddit — only # hash fragments break scrapers.
+                    const imgParam = selectedArticle?.imageUrl ? `?img=${encodeURIComponent(selectedArticle.imageUrl)}` : ''
+                    const currentUrl = selectedArticle
+                      ? `https://djflowerz.co.ke/news/${selectedArticle.slug || selectedArticle.id}${imgParam}`
+                      : 'https://djflowerz.co.ke'
                     const finalTitle = redditCustomTitle || selectedArticle?.title || 'FlowerZFC Football News'
                     const defaultBody = selectedArticle ? generateRedditCatchyBody({
                       title: finalTitle,

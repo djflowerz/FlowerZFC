@@ -76,7 +76,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     rawImage = 'https:' + rawImage
   }
 
-  const image = rawImage.includes('livescore.com')
+  // Route all external images through our CORS-safe proxy.
+  // Reddit's link preview scraper is blocked by many external CDNs without CORS headers.
+  // djflowerz.co.ke/api/img-proxy fetches them server-side and returns with proper headers.
+  const isExternal = rawImage.startsWith('http') &&
+    !rawImage.includes('djflowerz.co.ke') &&
+    !rawImage.includes('unsplash.com') &&
+    !rawImage.includes('images.unsplash.com')
+
+  const image = isExternal
     ? `https://djflowerz.co.ke/api/img-proxy?url=${encodeURIComponent(rawImage)}`
     : rawImage
 
