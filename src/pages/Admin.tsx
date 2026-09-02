@@ -742,6 +742,8 @@ export default function Admin() {
   const [avatarMode,     setAvatarMode]     = useState<'gravatar' | 'upload' | 'preset' | 'url'>('gravatar')
   const [articleSearch,  setArticleSearch]  = useState('')
   const [articleFilter,  setArticleFilter]  = useState('All')
+  const [articlePage,    setArticlePage]    = useState(1)
+  const [articlePageSize,setArticlePageSize]= useState<number | 'all'>(25)
   const [commentFilter,  setCommentFilter]  = useState('All')
   const [commentSearch,  setCommentSearch]  = useState('')
   const [bannedWords,    setBannedWords]    = useState('betting, crypto, telegram link, free coins, casino')
@@ -939,21 +941,37 @@ export default function Admin() {
   const [editingIngestPost, setEditingIngestPost] = useState<IngestedPost | null>(null)
   const [selectedIngestIds, setSelectedIngestIds] = useState<Set<string>>(new Set())
 
-  // Check if a scanned post has already been posted to the website
-  // Priority: check slug contains the Contentful entry ID, then title match, then ID match
-  const isPostAlreadyOnSite = (p: IngestedPost) => {
-    const contentfulId = p.id
-    const pTitle = (p.transformedTitle || p.sourceTitle || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-    return articles.some(a => {
-      const aTitle = (a.title || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-      const slugMatch = a.slug && (a.slug === `ing-${contentfulId}` || a.slug.includes(contentfulId))
-      const idMatch = a.id && (a.id === `art-ing-${contentfulId}` || a.id.includes(contentfulId))
-      const titleMatch = pTitle.length > 10 && (
-        aTitle === pTitle ||
-        (pTitle.length > 25 && (aTitle.includes(pTitle.slice(0, 30)) || pTitle.includes(aTitle.slice(0, 30))))
-      )
-      return Boolean(slugMatch || idMatch || titleMatch)
+  // Pre-index known articles into fast O(1) Sets to eliminate render lag
+  const knownArticleLookups = useMemo(() => {
+    const ids = new Set<string>()
+    const titles = new Set<string>()
+    const titlePrefixes = new Set<string>()
+    articles.forEach(a => {
+      if (a.id) ids.add(a.id.toLowerCase())
+      if (a.slug) ids.add(a.slug.toLowerCase())
+      const norm = (a.title || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+      if (norm) {
+        titles.add(norm)
+        if (norm.length > 25) titlePrefixes.add(norm.slice(0, 30))
+      }
     })
+    return { ids, titles, titlePrefixes }
+  }, [articles])
+
+  // Instant O(1) check if a scanned post is already on site
+  const isPostAlreadyOnSite = (p: IngestedPost) => {
+    const cId = (p.id || '').toLowerCase()
+    if (
+      knownArticleLookups.ids.has(`art-ing-${cId}`) ||
+      knownArticleLookups.ids.has(`ing-${cId}`) ||
+      knownArticleLookups.ids.has(cId)
+    ) {
+      return true
+    }
+    const pTitle = (p.transformedTitle || p.sourceTitle || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+    if (pTitle && knownArticleLookups.titles.has(pTitle)) return true
+    if (pTitle.length > 25 && knownArticleLookups.titlePrefixes.has(pTitle.slice(0, 30))) return true
+    return false
   }
 
   // Detect duplicate articles already in the database
@@ -2772,65 +2790,149 @@ export default function Admin() {
               ))}
             </Card>
 
-            <div className="space-y-3">
-              {filteredArticles.map(a => (
-                <Card key={a.id} className="overflow-hidden">
-                  <div className="flex flex-col sm:flex-row">
-                    {a.imageUrl && (
-                      <div className="sm:w-40 h-28 sm:h-auto shrink-0 overflow-hidden">
-                        <img src={a.imageUrl} alt={a.title} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                      </div>
-                    )}
-                    <div className="flex flex-col sm:flex-row flex-1 items-start sm:items-center justify-between gap-3 p-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-[9px] font-black uppercase text-[#00b341] tracking-wider">{a.category}</span>
-                          <Badge s={a.status} />
-                          {duplicateArticleIds.has(a.id) && (
-                            <button
-                              type="button"
-                              onClick={() => {
+            {/* Paginated High-Performance Article List */}
+            {(() => {
+              const totalArts = filteredArticles.length
+              const totalArtPages = articlePageSize === 'all' ? 1 : Math.ceil(totalArts / (articlePageSize as number)) || 1
+              const safeArtPage = Math.min(articlePage, totalArtPages)
+              const displayedArticles = articlePageSize === 'all'
+                ? filteredArticles
+                : filteredArticles.slice((safeArtPage - 1) * (articlePageSize as number), safeArtPage * (articlePageSize as number))
+
+              return (
+                <div className="space-y-4">
+                  {/* Per-page selector & stats */}
+                  <div className="flex items-center justify-between gap-3 flex-wrap px-1 text-xs text-gray-400">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase">Show per page:</span>
+                      {([25, 50, 100, 'all'] as (number | 'all')[]).map(n => (
+                        <button
+                          key={String(n)}
+                          onClick={() => { setArticlePageSize(n); setArticlePage(1) }}
+                          className={`text-[10px] font-black px-2 py-0.5 rounded transition-all ${articlePageSize === n ? 'bg-[#00b341] text-black' : 'text-gray-400 hover:text-white bg-[#0d0d1e] border border-[#1e1e32]'}`}
+                        >
+                          {n === 'all' ? 'All' : n}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="font-mono text-[11px]">
+                      {totalArts === 0
+                        ? '0 articles'
+                        : articlePageSize === 'all'
+                          ? `Showing all ${totalArts.toLocaleString()} article(s)`
+                          : `Showing ${(safeArtPage - 1) * (articlePageSize as number) + 1}–${Math.min(safeArtPage * (articlePageSize as number), totalArts)} of ${totalArts.toLocaleString()} articles · Page ${safeArtPage}/${totalArtPages}`
+                      }
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {displayedArticles.map(a => (
+                      <Card key={a.id} className="overflow-hidden">
+                        <div className="flex flex-col sm:flex-row">
+                          {a.imageUrl && (
+                            <div className="sm:w-40 h-28 sm:h-auto shrink-0 overflow-hidden">
+                              <img src={a.imageUrl} alt={a.title} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                            </div>
+                          )}
+                          <div className="flex flex-col sm:flex-row flex-1 items-start sm:items-center justify-between gap-3 p-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <span className="text-[9px] font-black uppercase text-[#00b341] tracking-wider">{a.category}</span>
+                                <Badge s={a.status} />
+                                {duplicateArticleIds.has(a.id) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      storeDeleteArticle(a.id)
+                                      deleteArticleFromDb(a.id)
+                                      setArticles(prev => prev.filter(x => x.id !== a.id))
+                                      toast(`Removed duplicate: "${a.title.slice(0, 30)}..."`, 'info')
+                                    }}
+                                    className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-red-500/30 hover:text-red-300 hover:border-red-500/50 transition-all cursor-pointer flex items-center gap-1"
+                                    title="Click to remove this duplicate"
+                                  >
+                                    <span>⚠️ Duplicate</span> <span className="text-red-400 font-bold">✕</span>
+                                  </button>
+                                )}
+                                {a.scheduled && <span className="text-[9px] text-purple-400 font-bold">🕐 {a.scheduled}</span>}
+                                {(a as any).liveBlog && <span className="text-[9px] font-black px-1.5 py-0.5 rounded text-white" style={{ background: '#dc2626' }}>🔴 LIVE</span>}
+                              </div>
+                              <h3 className="font-bold text-white text-sm line-clamp-1">{a.title}</h3>
+                              {(a.excerpt || a.metaDescription) && <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">{(a as any).excerpt || a.metaDescription}</p>}
+                              <p className="text-[10px] text-gray-600 mt-1">✍️ {a.author} · 📅 {a.date} · 👁️ {typeof a.views === 'number' ? (a.views as number).toLocaleString() : (!isNaN(Number(a.views)) ? Number(a.views).toLocaleString() : (a.views || '0'))} · ♥ {a.likes}</p>
+                              {a.tags && <p className="text-[10px] text-gray-700 mt-0.5">🏷️ {a.tags}</p>}
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                              <button onClick={() => setEditArticle(a)} className="px-3 py-1.5 text-[10px] font-bold rounded-lg border border-[#1e1e32] text-gray-400 hover:border-[#00b341] hover:text-white transition-all">✏️ Edit</button>
+                              <button onClick={() => setArticles(prev => prev.map(x => x.id === a.id ? { ...x, status: x.status === 'Published' ? 'Draft' : 'Published' } : x))}
+                                className="px-3 py-1.5 text-[10px] font-bold rounded-lg border border-[#1e1e32] text-gray-400 hover:border-[#00b341] hover:text-white transition-all">
+                                {a.status === 'Published' ? 'Unpublish' : 'Publish'}
+                              </button>
+                              <button onClick={() => setArticles(prev => [{ ...a, id: `A${Date.now()}`, title: `Copy of ${a.title}`, status: 'Draft', date: new Date().toISOString().split('T')[0], views: '0', likes: 0 }, ...prev])}
+                                className="px-2 py-1.5 text-[10px] font-bold rounded-lg border border-[#1e1e32] text-gray-400 hover:border-blue-400 hover:text-blue-400 transition-all" title="Duplicate article">⧉</button>
+                              <Link to={`/news/${(a as any).slug || a.id}`} className="px-3 py-1.5 text-[10px] font-bold text-[#00b341] rounded-lg border border-[#00b341]/40 hover:border-[#00b341] transition-all">Preview →</Link>
+                              <button onClick={() => {
                                 storeDeleteArticle(a.id)
                                 deleteArticleFromDb(a.id)
                                 setArticles(prev => prev.filter(x => x.id !== a.id))
-                                toast(`Removed duplicate: "${a.title.slice(0, 30)}..."`, 'info')
+                                toast('Article deleted.', 'info')
                               }}
-                              className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-red-500/30 hover:text-red-300 hover:border-red-500/50 transition-all cursor-pointer flex items-center gap-1"
-                              title="Click to remove this duplicate"
-                            >
-                              <span>⚠️ Duplicate</span> <span className="text-red-400 font-bold">✕</span>
-                            </button>
-                          )}
-                          {a.scheduled && <span className="text-[9px] text-purple-400 font-bold">🕐 {a.scheduled}</span>}
-                          {(a as any).liveBlog && <span className="text-[9px] font-black px-1.5 py-0.5 rounded text-white" style={{ background: '#dc2626' }}>🔴 LIVE</span>}
+                                className="text-[10px] font-bold px-2 py-1.5 rounded-lg border border-[#1e1e32] text-gray-500 hover:text-red-400 hover:border-red-400 transition-all cursor-pointer">🗑</button>
+                            </div>
+                          </div>
                         </div>
-                        <h3 className="font-bold text-white text-sm line-clamp-1">{a.title}</h3>
-                        {(a.excerpt || a.metaDescription) && <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">{(a as any).excerpt || a.metaDescription}</p>}
-                        <p className="text-[10px] text-gray-600 mt-1">✍️ {a.author} · 📅 {a.date} · 👁️ {typeof a.views === 'number' ? (a.views as number).toLocaleString() : (!isNaN(Number(a.views)) ? Number(a.views).toLocaleString() : (a.views || '0'))} · ♥ {a.likes}</p>
-                        {a.tags && <p className="text-[10px] text-gray-700 mt-0.5">🏷️ {a.tags}</p>}
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                        <button onClick={() => setEditArticle(a)} className="px-3 py-1.5 text-[10px] font-bold rounded-lg border border-[#1e1e32] text-gray-400 hover:border-[#00b341] hover:text-white transition-all">✏️ Edit</button>
-                        <button onClick={() => setArticles(prev => prev.map(x => x.id === a.id ? { ...x, status: x.status === 'Published' ? 'Draft' : 'Published' } : x))}
-                          className="px-3 py-1.5 text-[10px] font-bold rounded-lg border border-[#1e1e32] text-gray-400 hover:border-[#00b341] hover:text-white transition-all">
-                          {a.status === 'Published' ? 'Unpublish' : 'Publish'}
-                        </button>
-                        <button onClick={() => setArticles(prev => [{ ...a, id: `A${Date.now()}`, title: `Copy of ${a.title}`, status: 'Draft', date: new Date().toISOString().split('T')[0], views: '0', likes: 0 }, ...prev])}
-                          className="px-2 py-1.5 text-[10px] font-bold rounded-lg border border-[#1e1e32] text-gray-400 hover:border-blue-400 hover:text-blue-400 transition-all" title="Duplicate article">⧉</button>
-                        <Link to={`/news/${(a as any).slug || a.id}`} className="px-3 py-1.5 text-[10px] font-bold text-[#00b341] rounded-lg border border-[#00b341]/40 hover:border-[#00b341] transition-all">Preview →</Link>
-                        <button onClick={() => {
-                          storeDeleteArticle(a.id)
-                          deleteArticleFromDb(a.id)
-                          setArticles(prev => prev.filter(x => x.id !== a.id))
-                          toast('Article deleted.', 'info')
-                        }}
-                          className="text-[10px] font-bold px-2 py-1.5 rounded-lg border border-[#1e1e32] text-gray-500 hover:text-red-400 hover:border-red-400 transition-all cursor-pointer">🗑</button>
-                      </div>
-                    </div>
+                      </Card>
+                    ))}
                   </div>
-                </Card>
-              ))}
-            </div>
+
+                  {/* Pagination Controls */}
+                  {articlePageSize !== 'all' && totalArtPages > 1 && (
+                    <div className="flex items-center justify-center gap-2 pt-3 flex-wrap">
+                      <button
+                        onClick={() => setArticlePage(1)}
+                        disabled={safeArtPage === 1}
+                        className="px-3 py-1.5 text-xs font-bold rounded-xl border border-[#1e1e32] text-gray-400 hover:text-white hover:border-[#00b341] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      >« First</button>
+                      <button
+                        onClick={() => setArticlePage(p => Math.max(1, p - 1))}
+                        disabled={safeArtPage === 1}
+                        className="px-3 py-1.5 text-xs font-bold rounded-xl border border-[#1e1e32] text-gray-400 hover:text-white hover:border-[#00b341] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      >‹ Prev</button>
+
+                      {Array.from({ length: Math.min(7, totalArtPages) }, (_, i) => {
+                        let page: number
+                        if (totalArtPages <= 7) page = i + 1
+                        else if (safeArtPage <= 4) page = i + 1
+                        else if (safeArtPage >= totalArtPages - 3) page = totalArtPages - 6 + i
+                        else page = safeArtPage - 3 + i
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => setArticlePage(page)}
+                            className={`w-8 h-8 text-xs font-black rounded-xl border transition-all ${
+                              safeArtPage === page
+                                ? 'bg-[#00b341] text-black border-[#00b341]'
+                                : 'border-[#1e1e32] text-gray-400 hover:text-white hover:border-[#00b341]'
+                            }`}
+                          >{page}</button>
+                        )
+                      })}
+
+                      <button
+                        onClick={() => setArticlePage(p => Math.min(totalArtPages, p + 1))}
+                        disabled={safeArtPage === totalArtPages}
+                        className="px-3 py-1.5 text-xs font-bold rounded-xl border border-[#1e1e32] text-gray-400 hover:text-white hover:border-[#00b341] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      >Next ›</button>
+                      <button
+                        onClick={() => setArticlePage(totalArtPages)}
+                        disabled={safeArtPage === totalArtPages}
+                        className="px-3 py-1.5 text-xs font-bold rounded-xl border border-[#1e1e32] text-gray-400 hover:text-white hover:border-[#00b341] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                      >Last »</button>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         )}
 
