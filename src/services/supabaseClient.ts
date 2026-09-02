@@ -502,13 +502,27 @@ export async function createOrder(order: Partial<OrderRow>): Promise<{ order: Or
 
 export async function fetchAllArticles(): Promise<{ articles: ArticleRow[]; error: any }> {
   try {
-    const { data, error } = await supabase
-      .from('articles')
-      .select('*')
-      .order('published_at', { ascending: false })
+    let all: ArticleRow[] = []
+    let page = 0
+    const pageSize = 1000
+    while (true) {
+      const { data, error } = await supabase
+        .from('articles')
+        .select('*')
+        .order('published_at', { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1)
+      if (error) {
+        if (all.length > 0) break
+        return { articles: [], error }
+      }
+      if (!data || data.length === 0) break
+      all = [...all, ...(data as ArticleRow[])]
+      if (data.length < pageSize) break
+      page++
+    }
     const deletedIds = getDeletedIds('flowerzfc_deleted_articles')
-    const active = ((data as ArticleRow[]) || []).filter(a => !deletedIds.has(String(a.id)))
-    return { articles: active, error }
+    const active = all.filter(a => !deletedIds.has(String(a.id)))
+    return { articles: active, error: null }
   } catch (err) {
     return { articles: [], error: err }
   }

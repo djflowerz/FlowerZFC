@@ -163,6 +163,11 @@ export default function News() {
   interface TransferNewsItem { id: string; title: string; link: string; date: string; img: string; source: string }
   const [transferNews, setTransferNews] = useState<TransferNewsItem[]>([])
   const [transfersLoading, setTransfersLoading] = useState(false)
+  const [visibleCount, setVisibleCount] = useState(24)
+
+  useEffect(() => {
+    setVisibleCount(24)
+  }, [selectedCategory, searchQuery])
 
   useEffect(() => {
     if (selectedCategory !== 'Transfers') return
@@ -540,7 +545,7 @@ export default function News() {
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-5">
-                  {filteredArticles.filter(a => a.id !== featured.id).map((a, i) => (
+                  {filteredArticles.filter(a => a.id !== featured.id).slice(0, visibleCount).map((a, i) => (
                     <div key={a.id} className="contents">
                       {i === 4 && (
                         <div className="sm:col-span-2 flex justify-center py-2">
@@ -588,6 +593,19 @@ export default function News() {
                     </div>
                   ))}
                 </div>
+
+                {/* Load More Stories Button */}
+                {filteredArticles.filter(a => a.id !== featured.id).length > visibleCount && (
+                  <div className="text-center pt-4">
+                    <button
+                      onClick={() => setVisibleCount(p => p + 24)}
+                      className="px-6 py-3 text-xs font-black text-white rounded-xl border border-[#1e1e32] hover:border-[#00b341] hover:bg-[#00b341]/10 transition-all cursor-pointer inline-flex items-center gap-2"
+                      style={{ background: '#131320' }}
+                    >
+                      <span>🔄</span> Load More Stories ({Math.min(24, filteredArticles.filter(a => a.id !== featured.id).length - visibleCount)} more of {filteredArticles.filter(a => a.id !== featured.id).length - visibleCount} remaining)
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Right Sidebar */}
