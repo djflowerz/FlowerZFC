@@ -538,6 +538,51 @@ export async function deleteArticleFromDb(id: string): Promise<{ error: any }> {
   }
 }
 
+// ─── Bulk article sync ────────────────────────────────────────────────────────
+/**
+ * Upserts ALL localStorage articles into Supabase public.articles in batches.
+ * Returns { synced, failed, total }.
+ */
+export async function bulkSyncArticlesToDb(
+  articles: Partial<ArticleRow>[]
+): Promise<{ synced: number; failed: number; total: number }> {
+  const BATCH = 50
+  let synced = 0
+  let failed = 0
+  const total = articles.length
+
+  for (let i = 0; i < articles.length; i += BATCH) {
+    const chunk = articles.slice(i, i + BATCH).map(a => ({
+      id: a.id,
+      title: a.title || '',
+      slug: a.slug || (a.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80),
+      category: a.category || 'News',
+      author: a.author || 'FlowerZFC Editorial',
+      body: a.body || '',
+      image_url: a.image_url || '',
+      status: a.status || 'published',
+      published_at: a.published_at || new Date().toISOString(),
+      tags: a.tags || a.category || '',
+      views: a.views || 0,
+      likes: a.likes || 0,
+    }))
+    try {
+      const { error } = await (supabase.from('articles') as any)
+        .upsert(chunk, { onConflict: 'id' })
+      if (error) {
+        failed += chunk.length
+      } else {
+        synced += chunk.length
+        // Remove from deleted tombstones so they show up
+        chunk.forEach(a => removeDeletedId('flowerzfc_deleted_articles', String(a.id)))
+      }
+    } catch {
+      failed += chunk.length
+    }
+  }
+  return { synced, failed, total }
+}
+
 // ─── Comment helpers ──────────────────────────────────────────────────────────
 
 export async function fetchAllComments(): Promise<{ comments: CommentRow[]; error: any }> {

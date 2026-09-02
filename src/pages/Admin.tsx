@@ -6,7 +6,7 @@ import { getPaymentConfig } from '../services/paymentService'
 import { fetchLiveMatches, fetchLiveStandings, fetchLiveFixtures, getUserTimezoneInfo, fetchLiveCatalogStats, type LiveMatch, type LiveStanding, type LiveFixture, type LiveCatalogStats } from '../services/liveScoreApi'
 import { getIngestedPosts, fetchLiveIngestedPosts, transformContentContext, filterPostsByDate, downloadImageAsset, IngestedPost } from '../services/contentIngestion'
 import { getAuthUser, loginWithEmail, hasTabAccessRole, setAuthSession, SUPER_ADMIN_EMAIL, type UserRole, type AuthProfile } from '../services/authService'
-import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, updateProduct, createProduct, uploadProductImage, compressImageToDataUrl, fetchAllAdSlots, saveAdSlotToDb, deleteAdSlotFromDb, uploadAdCreative, updateUserRoleAndStatus, uploadMixCover, type ArticleRow, type CommentRow, type TicketRow, type MixRow, type AdSlotRow } from '../services/supabaseClient'
+import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, bulkSyncArticlesToDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, updateProduct, createProduct, uploadProductImage, compressImageToDataUrl, fetchAllAdSlots, saveAdSlotToDb, deleteAdSlotFromDb, uploadAdCreative, updateUserRoleAndStatus, uploadMixCover, type ArticleRow, type CommentRow, type TicketRow, type MixRow, type AdSlotRow } from '../services/supabaseClient'
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
 import { LayoutDashboard, Package, ShoppingBag, Newspaper, Headphones, Ticket, Users, Wallet, BarChart3, MessageSquare, Megaphone, Mail, Settings2, Server, Settings as SettingsIcon, Satellite, ExternalLink, Share2, Rss, Zap, CheckCircle, Clock, XCircle, AlertTriangle, Copy, Plus, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -387,6 +387,8 @@ export default function Admin() {
   const [loginPass, setLoginPass]   = useState('')
   const [loginErr, setLoginErr]     = useState('')
   const [loggingIn, setLoggingIn]   = useState(false)
+  const [syncingArticles, setSyncingArticles] = useState(false)
+  const [syncResult, setSyncResult] = useState<{ synced: number; failed: number; total: number } | null>(null)
   const { login: appLogin } = useApp()
   const cachedAuth = getAuthUser()
   const effectiveUser = user || cachedAuth
@@ -627,6 +629,30 @@ export default function Admin() {
         setTickets(mapped)
       }
     })
+
+    // 7. AUTO-SYNC: push all localStorage articles to Supabase on every Admin load
+    const localArts = getAllArticles()
+    if (localArts.length > 0) {
+      const payload = localArts.map(a => ({
+        id: a.id,
+        title: a.title,
+        slug: a.slug || a.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80),
+        category: a.category || 'News',
+        author: a.author || 'FlowerZFC Editorial',
+        body: a.body || '',
+        image_url: a.imageUrl || '',
+        status: (a.status || 'Published').toLowerCase() === 'published' ? 'published' : 'draft',
+        published_at: a.date && (a.date.includes('T') || a.date.includes('-'))
+          ? new Date(a.date).toISOString()
+          : new Date().toISOString(),
+        tags: a.tags || a.category || '',
+        views: 0,
+        likes: a.likes || 0,
+      }))
+      bulkSyncArticlesToDb(payload).then(result => {
+        setSyncResult(result)
+      }).catch(() => {/* silent */})
+    }
   }, [])
   const [showNewBlog,     setShowNewBlog]     = useState(false)
   const [showPostUpdate,  setShowPostUpdate]  = useState(false)
@@ -2066,6 +2092,49 @@ export default function Admin() {
                 )}
                 <button onClick={() => downloadCSV('articles.csv', filteredArticles.map(a => [a.id, a.title, a.category, a.author, a.views, a.likes.toString(), a.status, a.date]), ['ID','Title','Category','Author','Views','Likes','Status','Date'])}
                   className="px-3 py-2 text-[11px] font-bold text-white rounded-xl border border-[#1e1e32] hover:border-[#00b341] transition-all" style={{ background: '#131320' }}>⬇ CSV</button>
+                {/* ⚡ SYNC ALL TO SUPABASE */}
+                <button
+                  disabled={syncingArticles}
+                  onClick={async () => {
+                    const localArts = getAllArticles()
+                    if (localArts.length === 0) { toast('No local articles to sync.', 'info'); return }
+                    setSyncingArticles(true)
+                    setSyncResult(null)
+                    try {
+                      const payload = localArts.map(a => ({
+                        id: a.id,
+                        title: a.title,
+                        slug: a.slug || a.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80),
+                        category: a.category || 'News',
+                        author: a.author || 'FlowerZFC Editorial',
+                        body: a.body || '',
+                        image_url: a.imageUrl || '',
+                        status: (a.status || 'Published').toLowerCase() === 'published' ? 'published' : 'draft',
+                        published_at: a.date && (a.date.includes('T') || a.date.includes('-'))
+                          ? new Date(a.date).toISOString()
+                          : new Date().toISOString(),
+                        tags: a.tags || a.category || '',
+                        views: 0,
+                        likes: a.likes || 0,
+                      }))
+                      const result = await bulkSyncArticlesToDb(payload)
+                      setSyncResult(result)
+                      toast(`✅ Synced ${result.synced}/${result.total} articles to Supabase!`, 'success')
+                    } catch {
+                      toast('❌ Sync failed. Check your connection.', 'error')
+                    } finally {
+                      setSyncingArticles(false)
+                    }
+                  }}
+                  className="px-4 py-2.5 text-xs font-black text-white rounded-xl flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60"
+                  style={{ background: syncResult ? '#00b341' : '#0070f3' }}
+                >
+                  {syncingArticles
+                    ? <><RefreshCw size={12} className="animate-spin" /> Syncing…</>
+                    : syncResult
+                    ? `✅ ${syncResult.synced} Synced`
+                    : `☁️ Sync All (${getAllArticles().length}) → Supabase`}
+                </button>
                 <button onClick={() => setTab('reddit')} className="px-3.5 py-2.5 text-xs font-black text-white rounded-xl bg-[#ff4500] hover:bg-orange-600 flex items-center gap-1.5 transition-all shadow-md shadow-orange-500/20 cursor-pointer">
                   <span>🟠 Reddit Poster →</span>
                 </button>
@@ -2290,22 +2359,82 @@ export default function Admin() {
 
                     {/* Bulk Actions Controls */}
                     <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-[#0d0d1e] border border-[#1e1e32] flex-wrap">
-                      <label className="flex items-center gap-2.5 text-xs font-bold text-gray-300 cursor-pointer">
-                        <input type="checkbox"
-                          checked={pageSlice.length > 0 && pageSlice.every(p => selectedIngestIds.has(p.id))}
-                          onChange={e => {
-                            const next = new Set(selectedIngestIds)
-                            pageSlice.forEach(p => e.target.checked ? next.add(p.id) : next.delete(p.id))
-                            setSelectedIngestIds(next)
-                          }}
-                          className="w-4 h-4 accent-[#00b341]" />
-                        <span>Select Page ({pageSlice.length} posts)</span>
-                      </label>
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <label className="flex items-center gap-2.5 text-xs font-bold text-gray-300 cursor-pointer">
+                          <input type="checkbox"
+                            checked={pageSlice.length > 0 && pageSlice.every(p => selectedIngestIds.has(p.id))}
+                            onChange={e => {
+                              const next = new Set(selectedIngestIds)
+                              pageSlice.forEach(p => e.target.checked ? next.add(p.id) : next.delete(p.id))
+                              setSelectedIngestIds(next)
+                            }}
+                            className="w-4 h-4 accent-[#00b341]" />
+                          <span>Select Page ({pageSlice.length} posts)</span>
+                        </label>
+
+                        {/* ⚡ ONE-CLICK APPROVE ALL UNPOSTED SCANNED POSTS */}
+                        {byDate.filter(p => !isPostAlreadyOnSite(p)).length > 0 && (
+                          <button
+                            onClick={async () => {
+                              const unposted = byDate.filter(p => !isPostAlreadyOnSite(p))
+                              if (unposted.length === 0) return
+                              toast(`⚡ Syncing ${unposted.length} scanned post(s) directly to Supabase...`, 'info')
+                              const newArticles = unposted.map(post => ({
+                                id: `art-ing-${post.id}`,
+                                title: post.transformedTitle,
+                                category: post.category,
+                                body: post.transformedBody,
+                                imageUrl: post.sourceImage,
+                                imageAlt: post.transformedTitle,
+                                imageCaption: post.transformedTitle,
+                                author: post.author || 'FlowerZFC Editorial',
+                                date: new Date().toISOString(),
+                                status: 'Published',
+                                tags: `${post.category}, Ingested, News`,
+                                metaDescription: post.transformedBody.slice(0, 150),
+                                slug: `ing-${post.id}`,
+                                scheduled: '',
+                                views: '0',
+                                likes: 0,
+                                excerpt: post.transformedBody.slice(0, 140) + '...',
+                                matchId: '',
+                                teamTags: '',
+                                playerTags: '',
+                                mediaEmbeds: '',
+                                isLiveBlog: false,
+                                metaTitle: post.transformedTitle,
+                                focusKeywords: post.category,
+                              }))
+                              saveArticles(newArticles as any)
+                              setArticles(prev => [...newArticles, ...prev])
+                              setIngestedPosts(prev => prev.map(p => ({ ...p, status: 'Approved' })))
+                              const syncRes = await bulkSyncArticlesToDb(newArticles.map(a => ({
+                                id: a.id,
+                                title: a.title,
+                                slug: a.slug,
+                                category: a.category,
+                                author: a.author,
+                                body: a.body,
+                                image_url: a.imageUrl,
+                                status: 'published',
+                                published_at: a.date,
+                                tags: a.tags,
+                                views: 0,
+                                likes: 0,
+                              })))
+                              toast(`🎉 Saved ${syncRes.synced}/${newArticles.length} posts live into Supabase!`, 'success')
+                            }}
+                            className="px-3.5 py-1.5 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition-all flex items-center gap-1.5 shadow-md shadow-indigo-500/20 cursor-pointer"
+                          >
+                            <span>⚡</span> Approve & Publish All ({byDate.filter(p => !isPostAlreadyOnSite(p)).length}) → Supabase
+                          </button>
+                        )}
+                      </div>
 
                       {selectedIngestIds.size > 0 && (
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-emerald-400">{selectedIngestIds.size} selected</span>
-                          <button onClick={() => {
+                          <button onClick={async () => {
                             const selectedPosts = ingestedPosts.filter(p => selectedIngestIds.has(p.id) && !isPostAlreadyOnSite(p))
                             if (selectedPosts.length === 0) {
                               toast('All selected posts are already published or none selected.', 'info')
@@ -2319,7 +2448,7 @@ export default function Admin() {
                               imageUrl: post.sourceImage,
                               imageAlt: post.transformedTitle,
                               imageCaption: post.transformedTitle,
-                              author: post.author || 'Admin',
+                              author: post.author || 'FlowerZFC Editorial',
                               date: new Date().toISOString(),
                               status: 'Published',
                               tags: `${post.category}, Ingested, News`,
@@ -2341,8 +2470,23 @@ export default function Admin() {
                             setArticles(prev => [...newArticles, ...prev])
                             setIngestedPosts(prev => prev.map(p => selectedIngestIds.has(p.id) ? { ...p, status: 'Approved' } : p))
                             setSelectedIngestIds(new Set())
-                            toast(`✅ Bulk Approved & Published ${selectedPosts.length} posts live to News!`, 'success')
-                          }} className="px-4 py-2 text-xs font-black text-black rounded-xl hover:opacity-90 transition-all" style={{ background: '#00b341' }}>
+                            toast(`⏳ Saving ${newArticles.length} to Supabase...`, 'info')
+                            const syncRes = await bulkSyncArticlesToDb(newArticles.map(a => ({
+                              id: a.id,
+                              title: a.title,
+                              slug: a.slug,
+                              category: a.category,
+                              author: a.author,
+                              body: a.body,
+                              image_url: a.imageUrl,
+                              status: 'published',
+                              published_at: a.date,
+                              tags: a.tags,
+                              views: 0,
+                              likes: 0,
+                            })))
+                            toast(`✅ Published ${syncRes.synced}/${newArticles.length} posts to Supabase & Live Site!`, 'success')
+                          }} className="px-4 py-2 text-xs font-black text-black rounded-xl hover:opacity-90 transition-all flex items-center gap-1.5" style={{ background: '#00b341' }}>
                             ✅ Bulk Approve Selected ({selectedIngestIds.size}) →
                           </button>
                         </div>
@@ -2460,7 +2604,7 @@ export default function Admin() {
                             ✓ Already on Site
                           </span>
                         ) : (
-                          <button onClick={() => {
+                          <button onClick={async () => {
                             const newArticle = {
                               id: `art-ing-${post.id}`,
                               title: post.transformedTitle,
@@ -2469,12 +2613,11 @@ export default function Admin() {
                               imageUrl: post.sourceImage,
                               imageAlt: post.transformedTitle,
                               imageCaption: post.transformedTitle,
-                              author: post.author || 'Admin',
+                              author: post.author || 'FlowerZFC Editorial',
                               date: new Date().toISOString(),
                               status: 'Published',
                               tags: `${post.category}, Ingested, News`,
                               metaDescription: post.transformedBody.slice(0, 150),
-                              // Encode Contentful ID into slug for reliable deduplication
                               slug: `ing-${post.id}`,
                               scheduled: '',
                               views: '0',
@@ -2491,9 +2634,28 @@ export default function Admin() {
                             saveArticle(newArticle as any)
                             setArticles(prev => [newArticle, ...prev])
                             setIngestedPosts(prev => prev.map(p => p.id === post.id ? { ...p, status: 'Approved' } : p))
-                            toast('✅ Approved & Published to FlowerZFC News live!', 'success')
-                          }} className="px-4 py-1.5 text-[11px] font-black text-white rounded-lg hover:opacity-90 transition-all" style={{ background: '#00b341' }}>
-                            ✅ Approve & Publish Now →
+                            toast('⏳ Saving article to Supabase database...', 'info')
+                            const { error: dbErr } = await saveArticleToDb({
+                              id: newArticle.id,
+                              title: newArticle.title,
+                              slug: newArticle.slug,
+                              category: newArticle.category,
+                              author: newArticle.author,
+                              body: newArticle.body,
+                              image_url: newArticle.imageUrl,
+                              status: 'published',
+                              published_at: newArticle.date,
+                              tags: newArticle.tags,
+                              views: 0,
+                              likes: 0,
+                            })
+                            if (dbErr) {
+                              toast('⚠️ Saved locally, but Supabase sync had an issue.', 'warning')
+                            } else {
+                              toast('✅ Approved & Published live to Supabase and News feed!', 'success')
+                            }
+                          }} className="px-4 py-1.5 text-[11px] font-black text-white rounded-lg hover:opacity-90 transition-all flex items-center gap-1 cursor-pointer" style={{ background: '#00b341' }}>
+                            <span>✅</span> Approve & Publish Now →
                           </button>
                         )}
                       </div>
