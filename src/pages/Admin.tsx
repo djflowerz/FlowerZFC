@@ -8,8 +8,9 @@ import { getIngestedPosts, fetchLiveIngestedPosts, transformContentContext, filt
 import { getAuthUser, loginWithEmail, hasTabAccessRole, setAuthSession, SUPER_ADMIN_EMAIL, type UserRole, type AuthProfile } from '../services/authService'
 import { supabase, fetchAllProfiles, fetchAllProducts, fetchAllOrders, fetchAllArticles, fetchAllComments, fetchAllTickets, saveArticleToDb, deleteArticleFromDb, bulkSyncArticlesToDb, saveCommentToDb, deleteCommentFromDb, saveTicketToDb, deleteTicketFromDb, deleteProductFromDb, fetchAllMixes, saveMixToDb, deleteMixFromDb, updateProduct, createProduct, uploadProductImage, compressImageToDataUrl, fetchAllAdSlots, saveAdSlotToDb, deleteAdSlotFromDb, uploadAdCreative, updateUserRoleAndStatus, uploadMixCover, type ArticleRow, type CommentRow, type TicketRow, type MixRow, type AdSlotRow } from '../services/supabaseClient'
 import { logAdminAction, getAuditLogs, pingAllServices, type AuditAction, type HealthCheck } from '../services/adminDataService'
+import { logAdminEvent, fetchAllAuditLogs, type AdminAuditEvent } from '../services/adminAuditService'
 import { getShippingConfig, saveShippingConfig, type ShippingConfig } from '../services/shippingService'
-import { LayoutDashboard, Package, ShoppingBag, Newspaper, Headphones, Ticket, Users, Wallet, BarChart3, MessageSquare, Megaphone, Mail, Settings2, Server, Settings as SettingsIcon, Satellite, ExternalLink, Share2, Rss, Zap, CheckCircle, Clock, XCircle, AlertTriangle, Copy, Plus, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingBag, Newspaper, Headphones, Ticket, Users, Wallet, BarChart3, MessageSquare, Megaphone, Mail, Settings2, Server, Settings as SettingsIcon, Satellite, ExternalLink, Share2, Rss, Zap, CheckCircle, Clock, XCircle, AlertTriangle, Copy, Plus, Trash2, RefreshCw, ChevronLeft, ChevronRight, ShieldAlert, KeyRound, Lock, Eye } from 'lucide-react'
 import {
   FOOTBALL_SUBREDDITS, DISCOVERABLE_SUBREDDITS, getAllAvailableSubreddits,
   saveCustomSubreddit, removeCustomSubreddit, getCuratedTopArticlesForSubreddit,
@@ -440,15 +441,34 @@ export default function Admin() {
   const [ads,       setAds]       = useState<AdSlotRow[]>([])
 
   useEffect(() => {
+    if (!isAuthed) return
     fetchAllAdSlots().then(({ adSlots, error }) => {
       if (!error && adSlots) setAds(adSlots)
     })
-  }, [])
+  }, [isAuthed])
   const [adReqs,    setAdReqs]    = useState(AD_REQUESTS)
   const [discounts, setDiscounts] = useState(DISCOUNTS_INIT)
   const [liveBlogs, setLiveBlogs]   = useState<LiveBlog[]>(INIT_LIVE_BLOGS)
 
   useEffect(() => {
+    if (!isAuthed) return
+
+    // Load audit logs from Supabase
+    fetchAllAuditLogs().then(logs => {
+      if (logs && logs.length > 0) {
+        setAuditLogs(logs.map(l => ({
+          id: l.id || `act-${Date.now()}`,
+          adminId: l.adminId || 'usr-admin',
+          adminEmail: l.adminEmail,
+          action: l.action,
+          targetType: l.targetType,
+          targetId: l.targetId || 'N/A',
+          details: l.details || '',
+          timestamp: l.timestamp || new Date().toISOString(),
+        })))
+      }
+    })
+
     // 1. Fetch 33 real user accounts from Supabase profiles table
     fetchAllProfiles().then(({ profiles, error }) => {
       if (!error && profiles && profiles.length > 0) {
@@ -653,7 +673,21 @@ export default function Admin() {
         setSyncResult(result)
       }).catch(() => {/* silent */})
     }
-  }, [])
+  }, [isAuthed])
+
+  // Audit log sensitive tab views
+  useEffect(() => {
+    if (!isAuthed) return
+    const sensitiveTabs = ['orders', 'users', 'financials', 'settings', 'system']
+    if (sensitiveTabs.includes(tab)) {
+      logAdminEvent({
+        adminEmail: userEmail || 'admin',
+        action: `VIEW_${tab.toUpperCase()}_RECORDS`,
+        targetType: tab.toUpperCase(),
+        details: `Administrator accessed sensitive ${tab} module`,
+      })
+    }
+  }, [tab, isAuthed, userEmail])
   const [showNewBlog,     setShowNewBlog]     = useState(false)
   const [showPostUpdate,  setShowPostUpdate]  = useState(false)
   const [activeBlogId,    setActiveBlogId]    = useState<string|null>(null)
