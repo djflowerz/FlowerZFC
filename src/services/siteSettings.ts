@@ -22,7 +22,7 @@ export interface SiteSettings {
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   siteName: 'FlowerZFC',
   tagline: 'Your Global Football Home',
-  adminEmail: 'ianmuriithiflowerz@gmail.com',
+  adminEmail: 'contact@djflowerz.co.ke',
   supportEmail: 'support@djflowerz.co.ke',
   supportPhone1: '(+254) 712 293 303',
   supportPhone2: '(+254) 789 783 258',

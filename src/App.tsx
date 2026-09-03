@@ -35,6 +35,7 @@ import EastAfrica from './pages/EastAfrica'
 import Tip from './pages/Tip'
 import Admin from './pages/Admin'
 import AdminRouteGuard from './components/AdminRouteGuard'
+import { ADMIN_ROUTE_PATH } from './config/adminConfig'
 import TipButton from './components/TipButton'
 
 function NotFound() {
@@ -110,7 +111,7 @@ export default function App() {
           <Route path="/checkout" element={<Layout><Checkout /></Layout>} />
           <Route path="/predictions" element={<Layout><Predictions /></Layout>} />
           <Route path="/advertise" element={<Layout><Advertise /></Layout>} />
-          <Route path="/admin" element={<AdminRouteGuard><Layout><Admin /></Layout></AdminRouteGuard>} />
+          <Route path={ADMIN_ROUTE_PATH} element={<AdminRouteGuard><Layout><Admin /></Layout></AdminRouteGuard>} />
           <Route path="/login" element={<Layout><Login /></Layout>} />
         <Route path="/reset-password" element={<Layout><ResetPassword /></Layout>} />
           <Route path="/account" element={<Layout><Account /></Layout>} />

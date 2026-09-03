@@ -384,7 +384,7 @@ export default function Admin() {
   const navigate = useNavigate()
 
   const [tab, setTab]         = useState<AdminTab>('overview')
-  const [loginEmail, setLoginEmail] = useState(SUPER_ADMIN_EMAIL)
+  const [loginEmail, setLoginEmail] = useState('')
   const [loginPass, setLoginPass]   = useState('')
   const [loginErr, setLoginErr]     = useState('')
   const [loggingIn, setLoggingIn]   = useState(false)
@@ -394,9 +394,8 @@ export default function Admin() {
   const cachedAuth = getAuthUser()
   const effectiveUser = user || cachedAuth
   const userEmail = (effectiveUser?.email || '').trim().toLowerCase()
-  const isSuperAdminEmail = userEmail === SUPER_ADMIN_EMAIL.toLowerCase() || userEmail === 'ianmuriithiflowerz@gmail.com'
-  const isSuperAdminRole = effectiveUser?.role === 'super_admin' || effectiveUser?.role === 'admin' || effectiveUser?.role === 'editor'
-  const isAuthed = Boolean(effectiveUser && (isSuperAdminEmail || isSuperAdminRole))
+  const hasAdminRole = ['super_admin', 'admin', 'editor', 'support'].includes(effectiveUser?.role || '')
+  const isAuthed = Boolean(effectiveUser && hasAdminRole)
   const userRole: UserRole = (effectiveUser?.role || 'super_admin') as UserRole
 
   // Data
@@ -1489,7 +1488,7 @@ export default function Admin() {
               onChange={e => setLoginEmail(e.target.value)}
               required
               className="w-full px-4 py-2.5 bg-[#0d0d1e] border border-[#1e1e32] rounded-xl text-white text-xs outline-none focus:border-[#00b341]"
-              placeholder="ianmuriithiflowerz@gmail.com"
+              placeholder="admin@domain.com"
             />
           </div>
 

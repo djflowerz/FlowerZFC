@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useApp, type Lang } from '../context/AppContext'
 import CartDrawer from './CartDrawer'
 import NotificationManager from './NotificationManager'
+import { getAdminPath } from '../config/adminConfig'
 import {
   ShieldCheck,
   PenLine,
@@ -301,7 +302,7 @@ export default function Header() {
                     </div>
                     <div className="border-t border-white/10 my-1" />
                     {user.role === 'super_admin' && (
-                      <Link to="/admin" className="flex items-center gap-2 px-4 py-2 text-xs font-bold hover:bg-[#00b341]/10 transition-colors" style={{ color: '#00b341' }} onClick={() => setAccountOpen(false)}>
+                      <Link to={getAdminPath()} className="flex items-center gap-2 px-4 py-2 text-xs font-bold hover:bg-[#00b341]/10 transition-colors" style={{ color: '#00b341' }} onClick={() => setAccountOpen(false)}>
                         <ShieldCheck size={15} strokeWidth={2.5} /> Admin Dashboard
                       </Link>
                     )}
@@ -444,7 +445,7 @@ export default function Header() {
                   {/* Staff / Admin Dashboard Access */}
                   {user.role === 'super_admin' && (
                     <Link
-                      to="/admin"
+                      to={getAdminPath()}
                       onClick={() => setMenuOpen(false)}
                       className="w-full py-2 px-3 rounded-xl flex items-center justify-between text-xs font-bold text-white transition-all shadow-md"
                       style={{ background: 'linear-gradient(135deg, #008731 0%, #00b341 100%)' }}

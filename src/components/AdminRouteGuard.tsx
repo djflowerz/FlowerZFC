@@ -20,14 +20,15 @@ interface AdminRouteGuardProps {
 
 export default function AdminRouteGuard({ children }: AdminRouteGuardProps) {
   const { user, login: appLogin, logout, authLoading } = useApp()
-  const [loginEmail, setLoginEmail] = useState(SUPER_ADMIN_EMAIL)
+  const [loginEmail, setLoginEmail] = useState('')
   const [loginPass, setLoginPass] = useState('')
   const [loginError, setLoginError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [rateLimit, setRateLimit] = useState<RateLimitStatus>(() => checkLoginRateLimit(SUPER_ADMIN_EMAIL))
+  const [rateLimit, setRateLimit] = useState<RateLimitStatus>(() => checkLoginRateLimit('admin_auth'))
 
   // Refresh rate limit countdown
   useEffect(() => {
+    if (!loginEmail) return
     const status = checkLoginRateLimit(loginEmail)
     setRateLimit(status)
 
@@ -44,11 +45,6 @@ export default function AdminRouteGuard({ children }: AdminRouteGuardProps) {
   // Resolve user identity
   const cached = getAuthUser()
   const activeUser = user || cached
-  const activeEmail = (activeUser?.email || '').trim().toLowerCase()
-  const isSuperAdminEmail =
-    activeEmail === SUPER_ADMIN_EMAIL.toLowerCase() ||
-    activeEmail === 'ianmuriithiflowerz@gmail.com' ||
-    activeEmail === 'admin@flowerz.fc'
 
   const hasAdminRole =
     activeUser?.role === 'super_admin' ||
@@ -56,7 +52,7 @@ export default function AdminRouteGuard({ children }: AdminRouteGuardProps) {
     activeUser?.role === 'editor' ||
     activeUser?.role === 'support'
 
-  const isAuthorized = Boolean(activeUser && (isSuperAdminEmail || hasAdminRole))
+  const isAuthorized = Boolean(activeUser && hasAdminRole)
 
   // 1. Loading state — do not render anything sensitive while resolving auth
   if (authLoading) {
@@ -233,7 +229,7 @@ export default function AdminRouteGuard({ children }: AdminRouteGuardProps) {
                 required
                 disabled={rateLimit.isLocked || isSubmitting}
                 className="w-full px-4 py-2.5 bg-[#0d0d1e] border border-[#1e1e32] rounded-xl text-white text-xs outline-none focus:border-[#00b341] disabled:opacity-50"
-                placeholder="ianmuriithiflowerz@gmail.com"
+                placeholder="admin@domain.com"
               />
             </div>
 

@@ -77,7 +77,7 @@ export default function SupportDashboard() {
             <Link to="/" className="flex-1 py-3 text-xs font-bold text-gray-300 rounded-xl border border-[#1e1e32] hover:border-white">
               ← Return Home
             </Link>
-            <Link to="/admin" className="flex-1 py-3 text-xs font-black text-black rounded-xl hover:opacity-90" style={{ background: '#00b341' }}>
+            <Link to="/login" className="flex-1 py-3 text-xs font-black text-black rounded-xl hover:opacity-90" style={{ background: '#00b341' }}>
               Sign In →
             </Link>
           </div>
